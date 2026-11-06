@@ -227,13 +227,40 @@ describe('weather prefill', () => {
 		expect(c.status.qnh).toBe('pre');
 		expect(c.changed.qnh).toBe('1009');
 	});
-	it('leaves a direction empty on variable wind', () => {
-		const c = newCalculation(dr, 'x', NOW);
-		applyWeather(c, report(METAR), at);
-		applyWeather(c, report('METAR LSXX 061320Z VRB03KT 12/06 Q1009'), at);
-		expect(c.values.wdir).toBeUndefined();
-		expect(c.values.wspd).toBe('3');
-		expect(toDoList(dr, c).map((t) => t.label)).toContain('Enter Wind from');
+	it('applies variable wind as a tailwind, to confirm', () => {
+		const c = newCalculation(kf, 'x', NOW);
+		setByPilot(c, 'hdg', '240');
+		applyWeather(c, report('METAR LSXX 061320Z VRB04KT 12/06 Q1009'), at);
+		expect(c.values.wdir).toBe('VRB');
+		expect(c.status.wdir).toBe('pre');
+		expect(toDoList(kf, c).map((t) => t.label)).toContain('Confirm Wind from');
+		confirmWeather(c);
+		expect(toDoList(kf, c).map((t) => t.label)).not.toContain('Enter Wind from');
+		const w = calculate(kf, toInput(kf, c)).wind!;
+		expect(w.headwind).toBeCloseTo(-4, 9);
+		expect(w.crosswind).toBeCloseTo(0, 9);
+	});
+	it('lengthens the distance exactly as a tailwind does', () => {
+		const c = ready(kf);
+		setByPilot(c, 'hdg', '10'); setByPilot(c, 'wspd', '4'); setByPilot(c, 'wdir', 'VRB');
+		const variable = calculate(kf, toInput(kf, c)).takeoff.rawTotal;
+		setByPilot(c, 'wdir', '190');
+		expect(variable).toBeCloseTo(calculate(kf, toInput(kf, c)).takeoff.rawTotal!, 9);
+		setByPilot(c, 'wdir', '10');
+		expect(variable!).toBeGreaterThan(calculate(kf, toInput(kf, c)).takeoff.rawTotal!);
+	});
+	it('wraps round north, and waits for a heading', () => {
+		const c = ready(kf);
+		setByPilot(c, 'hdg', '270'); setByPilot(c, 'wdir', 'VRB');
+		expect(toInput(kf, c).windDirection).toBe(90);
+		c.values.hdg = '';
+		expect(toInput(kf, c).windDirection).toBeNull();
+	});
+	it('offers variable wind as a quick choice, and a typed number replaces it', () => {
+		const field = fieldsFor(kf, { elevationUnit: 'm' })[2].find((f) => f.key === 'wdir')!;
+		expect(field.quick).toContain('VRB');
+		expect(applyQuick(field, '240', 'VRB')).toBe('VRB');
+		expect(applyKey(field, 'VRB', true, '2')).toBe('2');
 	});
 	it('reports its age', () => {
 		const c = newCalculation(dr, 'x', NOW);

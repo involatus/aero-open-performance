@@ -9,7 +9,7 @@ An open-source, offline-capable web app for mass and balance and takeoff and lan
 - **Simple, with one way of doing things.** There is one flow and one report, with no per-club variants.
 - **The pilot is responsible.** The tool does the arithmetic, shows its working and never hides what it assumes.
 - **Prefilled Values are suggestions.** The pilot must confirm or overwrite each one.
-- **No aircraft logic in code.** Aircraft behaviour is described entirely by Aircraft Data. The only built-in conservative rule is rounding distances up.
+- **No aircraft logic in code.** Aircraft behaviour is described entirely by Aircraft Data. The only built-in conservative rules are rounding distances up and applying variable wind as a tailwind.
 - **Open and modular.** Weather, sending and the admin GUI are optional modules.
 
 ## Modules
@@ -93,7 +93,8 @@ Weather loads only when the pilot asks, by station code or "Nearest" with device
 
 - **Failures:** no connection, service or key failure, or no station all fall back to manual entry with the reason shown. They never block a calculation.
 - **Old reports:** a report over 60 minutes old is prefilled with a strong warning.
-- **Incomplete reports:** prefill only what is stated. Variable wind leaves direction empty, a range prefills the main direction and flags the range, gusts prefill steady wind and flag the gust. The raw METAR stays visible.
+- **Incomplete reports:** prefill only what is stated. A range prefills the main direction and flags the range, and gusts prefill steady wind and flag the gust. The raw METAR stays visible.
+- **Variable wind:** always applied as a tailwind at its full speed, whether from a METAR or chosen by the pilot. The tool says so on screen and in the Report. A typed direction replaces it.
 - **Newer reports:** replace Prefilled Values, require confirmation again and show what changed. They never touch anything the pilot typed.
 
 ## Reports

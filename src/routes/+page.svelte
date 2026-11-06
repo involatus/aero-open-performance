@@ -11,7 +11,7 @@
 	import { AppState } from '#lib/app/app-state.svelte.ts';
 	import { describeChanges, isStale, STALE_DAYS } from '#lib/data/release.ts';
 	import {
-		STEP_NAMES, OLD_CALCULATION_DAYS, OLD_REPORT_MINUTES, WEATHER_KEYS, applyKey, applyQuick, applyWeather, canReport, changeConfiguration, confirmValue, confirmWeather, fieldsFor, isOldCalculation, newCalculation, nextFlight,
+		STEP_NAMES, OLD_CALCULATION_DAYS, OLD_REPORT_MINUTES, WEATHER_KEYS, applyKey, applyQuick, applyWeather, canReport, changeConfiguration, confirmValue, confirmWeather, fieldsFor, isOldCalculation, isVariableWind, newCalculation, nextFlight,
 		performanceOf, reportAgeMinutes, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation as Calc, type Field
 	} from '#lib/app/calculation.ts';
 	import { calculate } from '#lib/engine/index.ts';
@@ -492,7 +492,7 @@
 							{#if results.atmosphere}<b>{Math.round(results.atmosphere.pressureAltitudeFt)} ft</b><small>Pressure altitude{results.atmosphere.densityAltitudeFt !== null ? `. Density altitude ${Math.round(results.atmosphere.densityAltitudeFt)} ft` : ''}</small>{:else}<b class="none">Enter elevation and QNH</b>{/if}
 						</div>
 						<div class="num"><h2>Wind</h2>
-							{#if results.wind}<b>{Math.abs(results.wind.headwind).toFixed(0)} kt {results.wind.headwind >= 0 ? 'head' : 'tail'}</b><small>Crosswind {results.wind.crosswind.toFixed(0)} kt</small>{:else}<b class="none">Enter wind and heading</b>{/if}
+							{#if results.wind && isVariableWind(calc)}<b>{Math.abs(results.wind.headwind).toFixed(0)} kt tail</b><small>Variable wind, applied as a tailwind</small>{:else if results.wind}<b>{Math.abs(results.wind.headwind).toFixed(0)} kt {results.wind.headwind >= 0 ? 'head' : 'tail'}</b><small>Crosswind {results.wind.crosswind.toFixed(0)} kt</small>{:else}<b class="none">Enter wind and heading</b>{/if}
 						</div>
 					</div>
 				</section>

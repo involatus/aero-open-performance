@@ -43,6 +43,10 @@ export type ToDo = { key: string; label: string; step: number };
 
 export const STEP_NAMES = ['Load', 'Fuel', 'Conditions', 'Send'];
 
+/** Variable wind has no direction, so every Operator's calculations apply it as a tailwind. */
+export const VARIABLE_WIND = 'VRB';
+export const isVariableWind = (calc: Pick<Calculation, 'values'>) => calc.values.wdir === VARIABLE_WIND;
+
 export function parse(text: string | undefined): number | null {
 	if (text === undefined || text.trim() === '' || text === '-') return null;
 	const n = Number(text.replace(',', '.'));
@@ -79,7 +83,7 @@ export function fieldsFor(a: Aircraft, calc: Pick<Calculation, 'elevationUnit'>)
 		{ key: 'hdg', label: 'Runway heading', unit: '°', decimals: false, negative: false, range: [0, 360], quick: [], required: true },
 		{ key: 'qnh', label: 'QNH', unit: 'hPa', decimals: false, negative: false, range: [900, 1100], quick: [], required: true },
 		{ key: 'oat', label: 'OAT', unit: '°C', decimals: true, negative: true, range: [-60, 60], quick: [], required: true },
-		{ key: 'wdir', label: 'Wind from', unit: '°', decimals: false, negative: false, range: [0, 360], quick: [], required: true },
+		{ key: 'wdir', label: 'Wind from', unit: '°', decimals: false, negative: false, range: [0, 360], quick: [VARIABLE_WIND], required: true },
 		{ key: 'wspd', label: 'Wind speed', unit: 'kt', decimals: false, negative: false, range: [0, 99], quick: [], required: true }
 	];
 	return [load, fuel, conditions, []];
@@ -128,7 +132,7 @@ export const OLD_CALCULATION_DAYS = 7;
  */
 export function applyWeather(calc: Calculation, report: WeatherReport, now: number) {
 	const m = parseMetar(report.raw, now);
-	const values: Record<string, number | null> = { qnh: m.qnh, oat: m.oat, wdir: m.windDirection, wspd: m.windSpeed };
+	const values: Record<string, number | string | null> = { qnh: m.qnh, oat: m.oat, wdir: m.windVariable ? VARIABLE_WIND : m.windDirection, wspd: m.windSpeed };
 	const source = `METAR ${report.station}`;
 	for (const key of WEATHER_KEYS) {
 		const value = values[key];
@@ -187,6 +191,9 @@ export function toInput(a: Aircraft, calc: Calculation): CalculationInput {
 	});
 	a.tanks.forEach((t) => { fuel[t.id] = Math.max(0, parse(calc.values[`fuel:${t.id}`]) ?? 0); });
 	const elevation = parse(calc.values.elev), qnh = parse(calc.values.qnh), speed = parse(calc.values.wspd);
+	const heading = parse(calc.values.hdg);
+	// Blowing from straight behind is how the engine sees a tailwind.
+	const direction = isVariableWind(calc) ? (heading === null ? null : (heading + 180) % 360) : parse(calc.values.wdir);
 	return {
 		configuration: calc.configuration, loads, fuel, burnPlan: calc.burnPlan,
 		flightTimeHours: Math.max(0, parse(calc.values.time) ?? 0),
@@ -194,9 +201,9 @@ export function toInput(a: Aircraft, calc: Calculation): CalculationInput {
 		elevation: elevation === null ? null : { value: elevation, unit: calc.elevationUnit },
 		qnh: qnh !== null && qnh > 0 ? qnh : null,
 		oat: parse(calc.values.oat),
-		windDirection: parse(calc.values.wdir),
+		windDirection: direction,
 		windSpeed: speed !== null && speed >= 0 ? speed : null,
-		runwayHeading: parse(calc.values.hdg),
+		runwayHeading: heading,
 		takeoffCondition: calc.takeoffCondition,
 		landingCondition: calc.landingCondition
 	};
@@ -220,7 +227,7 @@ export function toDoList(a: Aircraft, calc: Calculation): ToDo[] {
 		fields.forEach((f) => {
 			const text = calc.values[f.key];
 			if (calc.status[f.key] === 'pre') items.push({ key: f.key, label: `Confirm ${f.label}`, step });
-			else if (f.required && parse(text) === null) items.push({ key: f.key, label: `Enter ${f.label}`, step });
+			else if (f.required && parse(text) === null && !(f.key === 'wdir' && text === VARIABLE_WIND)) items.push({ key: f.key, label: `Enter ${f.label}`, step });
 			else if (isUnusual(f, text)) items.push({ key: f.key, label: `Check ${f.label}`, step });
 		});
 	});
@@ -298,6 +305,7 @@ export function applyKey(field: Pick<Field, 'decimals' | 'negative'>, current: s
 
 export function applyQuick(field: Field, current: string | undefined, op: string): string {
 	if (op.startsWith('=')) return op.slice(1);
+	if (op === VARIABLE_WIND) return VARIABLE_WIND;
 	if (op === 'None') return '0';
 	if (op === 'Full') return String(field.capacity);
 	const n = (parse(current) ?? 0) + Number(op);

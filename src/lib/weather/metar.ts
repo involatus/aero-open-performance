@@ -5,6 +5,7 @@ export type ParsedMetar = {
 	qnh: number | null;
 	oat: number | null;
 	windDirection: number | null;
+	windVariable: boolean;
 	windSpeed: number | null;
 	flags: string[];
 };
@@ -21,7 +22,7 @@ function observedTime(day: number, hour: number, minute: number, now: number): s
 }
 
 export function parseMetar(raw: string, now: number): ParsedMetar {
-	const out: ParsedMetar = { station: null, observed: null, qnh: null, oat: null, windDirection: null, windSpeed: null, flags: [] };
+	const out: ParsedMetar = { station: null, observed: null, qnh: null, oat: null, windDirection: null, windVariable: false, windSpeed: null, flags: [] };
 	// Remarks and trends can repeat group shapes, so only the main body is read.
 	const body = raw.trim().split(/\s(?:RMK|NOSIG|TEMPO|BECMG)\b/)[0];
 
@@ -36,7 +37,7 @@ export function parseMetar(raw: string, now: number): ParsedMetar {
 		const unit = wind[4], speed = /^\d+$/.test(wind[2]) ? Number(wind[2]) : null;
 		const toKt = (x: number) => Math.round(unit === 'MPS' ? x * KT_PER_MPS : unit === 'KMH' ? x / 1.852 : x);
 		out.windSpeed = speed === null ? null : toKt(speed);
-		if (wind[1] === 'VRB') out.flags.push('Wind is variable, so enter a direction.');
+		if (wind[1] === 'VRB') { out.windVariable = true; out.flags.push('Wind is variable, so it is applied as a tailwind.'); }
 		else if (/^\d{3}$/.test(wind[1])) out.windDirection = Number(wind[1]);
 		if (wind[3]) out.flags.push(`Gusts to ${toKt(Number(wind[3]))} kt. Steady wind prefilled.`);
 		if (unit !== 'KT') out.flags.push(`Wind converted from ${unit}.`);

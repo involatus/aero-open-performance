@@ -6,7 +6,7 @@ import type { Aircraft } from '../aircraft/schema.ts';
 import type { Calculation as Results } from '../engine/index.ts';
 import type { PerformanceResult } from '../engine/performance.ts';
 import { limitText } from '../engine/mass-balance.ts';
-import { canReport, fieldsFor, toInput, type Calculation } from '../app/calculation.ts';
+import { canReport, fieldsFor, isVariableWind, toInput, type Calculation } from '../app/calculation.ts';
 
 export type Delivery = 'notSent' | 'sent' | 'shared';
 export type ReportWorking = { title: string; rows: { step: string; total: string; groundRoll: string; source: string }[] };
@@ -127,7 +127,7 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 			landing: distance('Landing', r.landing, `${mass(r.massBalance.landing.mass)} ${u.mass}`),
 			pressureAltitude: atm ? `${Math.round(atm.pressureAltitudeFt)} ft` : 'Not available',
 			densityAltitude: atm?.densityAltitudeFt != null ? `${Math.round(atm.densityAltitudeFt)} ft` : 'Not available',
-			wind: wind ? `${Math.abs(wind.headwind).toFixed(0)} kt ${wind.headwind >= 0 ? 'head' : 'tail'}, crosswind ${wind.crosswind.toFixed(0)} kt` : 'Not available'
+			wind: !wind ? 'Not available' : isVariableWind(calc) ? `Variable, ${Math.abs(wind.headwind).toFixed(0)} kt applied as a tailwind` : `${Math.abs(wind.headwind).toFixed(0)} kt ${wind.headwind >= 0 ? 'head' : 'tail'}, crosswind ${wind.crosswind.toFixed(0)} kt`
 		},
 		conditions: [
 			...['elev', 'hdg', 'qnh', 'oat', 'wdir', 'wspd', 'time', 'flow'].map(shown),

@@ -10,7 +10,7 @@
 	let status = $derived(calc.status[field.key]);
 	let unusual = $derived(isUnusual(field, text));
 	let overCapacity = $derived(field.capacity !== undefined && (parse(text) ?? 0) > field.capacity);
-	const quickLabel = (op: string) => (op.startsWith('=') ? `${op.slice(1)} h` : op);
+	const quickLabel = (op: string) => (op.startsWith('=') ? `${op.slice(1)} h` : op === 'VRB' ? 'Variable' : op);
 </script>
 
 <div class="fld" class:pre={status === 'pre'} class:badval={unusual || overCapacity} id={`w-${field.key}`}>

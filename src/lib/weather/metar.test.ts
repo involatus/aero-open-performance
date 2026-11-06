@@ -24,11 +24,13 @@ describe('reading a METAR', () => {
 		const m = parse('LSXX 061450Z 00000KT 10/05 Q1013');
 		expect([m.windDirection, m.windSpeed]).toEqual([0, 0]);
 	});
-	it('leaves direction empty on variable wind, and says so', () => {
+	it('marks variable wind, to be applied as a tailwind, and says so', () => {
 		const m = parse('LSXX 061450Z VRB03KT 10/05 Q1013');
 		expect(m.windDirection).toBeNull();
+		expect(m.windVariable).toBe(true);
 		expect(m.windSpeed).toBe(3);
-		expect(m.flags.join()).toContain('variable');
+		expect(m.flags.join()).toContain('applied as a tailwind');
+		expect(parse('LSXX 061450Z 24003KT 10/05 Q1013').windVariable).toBe(false);
 	});
 	it('prefills main direction and flags a range', () => {
 		const m = parse('LSXX 061450Z 24008KT 200V280 10/05 Q1013');
