@@ -1,0 +1,15 @@
+{
+  "name": "Aero Open Performance",
+  "short_name": "Aero Performance",
+  "description": "Mass and balance and performance for piston aircraft. Pre-release, not for flight.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#14263a",
+  "theme_color": "#14263a",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

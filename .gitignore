@@ -1,0 +1,11 @@
+node_modules
+.svelte-kit
+.vercel
+build
+.env
+.env.*
+!.env.example
+.DS_Store
+
+# Local planning notes hold private and real aircraft data
+.scratch/

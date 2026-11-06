@@ -1,0 +1,29 @@
+{
+  "name": "aero-open-performance",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Open-source mass and balance and performance PWA for piston aircraft. Pre-release, not for flight.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-vercel": "7.0.2",
+    "@sveltejs/kit": "3.1.1",
+    "@sveltejs/vite-plugin-svelte": "7.3.1",
+    "svelte": "5.57.3",
+    "svelte-check": "4.7.8",
+    "typescript": "6.0.3",
+    "vite": "8.3.6"
+  },
+  "dependencies": {
+    "pdfmake": "0.3.13"
+  },
+  "imports": {
+    "#lib/*": "./src/lib/*"
+  }
+}
