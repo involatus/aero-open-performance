@@ -21,14 +21,14 @@ An open-source, offline-capable web app for mass and balance and takeoff and lan
 | Pilot app | Offline PWA | Yes |
 | Command-line checker | The publish checks, for hand-written files | Without the admin GUI |
 | Weather | METAR proxy and prefill | No; falls back to manual entry |
-| Sending | Report endpoint with one recipient | No; falls back to the share sheet |
+| Sending | Report endpoint with one recipient, postponed | No; the share sheet is used |
 | Admin GUI and login | Aircraft setup, Operator settings, publishing | No; hand-written files also work |
 
 Each Operator deploys their own copy, with one settings file and their own Aircraft Data. There is no shared service.
 
 ## Stack
 
-SvelteKit 3 with Svelte 5, client-rendered with prerendered shells; Tailwind CSS 4 and Bits UI, with all colours in one set of tokens; the built-in service worker; `idb-keyval`; `pdfmake`; Valibot; TanStack Query for METAR and update checks; Vitest, `fast-check` and Playwright. Admin only: SJSF, RevoGrid Core behind our own wrapper (jspreadsheet CE as fallback), `jsondiffpatch` and Better Auth. Hosting is not final, so keep host-specific code behind small layers. Licence: Apache-2.0.
+SvelteKit 3 with Svelte 5, client-rendered with prerendered shells; Tailwind CSS 4 and Bits UI, with all colours in one set of tokens; the built-in service worker; `idb-keyval`; `pdfmake`; Valibot; Vitest, `fast-check` and Playwright. Admin only: SJSF, RevoGrid Core behind our own wrapper (jspreadsheet CE as fallback), `jsondiffpatch` and Better Auth. Hosting is not final, so keep host-specific code behind small layers. Licence: Apache-2.0.
 
 ## Aircraft data format
 
@@ -155,7 +155,7 @@ All checks pass, the licence and liability wording has been reviewed, and someon
 2. **Format and engine:** schema, four test aircraft, tests and the Python calculator.
 3. **Pilot flow:** steps, keypad, live results, limits, CG chart and tabs on the real engine.
 4. **Reports:** PDF, device storage, delivery states and share sheet.
-5. **Weather and sending:** METAR proxy and report endpoint.
+5. **Weather:** METAR proxy and prefill. The report-sending endpoint is postponed, so Reports go through the share sheet for now.
 6. **Data Releases:** publishing format, integrity checks, manual updates and the command-line checker.
 7. **Admin GUI and login.**
 

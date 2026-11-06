@@ -11,8 +11,8 @@
 	import { AppState } from '#lib/app/app-state.svelte.ts';
 	import { demoAircraft } from '#lib/app/demo-aircraft.ts';
 	import {
-		STEP_NAMES, applyKey, applyQuick, canReport, changeConfiguration, confirmValue, fieldsFor, newCalculation, nextFlight,
-		performanceOf, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation as Calc, type Field
+		STEP_NAMES, OLD_CALCULATION_DAYS, OLD_REPORT_MINUTES, WEATHER_KEYS, applyKey, applyQuick, applyWeather, canReport, changeConfiguration, confirmValue, confirmWeather, fieldsFor, isOldCalculation, newCalculation, nextFlight,
+		performanceOf, reportAgeMinutes, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation as Calc, type Field
 	} from '#lib/app/calculation.ts';
 	import { calculate } from '#lib/engine/index.ts';
 	import { limitText } from '#lib/engine/mass-balance.ts';
@@ -27,6 +27,9 @@
 	let padFresh = $state(true);
 	let confirmDelete = $state(false);
 	let showReports = $state(false);
+	let weatherBusy = $state(false);
+	let weatherMessage = $state('');
+	let now = $state(Date.now());
 	let creating = $state(false);
 	let reportError = $state('');
 	let deleteReportId = $state<string | null>(null);
@@ -43,6 +46,8 @@
 	let perf = $derived(aircraft && calc ? performanceOf(aircraft, calc.configuration) : null);
 	let exceededLimits = $derived(results ? results.massBalance.limits.filter((l) => l.status === 'exceeded') : []);
 	let labels = $derived(tabLabels(app.tabs));
+	let metarAge = $derived(calc ? reportAgeMinutes(calc.weather, now) : null);
+	let weatherToConfirm = $derived(calc ? WEATHER_KEYS.filter((k) => calc!.status[k] === 'pre').length : 0);
 	let latestReport = $derived(calc ? app.reports.find((r) => r.calculationId === calc!.id) : undefined);
 	let reportIsCurrent = $derived(!!(latestReport && aircraft && calc && latestReport.fingerprint === fingerprint(aircraft, calc)));
 	const makeId = () => `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
@@ -68,6 +73,47 @@
 	$effect(() => {
 		if (latestReport) preparePdf(latestReport.id);
 	});
+
+	const WEATHER_ERRORS: Record<string, string> = {
+		notConfigured: 'Weather isn\'t set up for this app. Enter the values from ATIS or the aircraft.',
+		unavailable: 'Weather is unavailable right now. Enter the values from ATIS or the aircraft.',
+		noStation: 'No report found. Try another station code, or enter the values from ATIS or the aircraft.',
+		badRequest: 'Enter a four-character station code, such as LSZH.',
+		forbidden: 'Weather is unavailable right now. Enter the values from ATIS or the aircraft.'
+	};
+
+	async function loadWeather(params: string) {
+		if (!calc || weatherBusy) return;
+		const target = calc;
+		weatherBusy = true;
+		weatherMessage = '';
+		closePad();
+		try {
+			if (!navigator.onLine) throw new Error('offline');
+			const response = await fetch(`/api/metar?${params}`, { signal: AbortSignal.timeout(12000) });
+			const body = await response.json();
+			if (!response.ok) { weatherMessage = WEATHER_ERRORS[body.error] ?? WEATHER_ERRORS.unavailable; return; }
+			now = Date.now();
+			applyWeather(target, body, now);
+		} catch {
+			weatherMessage = navigator.onLine ? WEATHER_ERRORS.unavailable : 'No connection. Enter the values from ATIS or the aircraft.';
+		} finally {
+			weatherBusy = false;
+		}
+	}
+	function getStationWeather() {
+		loadWeather(`station=${encodeURIComponent(calc?.values.station ?? '')}`);
+	}
+	function getNearestWeather() {
+		weatherMessage = '';
+		if (!navigator.geolocation) { weatherMessage = 'This device can\'t share its location. Enter a station code instead.'; return; }
+		weatherBusy = true;
+		navigator.geolocation.getCurrentPosition(
+			(p) => { weatherBusy = false; loadWeather(`lat=${p.coords.latitude}&lon=${p.coords.longitude}`); },
+			() => { weatherBusy = false; weatherMessage = 'Location isn\'t available. Enter a station code instead.'; },
+			{ timeout: 10000, maximumAge: 300000 }
+		);
+	}
 
 	async function preparePdf(id: string): Promise<File | undefined> {
 		if (pdfCache.has(id)) return pdfCache.get(id);
@@ -289,7 +335,21 @@
 						<h2>Fuel and flight</h2>
 					{:else if calc.step === 2}
 						<h2>Weather and runway</h2>
-						<p class="muted">Enter values from ATIS, METAR or the aircraft. METAR prefill comes in a later build.</p>
+						{#if isOldCalculation(calc, now)}<div class="banner unk" role="status">This calculation is more than {OLD_CALCULATION_DAYS} days old. Get fresh weather.</div>{/if}
+						<div class="fields">
+							<div class="fld"><label for="f-station">Weather station</label><div class="inp"><input class="text" id="f-station" type="text" enterkeyhint="search" autocapitalize="characters" autocorrect="off" spellcheck="false" autocomplete="off" maxlength="4" placeholder="e.g. LSZH" bind:value={calc.values.station} onfocus={closePad} onkeydown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur(); getStationWeather(); } }} /></div></div>
+							<div class="fld"><span class="fld-label">Get weather</span><div class="quick"><button type="button" disabled={weatherBusy} onclick={getStationWeather}>{weatherBusy ? 'Loading' : 'Get METAR'}</button><button type="button" disabled={weatherBusy} onclick={getNearestWeather}>Nearest</button></div></div>
+						</div>
+						{#if weatherMessage}<div class="banner unk" role="status">{weatherMessage}</div>{/if}
+						{#if calc.weather}
+							<div class="metar">
+								<div class="raw">{calc.weather.raw}</div>
+								<p class="muted">{calc.weather.stationName ?? calc.weather.station}{calc.weather.distanceKm !== null ? `, ${calc.weather.distanceKm.toFixed(1)} km away` : ''}{metarAge !== null ? `. Report is ${metarAge} minutes old.` : ''}</p>
+								{#if metarAge !== null && metarAge > OLD_REPORT_MINUTES}<div class="banner notsent" role="alert">This report is {metarAge} minutes old. Check it is still valid, or enter current values.</div>{/if}
+								{#each calc.weather.flags as flag (flag)}<p class="flag">{flag}</p>{/each}
+								{#if weatherToConfirm}<button type="button" class="confirm wide" onclick={() => confirmWeather(calc!)}>I checked these: confirm {weatherToConfirm} weather value{weatherToConfirm > 1 ? 's' : ''}</button>{/if}
+							</div>
+						{/if}
 					{/if}
 
 					{#if calc.step < 3}

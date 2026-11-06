@@ -4,6 +4,8 @@
  */
 import type { Aircraft, CalculationInput, Performance } from '../aircraft/schema.ts';
 import type { Calculation as Results } from '../engine/index.ts';
+import { parseMetar } from '../weather/metar.ts';
+import type { WeatherReport } from '../weather/provider.ts';
 
 export type FieldStatus = 'pre' | 'ok' | 'pilot';
 export type Calculation = {
@@ -22,7 +24,9 @@ export type Calculation = {
 	landingCondition: string;
 	elevationUnit: 'm' | 'ft';
 	notes: Record<string, boolean>;
+	weather?: AppliedWeather | null;
 };
+export type AppliedWeather = { raw: string; station: string; stationName: string | null; distanceKm: number | null; observed: string | null; flags: string[] };
 export type Field = {
 	key: string;
 	label: string;
@@ -111,6 +115,42 @@ export function setByPilot(calc: Calculation, key: string, value: string) {
 
 export function confirmValue(calc: Calculation, key: string) {
 	if (calc.status[key] === 'pre') { calc.status[key] = 'ok'; delete calc.changed[key]; }
+}
+
+export const WEATHER_KEYS = ['qnh', 'oat', 'wdir', 'wspd'];
+export const OLD_REPORT_MINUTES = 60;
+export const OLD_CALCULATION_DAYS = 7;
+
+/**
+ * Prefills only what the report clearly states. A value it doesn't state is left empty,
+ * and anything the pilot typed is never touched.
+ */
+export function applyWeather(calc: Calculation, report: WeatherReport, now: number) {
+	const m = parseMetar(report.raw, now);
+	const values: Record<string, number | null> = { qnh: m.qnh, oat: m.oat, wdir: m.windDirection, wspd: m.windSpeed };
+	const source = `METAR ${report.station}`;
+	for (const key of WEATHER_KEYS) {
+		const value = values[key];
+		if (value !== null) prefill(calc, key, String(value), source);
+		else if (calc.status[key] !== 'pilot') {
+			delete calc.values[key]; delete calc.status[key]; delete calc.sources[key]; delete calc.changed[key];
+		}
+	}
+	calc.values.station = report.station;
+	calc.weather = { raw: report.raw, station: report.station, stationName: report.stationName, distanceKm: report.distanceKm, observed: m.observed, flags: m.flags };
+}
+
+export function confirmWeather(calc: Calculation) {
+	WEATHER_KEYS.forEach((key) => confirmValue(calc, key));
+}
+
+export function reportAgeMinutes(weather: AppliedWeather | null | undefined, now: number): number | null {
+	if (!weather?.observed) return null;
+	return Math.max(0, Math.round((now - Date.parse(weather.observed)) / 60000));
+}
+
+export function isOldCalculation(calc: Calculation, now: number): boolean {
+	return now - calc.created > OLD_CALCULATION_DAYS * 86400000;
 }
 
 export function changeConfiguration(a: Aircraft, calc: Calculation, id: string) {

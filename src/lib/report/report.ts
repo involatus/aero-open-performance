@@ -61,7 +61,7 @@ export function deliveryLabel(delivery: Delivery): string {
 
 /** Everything that would change a Report. A difference means the current inputs need a new one. */
 export function fingerprint(a: Aircraft, calc: Calculation): string {
-	return JSON.stringify([a.registration, a.revision, toInput(a, calc), calc.values.place?.trim(), calc.values.name?.trim(), calc.notes, calc.status]);
+	return JSON.stringify([a.registration, a.revision, toInput(a, calc), calc.values.place?.trim(), calc.values.name?.trim(), calc.notes, calc.status, calc.weather?.raw ?? null]);
 }
 
 /** "Not sent" reports are never removed automatically. */
@@ -96,7 +96,7 @@ function working(a: Aircraft, title: string, r: PerformanceResult): ReportWorkin
 	return { title: `${title}, ${r.conditionLabel}`, rows };
 }
 
-export type ReportMeta = { id: string; now: number; toolVersion: string; dataRelease: string; lastDataCheck: string; preRelease: boolean; chartSvg: string; rawMetar?: string | null };
+export type ReportMeta = { id: string; now: number; toolVersion: string; dataRelease: string; lastDataCheck: string; preRelease: boolean; chartSvg: string };
 
 /** Refuses to create a Report unless everything is confirmed and no limit is exceeded. */
 export function createReportData(a: Aircraft, calc: Calculation, r: Results, meta: ReportMeta): ReportData {
@@ -135,7 +135,7 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 			{ label: 'Takeoff condition', value: conditionLabel(perf.takeoff, calc.takeoffCondition), source: 'Chosen by pilot' },
 			{ label: 'Landing condition', value: conditionLabel(perf.landing, calc.landingCondition), source: 'Chosen by pilot' }
 		],
-		rawMetar: meta.rawMetar ?? null,
+		rawMetar: calc.weather?.raw ?? null,
 		massBalance: {
 			rows: r.massBalance.rows.map((x) => ({ label: x.label, mass: mass(x.mass), arm: arm(x.arm), moment: moment(x.moment) })),
 			takeoff: { mass: mass(r.massBalance.takeoff.mass), arm: arm(r.massBalance.takeoff.arm), moment: moment(r.massBalance.takeoff.moment) },

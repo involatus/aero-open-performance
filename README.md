@@ -2,11 +2,11 @@
 
 Open-source mass and balance and takeoff and landing performance for piston aircraft. It runs offline in the browser, with no app store. Any club, school or aircraft owner can deploy their own copy.
 
-> **Pre-release, not for flight.** This version has no calculations yet. Results from any pre-release version must not be used for flight preparation.
+> **Pre-release, not for flight.** Results from any pre-release version must not be used for flight preparation. It currently offers only fictional demo aircraft with invented data.
 
 ## Status
 
-The current build only tests whether the app can install, start offline, store data and share a PDF on a device. The plan is in [docs/SPEC.md](docs/SPEC.md), and the vocabulary is in [GLOSSARY.md](GLOSSARY.md).
+The pilot flow, calculation engine, Reports and weather prefill work on fictional aircraft. Publishing real aircraft data comes next. The plan is in [docs/SPEC.md](docs/SPEC.md), the aircraft format and calculation rules are in [docs/FORMAT.md](docs/FORMAT.md), and the vocabulary is in [GLOSSARY.md](GLOSSARY.md).
 
 ## Develop
 
@@ -16,6 +16,10 @@ npm run dev
 npm run build
 npm run preview
 ```
+
+## Weather (optional)
+
+Set `CHECKWX_API_KEY` in your host's settings to let pilots prefill weather from a METAR. Without it, pilots enter weather by hand. Never commit a real key.
 
 ## Licence
 

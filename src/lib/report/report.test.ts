@@ -61,6 +61,16 @@ describe('creating a Report', () => {
 		const d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
 		expect(d.results.landing.headline).toBe("No data: pilot's judgement");
 	});
+	it('carries the raw METAR and each value\'s station', () => {
+		const c = ready(a);
+		c.status.qnh = 'pre'; delete c.status.qnh; c.status.oat = 'ok'; c.sources.oat = 'METAR LSXX';
+		c.status.qnh = 'pilot';
+		c.weather = { raw: 'METAR LSXX 061250Z 24008KT 12/06 Q1009', station: 'LSXX', stationName: null, distanceKm: null, observed: null, flags: [] };
+		const d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
+		expect(d.rawMetar).toBe('METAR LSXX 061250Z 24008KT 12/06 Q1009');
+		expect(d.conditions.find((x) => x.label === 'OAT')!.source).toBe('From METAR LSXX, confirmed');
+		expect(JSON.stringify(reportDocument(d))).toContain('Raw METAR: METAR LSXX');
+	});
 	it('keeps warnings and cites manual sources in the working', () => {
 		const c = ready(a), d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
 		expect(d.results.takeoff.warnings.join()).toContain('did not change');

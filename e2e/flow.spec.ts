@@ -181,3 +181,87 @@ test('report can be created with no connection', async ({ page, context }) => {
 	await context.setOffline(false);
 	expect(errors).toEqual([]);
 });
+
+const METAR = { raw: 'METAR LSXX 061250Z 24008KT 200V280 9999 FEW040 12/06 Q1009', station: 'LSXX', stationName: 'Example Field', distanceKm: 8.6 };
+async function toConditions(page: Page) {
+	await page.goto('/');
+	await page.getByRole('button', { name: /^TEST-KF/ }).click();
+	await page.locator('.steps button', { hasText: '3. Conditions' }).click();
+}
+
+test('weather: prefills, needs confirming, and never overwrites what the pilot typed', async ({ page }) => {
+	const errors = await failOnErrors(page);
+	let calls = 0;
+	await page.route('**/api/metar?*', (route) => { calls++; return route.fulfill({ json: METAR }); });
+	await toConditions(page);
+	expect(calls).toBe(0);
+	await page.locator('#f-station').fill('lsxx');
+	await expect(page.locator('#f-station')).toHaveValue(/LSXX/i);
+	await page.getByRole('button', { name: 'Get METAR' }).click();
+	await expect(page.locator('.metar .raw')).toHaveText(METAR.raw);
+	await expect(page.locator('.metar')).toContainText('8.6 km away');
+	await expect(page.locator('.flag')).toContainText('200° to 280°');
+	await expect(page.locator('#f-qnh')).toHaveValue('1009');
+	await expect(page.locator('#w-qnh')).toContainText('From METAR LSXX');
+	await expect(page.getByRole('button', { name: 'I checked these: confirm 4 weather values' })).toBeVisible();
+
+	await type(page, 'oat', '9');
+	await page.locator('.keys button', { hasText: /Next field|Done/ }).click();
+	await expect(page.getByRole('button', { name: 'I checked these: confirm 3 weather values' })).toBeVisible();
+	await page.getByRole('button', { name: 'I checked these' }).click();
+	await expect(page.locator('#w-qnh')).toContainText('Confirmed, from METAR LSXX');
+
+	await page.unroute('**/api/metar?*');
+	await page.route('**/api/metar?*', (route) => route.fulfill({ json: { ...METAR, raw: 'METAR LSXX 061320Z 26011KT 14/06 Q1008' } }));
+	await page.getByRole('button', { name: 'Get METAR' }).click();
+	await expect(page.locator('#f-qnh')).toHaveValue('1008');
+	await expect(page.locator('#w-qnh')).toContainText('was 1009');
+	await expect(page.locator('#f-oat')).toHaveValue('9');
+	expect(errors).toEqual([]);
+});
+
+for (const [name, status, body, message] of [
+	['service down', 502, { error: 'unavailable' }, 'Weather is unavailable right now'],
+	['no key set up', 501, { error: 'notConfigured' }, "Weather isn't set up"],
+	['no station', 404, { error: 'noStation' }, 'No report found']
+] as const) {
+	test(`weather failure falls back to manual entry: ${name}`, async ({ page }) => {
+		await page.route('**/api/metar?*', (route) => route.fulfill({ status, json: body }));
+		await toConditions(page);
+		await page.locator('#f-station').fill('LSXX');
+		await page.getByRole('button', { name: 'Get METAR' }).click();
+		await expect(page.locator('.banner')).toContainText(message);
+		await type(page, 'qnh', '1013');
+		await expect(page.locator('#f-qnh')).toHaveValue('1013');
+	});
+}
+
+test('weather with no connection says so, and manual entry works', async ({ page, context }) => {
+	await page.goto('/');
+	await page.evaluate(() => navigator.serviceWorker.ready);
+	await page.reload();
+	await page.getByRole('button', { name: /^TEST-KF/ }).click();
+	await page.locator('.steps button', { hasText: '3. Conditions' }).click();
+	await context.setOffline(true);
+	await page.locator('#f-station').fill('LSXX');
+	await page.getByRole('button', { name: 'Get METAR' }).click();
+	await expect(page.locator('.banner')).toContainText('No connection');
+	await type(page, 'qnh', '1013');
+	await expect(page.locator('#f-qnh')).toHaveValue('1013');
+	await context.setOffline(false);
+});
+
+test('an old report gets a strong warning', async ({ page }) => {
+	await page.route('**/api/metar?*', (route) => route.fulfill({ json: { ...METAR, raw: 'METAR LSXX 010000Z 24008KT 12/06 Q1009' } }));
+	await toConditions(page);
+	await page.locator('#f-station').fill('LSXX');
+	await page.getByRole('button', { name: 'Get METAR' }).click();
+	await expect(page.locator('.metar .banner')).toContainText('minutes old');
+});
+
+test('the proxy has no key in this test, and says so without crashing', async ({ request }) => {
+	const r = await request.get('/api/metar?station=LSZH', { headers: { 'sec-fetch-site': 'same-origin' } });
+	expect([200, 501]).toContain(r.status());
+	expect((await request.get('/api/metar?station=../x')).status()).toBe(400);
+	expect((await request.get('/api/metar?station=LSZH', { headers: { 'sec-fetch-site': 'cross-site' } })).status()).toBe(403);
+});

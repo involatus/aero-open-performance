@@ -4,7 +4,7 @@ import fc from 'fast-check';
 import { validateAircraft } from '../aircraft/validate.ts';
 import type { Aircraft } from '../aircraft/schema.ts';
 import { calculate } from '../engine/index.ts';
-import { applyKey, applyQuick, canReport, changeConfiguration, confirmValue, fieldsFor, newCalculation, nextFlight, parse, prefill, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation } from './calculation.ts';
+import { applyKey, applyQuick, applyWeather, canReport, changeConfiguration, confirmValue, confirmWeather, isOldCalculation, reportAgeMinutes, fieldsFor, newCalculation, nextFlight, parse, prefill, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation } from './calculation.ts';
 
 const load = (name: string): Aircraft => {
 	const r = validateAircraft(JSON.parse(readFileSync(`aircraft-examples/${name}.json`, 'utf8')));
@@ -198,5 +198,60 @@ describe('tabs and configurations', () => {
 			const r = calculate(dr, toInput(dr, c));
 			expect(Number.isFinite(r.massBalance.takeoff.mass)).toBe(true);
 		}));
+	});
+});
+
+describe('weather prefill', () => {
+	const report = (raw: string) => ({ raw, station: 'LSXX', stationName: 'Example', distanceKm: 8.6 });
+	const at = Date.UTC(2026, 10, 6, 13, 0);
+	const METAR = 'METAR LSXX 061250Z 24008KT 9999 FEW040 12/06 Q1009';
+	it('prefills values to confirm, from the named station', () => {
+		const c = newCalculation(dr, 'x', NOW);
+		applyWeather(c, report(METAR), at);
+		expect([c.values.qnh, c.values.oat, c.values.wdir, c.values.wspd]).toEqual(['1009', '12', '240', '8']);
+		expect(c.status.qnh).toBe('pre');
+		expect(c.sources.qnh).toBe('METAR LSXX');
+		expect(toDoList(dr, c).map((t) => t.label)).toContain('Confirm QNH');
+		confirmWeather(c);
+		expect(toDoList(dr, c).map((t) => t.label)).not.toContain('Confirm QNH');
+	});
+	it('never touches what the pilot typed, and needs confirming again when newer', () => {
+		const c = newCalculation(dr, 'x', NOW);
+		applyWeather(c, report(METAR), at);
+		confirmWeather(c);
+		setByPilot(c, 'oat', '9');
+		applyWeather(c, report('METAR LSXX 061320Z 26011KT 14/06 Q1008'), at);
+		expect(c.values.oat).toBe('9');
+		expect(c.status.oat).toBe('pilot');
+		expect(c.values.qnh).toBe('1008');
+		expect(c.status.qnh).toBe('pre');
+		expect(c.changed.qnh).toBe('1009');
+	});
+	it('leaves a direction empty on variable wind', () => {
+		const c = newCalculation(dr, 'x', NOW);
+		applyWeather(c, report(METAR), at);
+		applyWeather(c, report('METAR LSXX 061320Z VRB03KT 12/06 Q1009'), at);
+		expect(c.values.wdir).toBeUndefined();
+		expect(c.values.wspd).toBe('3');
+		expect(toDoList(dr, c).map((t) => t.label)).toContain('Enter Wind from');
+	});
+	it('reports its age', () => {
+		const c = newCalculation(dr, 'x', NOW);
+		applyWeather(c, report(METAR), at);
+		expect(reportAgeMinutes(c.weather, at)).toBe(10);
+		expect(reportAgeMinutes(null, at)).toBeNull();
+	});
+	it('asks for fresh weather on old calculations', () => {
+		const c = newCalculation(dr, 'x', NOW);
+		expect(isOldCalculation(c, NOW + 7 * 86400000)).toBe(false);
+		expect(isOldCalculation(c, NOW + 7 * 86400000 + 1)).toBe(true);
+	});
+	it('does not carry weather into the next flight', () => {
+		const c = newCalculation(dr, 'x', NOW);
+		applyWeather(c, report(METAR), at);
+		const n = nextFlight(dr, c, calculate(dr, toInput(dr, c)), 'y', NOW);
+		expect(n.weather).toBeUndefined();
+		expect(n.values.qnh).toBeUndefined();
+		expect(n.values.station).toBeUndefined();
 	});
 });
