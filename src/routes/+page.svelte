@@ -9,7 +9,7 @@
 	import CgChart from '#lib/components/CgChart.svelte';
 	import DistanceResult from '#lib/components/DistanceResult.svelte';
 	import { AppState } from '#lib/app/app-state.svelte.ts';
-	import { demoAircraft } from '#lib/app/demo-aircraft.ts';
+	import { describeChanges, isStale, STALE_DAYS } from '#lib/data/release.ts';
 	import {
 		STEP_NAMES, OLD_CALCULATION_DAYS, OLD_REPORT_MINUTES, WEATHER_KEYS, applyKey, applyQuick, applyWeather, canReport, changeConfiguration, confirmValue, confirmWeather, fieldsFor, isOldCalculation, newCalculation, nextFlight,
 		performanceOf, reportAgeMinutes, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation as Calc, type Field
@@ -26,6 +26,8 @@
 	let padKey = $state<string | null>(null);
 	let padFresh = $state(true);
 	let confirmDelete = $state(false);
+	let appUpdateReady = $state(false);
+	let appUpdating = false;
 	let showReports = $state(false);
 	let weatherBusy = $state(false);
 	let weatherMessage = $state('');
@@ -37,15 +39,23 @@
 	const pdfCache = new Map<string, File>();
 
 	let calc = $derived<Calc | undefined>(app.tabs[app.current]);
-	let aircraft = $derived(calc && demoAircraft.find((a) => a.registration === calc!.aircraft));
+	let blockedReason = $derived(calc ? app.withdrawn(calc.aircraft) ?? (app.aircraft.some((a) => a.registration === calc!.aircraft) ? null : 'This aircraft is no longer in the data.') : null);
+	let aircraft = $derived(calc && !blockedReason ? app.aircraft.find((a) => a.registration === calc!.aircraft) : undefined);
 	let fields = $derived(aircraft && calc ? fieldsFor(aircraft, calc) : []);
 	let padField = $derived<Field | undefined>(padKey ? fields.flat().find((f) => f.key === padKey) : undefined);
-	let results = $derived(aircraft && calc ? calculate(aircraft, toInput(aircraft, calc)) : undefined);
+	let results = $derived.by(() => {
+		if (!aircraft || !calc) return undefined;
+		try { return calculate(aircraft, toInput(aircraft, calc)); } catch { return undefined; }
+	});
 	let todo = $derived(aircraft && calc ? toDoList(aircraft, calc) : []);
 	let ready = $derived(aircraft && calc && results ? canReport(aircraft, calc, results) : false);
 	let perf = $derived(aircraft && calc ? performanceOf(aircraft, calc.configuration) : null);
 	let exceededLimits = $derived(results ? results.massBalance.limits.filter((l) => l.status === 'exceeded') : []);
 	let labels = $derived(tabLabels(app.tabs));
+	let available = $derived(app.aircraft.filter((a) => !app.withdrawn(a.registration)));
+	let isDemo = $derived(app.aircraft.length > 0 && app.aircraft.every((a) => a.fictional));
+	let changes = $derived(app.pending ? describeChanges(app.data?.index ?? null, app.pending) : []);
+	let dataIsStale = $derived(isStale(app.lastCheck, now));
 	let metarAge = $derived(calc ? reportAgeMinutes(calc.weather, now) : null);
 	let weatherToConfirm = $derived(calc ? WEATHER_KEYS.filter((k) => calc!.status[k] === 'pre').length : 0);
 	let latestReport = $derived(calc ? app.reports.find((r) => r.calculationId === calc!.id) : undefined);
@@ -53,7 +63,19 @@
 	const makeId = () => `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
 
 	onMount(() => {
-		app.load();
+		app.load().then(() => app.check());
+		const online = () => { now = Date.now(); app.check(); };
+		addEventListener('online', online);
+		// The new app version waits until the pilot chooses to restart, so nothing changes mid-entry.
+		if ('serviceWorker' in navigator) {
+			navigator.serviceWorker.ready.then((registration) => {
+				const refresh = () => { appUpdateReady = !!registration.waiting; };
+				refresh();
+				registration.addEventListener('updatefound', () => registration.installing?.addEventListener('statechange', refresh));
+				if (navigator.onLine) registration.update().catch(() => {});
+			});
+			navigator.serviceWorker.addEventListener('controllerchange', () => { if (appUpdating) location.reload(); });
+		}
 		try { navigator.storage?.persist?.(); } catch { /* keeping data is best effort */ }
 		const wake = () => { try { navigator.wakeLock?.request('screen').catch(() => {}); } catch { /* optional */ } };
 		addEventListener('click', wake, { once: true });
@@ -129,12 +151,13 @@
 		creating = true;
 		reportError = '';
 		try {
+			if (!(await app.dataStillValid())) throw new Error('the aircraft data on this device failed its check');
 			const now = Date.now();
 			const id = newReportId(now, crypto.getRandomValues(new Uint8Array(4)));
 			const data = createReportData(aircraft, $state.snapshot(calc), results, {
 				id, now, preRelease: true, toolVersion: `${toolVersion}, build ${version}`,
-				dataRelease: aircraft.fictional ? 'Demo data, no Data Release' : 'No Data Release',
-				lastDataCheck: 'not applicable to demo data',
+				dataRelease: `Data Release ${app.data!.index.release} (${app.data!.index.operator})`,
+				lastDataCheck: app.lastCheck ? `${new Date(app.lastCheck).toISOString().slice(0, 16).replace('T', ' ')} UTC` : 'unknown',
 				chartSvg: chartSvg(aircraft, results, calc.configuration)
 			});
 			const pdf = await renderPdf(reportDocument(data));
@@ -176,11 +199,18 @@
 		deleteReportId = null;
 	}
 
+	async function updateApp() {
+		appUpdating = true;
+		await app.save();
+		const registration = await navigator.serviceWorker.getRegistration();
+		registration?.waiting?.postMessage('activate-update');
+	}
+
 	function massText(x: number) { return `${x.toFixed(aircraft!.display.massDecimals)} ${aircraft!.units.mass}`; }
 	function armText(x: number) { return `${x.toFixed(aircraft!.display.armDecimals)} ${aircraft!.units.arm}`; }
 
 	function startWith(registration: string) {
-		const a = demoAircraft.find((x) => x.registration === registration)!;
+		const a = app.aircraft.find((x) => x.registration === registration)!;
 		app.tabs.push(newCalculation(a, makeId(), Date.now()));
 		app.current = app.tabs.length - 1;
 		choosing = false;
@@ -248,10 +278,30 @@
 <svelte:window onkeydown={hardwareKey} />
 
 <main class="flow" class:keypad={!!padField}>
-	<div class="notice">Pre-release, not for flight. These are fictional demo aircraft with invented data.</div>
+	<div class="notice">Pre-release, not for flight.{isDemo ? ' These are fictional demo aircraft with invented data.' : ''}</div>
+	{#if appUpdateReady}
+		<div class="banner sent update" role="status"><span>A new version of the app is ready.</span><button type="button" onclick={updateApp}>Restart to update</button></div>
+	{/if}
+	{#if app.pending}
+		<div class="banner sent" role="status">
+			<p>New data available: Release {app.pending.release}.{app.pending.notes ? ` ${app.pending.notes}` : ''}</p>
+			{#if changes.length}<ul class="m-0 list-disc pl-5 font-medium">{#each changes as change (change.registration)}<li>{change.registration}: {change.text}</li>{/each}</ul>{/if}
+			<button type="button" class="primary mt-2" disabled={app.installing} onclick={() => app.install()}>{app.installing ? 'Installing' : 'Install'}</button>
+		</div>
+	{/if}
+	{#if app.updateError && app.data}<div class="banner unk" role="status">{app.updateError}</div>{/if}
+	{#if dataIsStale}<div class="banner notsent" role="alert">No check for new aircraft data in over {STALE_DAYS} days. Connect to the internet soon. The data may be out of date.</div>{/if}
 	{#if app.saveFailed}<div class="notice">This device isn't saving your calculations. They will be lost if you close the app.</div>{/if}
 
-	{#if app.loaded && showReports}
+	{#if app.loaded && !app.data}
+		<h1>Aero Open Performance</h1>
+		<section>
+			<h2>Aircraft data needed</h2>
+			<p>{app.dataProblem ?? 'Connect to the internet once to download aircraft data. After that, the app works offline.'}</p>
+			{#if app.updateError}<p class="muted">{app.updateError}</p>{/if}
+			<button type="button" class="primary" disabled={app.checking || app.installing} onclick={() => app.check(true)}>{app.checking || app.installing ? 'Downloading' : 'Try again'}</button>
+		</section>
+	{:else if app.loaded && showReports}
 		<h1>Reports</h1>
 		<section>
 			<p class="muted">Reports stay only on this device, for {RETENTION_DAYS} days. Reports not yet sent stay until you send or delete them. Clearing browser data or losing this device loses them.</p>
@@ -273,13 +323,13 @@
 		<h1>Aero Open Performance</h1>
 		<section>
 			<h2>Choose an aircraft</h2>
-			{#each demoAircraft as a (a.registration)}
+			{#each available as a (a.registration)}
 				<button type="button" class="choose" onclick={() => startWith(a.registration)}><strong>{a.registration}</strong> {a.type}</button>
 			{/each}
 			{#if app.tabs.length}<button type="button" onclick={() => (choosing = false)}>Cancel</button>{/if}
 		</section>
 		<p class="muted">Version {version}. <a href={resolve('/device-test')}>Device test</a></p>
-	{:else if calc && aircraft && results}
+	{:else if calc}
 		<Tabs.Root value={calc.id} onValueChange={(id) => selectTab(app.tabs.findIndex((t) => t.id === id))} class="grid gap-3">
 		<div class="flex gap-1.5 overflow-x-auto">
 			<Tabs.List aria-label="Calculations" class="flex flex-none gap-1.5">
@@ -287,11 +337,21 @@
 					<Tabs.Trigger value={tab.id} class="min-h-[52px] max-w-[260px] flex-none truncate rounded-[5px] border border-line bg-panel px-3.5 font-semibold text-ink data-[state=active]:border-ink data-[state=active]:bg-ink data-[state=active]:text-bg">{labels[i]}</Tabs.Trigger>
 				{/each}
 			</Tabs.List>
-			<button type="button" class="flex-none" onclick={addNextFlight}>+ Next flight</button>
+			<button type="button" class="flex-none" disabled={!aircraft} onclick={addNextFlight}>+ Next flight</button>
 			<button type="button" class="flex-none" onclick={() => { choosing = true; closePad(); }}>+ New</button>
 			<button type="button" class="flex-none" onclick={() => { showReports = true; closePad(); }}>Reports ({app.reports.length})</button>
 		</div>
 		<Tabs.Content value={calc.id} class="grid gap-3">
+		{#if calc.notice}
+			<div class="banner unk update" role="status"><span>{calc.notice}</span><button type="button" onclick={() => (calc!.notice = null)}>OK</button></div>
+		{/if}
+		{#if !aircraft || !results}
+			<section>
+				<div class="banner notsent" role="alert">{calc.aircraft} can't be used. {blockedReason ?? 'Its data could not be read.'}</div>
+				<p>Calculations for this aircraft are blocked. Reports you already created aren't affected.</p>
+				<button type="button" class:danger={confirmDelete} onclick={deleteTab}>{confirmDelete ? 'Tap again to delete this tab' : 'Delete this tab'}</button>
+			</section>
+		{:else}
 
 		<div class="strip">
 			<div class="s">
@@ -474,10 +534,12 @@
 						{/each}
 						</Collapsible.Content>
 					</Collapsible.Root>
-					<p class="muted">{aircraft.registration}, {aircraft.type}, revision {aircraft.revision}. Version {version}. <a href={resolve('/device-test')}>Device test</a></p>
+					<p class="muted">{aircraft.registration}, {aircraft.type}, revision {aircraft.revision}. Data Release {app.data?.index.release} from {app.data?.index.operator}{app.lastCheck ? `, checked ${new Date(app.lastCheck).toISOString().slice(0, 10)}` : ''}. App version {version}. <a href={resolve('/device-test')}>Device test</a></p>
+					<button type="button" disabled={app.checking} onclick={() => app.check(true)}>{app.checking ? 'Checking' : 'Check for new data'}</button>
 				</section>
 			</div>
 		</div>
+		{/if}
 		</Tabs.Content>
 		</Tabs.Root>
 	{/if}

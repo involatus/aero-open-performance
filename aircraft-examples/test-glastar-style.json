@@ -605,6 +605,168 @@
 				},
 				"exceeded": []
 			}
+		},
+		{
+			"id": "gl-between",
+			"label": "Between table values",
+			"author": "Project test suite (fictional), expected values from the separate reference calculator",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"front": {
+						"mass": 250
+					},
+					"forwardBaggage": {
+						"mass": 0
+					},
+					"aftBaggage": {
+						"mass": 0
+					}
+				},
+				"fuel": {
+					"main": 30
+				},
+				"burnPlan": "even",
+				"flightTimeHours": 0,
+				"fuelFlow": 0,
+				"elevation": {
+					"value": 1000,
+					"unit": "ft"
+				},
+				"qnh": 1013.25,
+				"oat": 10,
+				"windDirection": 0,
+				"windSpeed": 0,
+				"runwayHeading": 0,
+				"takeoffCondition": "hard",
+				"landingCondition": "hard"
+			},
+			"expected": {
+				"takeoffMass": 1742,
+				"takeoffArm": 96.8369690011481,
+				"landingMass": 1742,
+				"landingArm": 96.8369690011481,
+				"takeoff": {
+					"status": "ok",
+					"total": 418,
+					"groundRoll": 215
+				},
+				"landing": {
+					"status": "ok",
+					"total": 480,
+					"groundRoll": 219
+				},
+				"exceeded": []
+			}
+		},
+		{
+			"id": "gl-soft-between",
+			"label": "Soft grass, between table values, aft loading",
+			"author": "Project test suite (fictional), expected values from the separate reference calculator",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"front": {
+						"mass": 170
+					},
+					"forwardBaggage": {
+						"mass": 80
+					},
+					"aftBaggage": {
+						"mass": 0
+					}
+				},
+				"fuel": {
+					"main": 35
+				},
+				"burnPlan": "even",
+				"flightTimeHours": 0,
+				"fuelFlow": 0,
+				"elevation": {
+					"value": 3000,
+					"unit": "ft"
+				},
+				"qnh": 1013.25,
+				"oat": 30,
+				"windDirection": 0,
+				"windSpeed": 0,
+				"runwayHeading": 0,
+				"takeoffCondition": "softGrass",
+				"landingCondition": "hard"
+			},
+			"expected": {
+				"takeoffMass": 1772,
+				"takeoffArm": 98.60609480812641,
+				"landingMass": 1772,
+				"landingArm": 98.60609480812641,
+				"takeoff": {
+					"status": "ok",
+					"total": 697,
+					"groundRoll": 422
+				},
+				"landing": {
+					"status": "ok",
+					"total": 625,
+					"groundRoll": 287
+				},
+				"exceeded": []
+			}
+		},
+		{
+			"id": "gl-mixed-on",
+			"label": "Below the kg table: uses its printed value",
+			"author": "Project test suite (fictional), expected values from the separate reference calculator",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"front": {
+						"mass": 5
+					},
+					"forwardBaggage": {
+						"mass": 0
+					},
+					"aftBaggage": {
+						"mass": 0
+					}
+				},
+				"fuel": {},
+				"burnPlan": "even",
+				"flightTimeHours": 0,
+				"fuelFlow": 0,
+				"elevation": {
+					"value": 0,
+					"unit": "ft"
+				},
+				"qnh": 1013.25,
+				"oat": 20,
+				"windDirection": 0,
+				"windSpeed": 0,
+				"runwayHeading": 0,
+				"takeoffCondition": "hard",
+				"landingCondition": "mixedUnits"
+			},
+			"expected": {
+				"takeoffMass": 1317.0,
+				"takeoffArm": 94.53682611996963,
+				"landingMass": 1317.0,
+				"landingArm": 94.53682611996963,
+				"takeoff": {
+					"status": "ok",
+					"total": 385,
+					"groundRoll": 200
+				},
+				"landing": {
+					"status": "ok",
+					"groundRoll": 110
+				},
+				"exceeded": [
+					"landingCg",
+					"takeoffCg"
+				]
+			}
 		}
 	]
 }

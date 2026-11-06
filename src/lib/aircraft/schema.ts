@@ -210,7 +210,8 @@ export const Aircraft = v.strictObject({
 	tables: v.record(Id, Table),
 	performance: Performance,
 	configurations: v.pipe(v.array(Configuration), v.minLength(1)),
-	handCases: v.array(HandCase)
+	handCases: v.array(HandCase),
+	acknowledgedUnusualValues: v.optional(v.array(Text))
 });
 
 export type Aircraft = v.InferOutput<typeof Aircraft>;

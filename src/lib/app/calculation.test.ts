@@ -4,7 +4,7 @@ import fc from 'fast-check';
 import { validateAircraft } from '../aircraft/validate.ts';
 import type { Aircraft } from '../aircraft/schema.ts';
 import { calculate } from '../engine/index.ts';
-import { applyKey, applyQuick, applyWeather, canReport, changeConfiguration, confirmValue, confirmWeather, isOldCalculation, reportAgeMinutes, fieldsFor, newCalculation, nextFlight, parse, prefill, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation } from './calculation.ts';
+import { applyKey, applyQuick, applyWeather, canReport, changeConfiguration, confirmValue, confirmWeather, isOldCalculation, reportAgeMinutes, fieldsFor, newCalculation, nextFlight, parse, prefill, reconcileAfterInstall, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation } from './calculation.ts';
 
 const load = (name: string): Aircraft => {
 	const r = validateAircraft(JSON.parse(readFileSync(`aircraft-examples/${name}.json`, 'utf8')));
@@ -253,5 +253,28 @@ describe('weather prefill', () => {
 		expect(n.weather).toBeUndefined();
 		expect(n.values.qnh).toBeUndefined();
 		expect(n.values.station).toBeUndefined();
+	});
+});
+
+describe('after installing new data', () => {
+	it('clears confirmations and says so, keeping what the pilot typed', () => {
+		const c = ready(dr);
+		delete c.status.qnh;
+		prefill(c, 'qnh', '1009', 'METAR LSXX');
+		confirmValue(c, 'qnh');
+		reconcileAfterInstall(dr, c, 7);
+		expect(c.status.qnh).toBe('pre');
+		expect(c.status.oat).toBe('pilot');
+		expect(c.values.oat).toBe('15');
+		expect(Object.keys(c.notes)).toEqual([]);
+		expect(c.notice).toContain('Release 7');
+		expect(toDoList(dr, c).map((t) => t.label)).toContain('Confirm QNH');
+	});
+	it('resets choices that no longer exist', () => {
+		const c = ready(dr);
+		c.configuration = 'gone'; c.burnPlan = 'gone'; c.takeoffCondition = 'gone'; c.landingCondition = 'gone'; c.positions.pilot = 'gone';
+		reconcileAfterInstall(dr, c, 2);
+		expect(() => calculate(dr, toInput(dr, c))).not.toThrow();
+		expect(c.configuration).toBe('standard');
 	});
 });

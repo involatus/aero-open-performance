@@ -10,7 +10,8 @@ const resolve = resolvePath as unknown as (path: string) => string;
 const SHELL = resolve('/');
 const FILES = [
 	...immutable.map((file) => resolve(file.path)),
-	...assets.filter((file) => !file.path.endsWith('.DS_Store')).map((file) => resolve(file.path)),
+	// Aircraft data is not cached here: an app update and a data update are separate events.
+	...assets.filter((file) => !file.path.endsWith('.DS_Store') && !file.path.startsWith('data/')).map((file) => resolve(file.path)),
 	...prerendered.map((file) => resolve(file.path))
 ];
 
@@ -35,7 +36,7 @@ sw.addEventListener('message', (event) => {
 sw.addEventListener('fetch', (event) => {
 	const url = new URL(event.request.url);
 	// Live answers such as weather and sending must never be replayed from a cache.
-	if (event.request.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/')) return;
+	if (event.request.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/') || url.pathname.startsWith('/data/')) return;
 
 	event.respondWith(
 		(async () => {

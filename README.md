@@ -6,7 +6,7 @@ Open-source mass and balance and takeoff and landing performance for piston airc
 
 ## Status
 
-The pilot flow, calculation engine, Reports and weather prefill work on fictional aircraft. Publishing real aircraft data comes next. The plan is in [docs/SPEC.md](docs/SPEC.md), the aircraft format and calculation rules are in [docs/FORMAT.md](docs/FORMAT.md), and the vocabulary is in [GLOSSARY.md](GLOSSARY.md).
+The pilot flow, calculation engine, Reports and weather prefill work on fictional aircraft. An admin GUI comes next. The plan is in [docs/SPEC.md](docs/SPEC.md), the aircraft format and calculation rules are in [docs/FORMAT.md](docs/FORMAT.md), and the vocabulary is in [GLOSSARY.md](GLOSSARY.md).
 
 ## Develop
 
@@ -16,6 +16,12 @@ npm run dev
 npm run build
 npm run preview
 ```
+
+## Your own aircraft
+
+Aircraft are described entirely by data. See [docs/FORMAT.md](docs/FORMAT.md) for the format and publish checks. Your files go in your own copy's `static/data` folder, and should stay out of any public repository if they hold manual tables or weighing data.
+
+The fictional aircraft in `aircraft-examples` show what a complete file looks like. `npm run data:demo` rebuilds the demo release from them.
 
 ## Weather (optional)
 

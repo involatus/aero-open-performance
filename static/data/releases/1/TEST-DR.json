@@ -1,0 +1,952 @@
+{
+	"formatVersion": "0.1.0",
+	"registration": "TEST-DR",
+	"type": "Fictional DR-style",
+	"revision": 1,
+	"fictional": true,
+	"units": {
+		"mass": "kg",
+		"arm": "m",
+		"volume": "L"
+	},
+	"display": {
+		"massDecimals": 1,
+		"armDecimals": 3
+	},
+	"sources": {
+		"test": {
+			"document": "Fictional test manual. All values are invented.",
+			"revision": "1",
+			"page": "1"
+		}
+	},
+	"stations": [
+		{
+			"id": "pilot",
+			"label": "Pilot",
+			"positions": [
+				{
+					"id": "forward",
+					"label": "Forward",
+					"arm": 0.47
+				},
+				{
+					"id": "middle",
+					"label": "Middle",
+					"arm": 0.5
+				},
+				{
+					"id": "rear",
+					"label": "Rear",
+					"arm": 0.53
+				}
+			],
+			"defaultPosition": "middle",
+			"source": "test"
+		},
+		{
+			"id": "passenger",
+			"label": "Front passenger",
+			"positions": [
+				{
+					"id": "forward",
+					"label": "Forward",
+					"arm": 0.47
+				},
+				{
+					"id": "middle",
+					"label": "Middle",
+					"arm": 0.5
+				},
+				{
+					"id": "rear",
+					"label": "Rear",
+					"arm": 0.53
+				}
+			],
+			"defaultPosition": "middle",
+			"source": "test"
+		},
+		{
+			"id": "rear",
+			"label": "Rear seats",
+			"arm": 1.2,
+			"maxMass": 100,
+			"source": "test"
+		},
+		{
+			"id": "baggage",
+			"label": "Baggage",
+			"arm": 1.6,
+			"maxMass": 30,
+			"source": "test"
+		}
+	],
+	"tanks": [
+		{
+			"id": "front",
+			"label": "Front tank",
+			"arm": -0.2,
+			"capacity": 50,
+			"density": 0.72,
+			"source": "test"
+		},
+		{
+			"id": "rear",
+			"label": "Rear tank",
+			"arm": 1.1,
+			"capacity": 50,
+			"density": 0.72,
+			"source": "test"
+		}
+	],
+	"combinedLimits": [],
+	"massLimits": {
+		"maxTakeoff": {
+			"value": 800,
+			"source": "test"
+		},
+		"maxLanding": {
+			"value": 770,
+			"source": "test"
+		}
+	},
+	"envelope": {
+		"points": [
+			{
+				"mass": 500,
+				"arm": 0.3
+			},
+			{
+				"mass": 700,
+				"arm": 0.3
+			},
+			{
+				"mass": 800,
+				"arm": 0.34
+			},
+			{
+				"mass": 800,
+				"arm": 0.56
+			},
+			{
+				"mass": 500,
+				"arm": 0.56
+			}
+		],
+		"source": "test"
+	},
+	"burnPlans": [
+		{
+			"id": "even",
+			"label": "Evenly",
+			"type": "even"
+		},
+		{
+			"id": "frontFirst",
+			"label": "Front first",
+			"type": "sequence",
+			"tanks": [
+				"front",
+				"rear"
+			]
+		},
+		{
+			"id": "rearFirst",
+			"label": "Rear first",
+			"type": "sequence",
+			"tanks": [
+				"rear",
+				"front"
+			]
+		}
+	],
+	"defaultBurnPlan": "even",
+	"fuelFlow": {
+		"value": 24,
+		"source": "test"
+	},
+	"crosswind": {
+		"value": 15,
+		"source": "test"
+	},
+	"notes": [
+		{
+			"id": "rear-seats",
+			"text": "Rear seats only when both front seats are occupied.",
+			"source": "test"
+		}
+	],
+	"tables": {
+		"hard": {
+			"axes": [
+				{
+					"name": "Altitude",
+					"input": "pressureAltitude",
+					"unit": "m",
+					"values": [
+						0,
+						500,
+						1000,
+						1500
+					],
+					"below": "none",
+					"above": "none"
+				},
+				{
+					"name": "Temperature",
+					"input": "temperature",
+					"unit": "C",
+					"values": [
+						0,
+						15,
+						30,
+						45
+					],
+					"below": "none",
+					"above": "none"
+				}
+			],
+			"outputs": {
+				"total": [
+					[
+						400,
+						430,
+						460,
+						500
+					],
+					[
+						450,
+						490,
+						530,
+						580
+					],
+					[
+						520,
+						570,
+						620,
+						680
+					],
+					[
+						610,
+						670,
+						730,
+						800
+					]
+				]
+			},
+			"source": "test"
+		},
+		"grass": {
+			"axes": [
+				{
+					"name": "Altitude",
+					"input": "pressureAltitude",
+					"unit": "m",
+					"values": [
+						0,
+						500,
+						1000,
+						1500
+					],
+					"below": "none",
+					"above": "none"
+				},
+				{
+					"name": "Temperature",
+					"input": "temperature",
+					"unit": "C",
+					"values": [
+						0,
+						15,
+						30,
+						45
+					],
+					"below": "none",
+					"above": "none"
+				}
+			],
+			"outputs": {
+				"total": [
+					[
+						470,
+						510,
+						550,
+						600
+					],
+					[
+						540,
+						590,
+						640,
+						700
+					],
+					[
+						640,
+						700,
+						760,
+						840
+					],
+					[
+						760,
+						830,
+						910,
+						1010
+					]
+				]
+			},
+			"source": "test"
+		},
+		"landing": {
+			"axes": [
+				{
+					"name": "Landing mass",
+					"input": "mass",
+					"unit": "kg",
+					"values": [
+						620,
+						770
+					],
+					"below": "nearestWarn",
+					"above": "none"
+				}
+			],
+			"outputs": {
+				"groundRoll": [
+					150,
+					175
+				]
+			},
+			"source": "test"
+		}
+	},
+	"performance": {
+		"takeoff": [
+			{
+				"kind": "steps",
+				"id": "hard",
+				"label": "Hard",
+				"distanceUnit": "m",
+				"steps": [
+					{
+						"type": "lookup",
+						"table": "hard"
+					},
+					{
+						"type": "factor",
+						"value": 1.05,
+						"applies": [
+							"total"
+						],
+						"reason": "Fictional engine addition",
+						"source": "test"
+					},
+					{
+						"type": "massCorrection",
+						"referenceMass": 800,
+						"exponent": 2,
+						"applies": [
+							"total"
+						],
+						"source": "test"
+					},
+					{
+						"type": "ratio",
+						"from": "total",
+						"into": "groundRoll",
+						"value": 0.6,
+						"source": "test"
+					}
+				]
+			},
+			{
+				"kind": "steps",
+				"id": "grass",
+				"label": "Grass",
+				"distanceUnit": "m",
+				"steps": [
+					{
+						"type": "lookup",
+						"table": "grass"
+					},
+					{
+						"type": "factor",
+						"value": 1.05,
+						"applies": [
+							"total"
+						],
+						"reason": "Fictional engine addition",
+						"source": "test"
+					},
+					{
+						"type": "massCorrection",
+						"referenceMass": 800,
+						"exponent": 2,
+						"applies": [
+							"total"
+						],
+						"source": "test"
+					},
+					{
+						"type": "ratio",
+						"from": "total",
+						"into": "groundRoll",
+						"value": 0.7,
+						"source": "test"
+					}
+				]
+			}
+		],
+		"landing": [
+			{
+				"kind": "steps",
+				"id": "hard",
+				"label": "Hard",
+				"distanceUnit": "m",
+				"steps": [
+					{
+						"type": "lookup",
+						"table": "landing"
+					}
+				],
+				"assumes": {
+					"text": "the printed mass, with no altitude or temperature correction",
+					"inputs": []
+				}
+			},
+			{
+				"kind": "noData",
+				"id": "grass",
+				"label": "Grass"
+			}
+		]
+	},
+	"configurations": [
+		{
+			"id": "standard",
+			"label": "Without skis",
+			"weighing": {
+				"mass": 500,
+				"moment": 180,
+				"date": "2026-01-01",
+				"source": "test"
+			}
+		},
+		{
+			"id": "skis",
+			"label": "With skis",
+			"weighing": {
+				"mass": 550,
+				"moment": 165,
+				"date": "2026-01-01",
+				"source": "test"
+			},
+			"performance": "none"
+		}
+	],
+	"handCases": [
+		{
+			"id": "dr-on-table",
+			"label": "On a table value, at max landing mass",
+			"author": "Project test suite (fictional)",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"pilot": {
+						"mass": 100,
+						"position": "middle"
+					},
+					"passenger": {
+						"mass": 100,
+						"position": "middle"
+					},
+					"rear": {
+						"mass": 70
+					},
+					"baggage": {
+						"mass": 0
+					}
+				},
+				"fuel": {},
+				"burnPlan": "even",
+				"flightTimeHours": 0,
+				"fuelFlow": 0,
+				"elevation": {
+					"value": 500,
+					"unit": "m"
+				},
+				"qnh": 1013.25,
+				"oat": 15,
+				"windDirection": null,
+				"windSpeed": null,
+				"runwayHeading": null,
+				"takeoffCondition": "hard",
+				"landingCondition": "hard"
+			},
+			"expected": {
+				"takeoffMass": 770,
+				"takeoffArm": 0.4727272727272727,
+				"landingMass": 770,
+				"landingArm": 0.4727272727272727,
+				"takeoff": {
+					"status": "ok",
+					"total": 477,
+					"groundRoll": 286
+				},
+				"landing": {
+					"status": "ok",
+					"groundRoll": 175
+				},
+				"exceeded": []
+			}
+		},
+		{
+			"id": "dr-between",
+			"label": "Between table values, burning fuel evenly",
+			"author": "Project test suite (fictional)",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"pilot": {
+						"mass": 100,
+						"position": "middle"
+					},
+					"passenger": {
+						"mass": 100,
+						"position": "middle"
+					},
+					"rear": {
+						"mass": 40
+					},
+					"baggage": {
+						"mass": 0
+					}
+				},
+				"fuel": {
+					"front": 20,
+					"rear": 20
+				},
+				"burnPlan": "even",
+				"flightTimeHours": 1,
+				"fuelFlow": 20,
+				"elevation": {
+					"value": 750,
+					"unit": "m"
+				},
+				"qnh": 1013.25,
+				"oat": 22.5,
+				"windDirection": null,
+				"windSpeed": null,
+				"runwayHeading": null,
+				"takeoffCondition": "hard",
+				"landingCondition": "hard"
+			},
+			"expected": {
+				"takeoffMass": 768.8,
+				"takeoffArm": 0.44349635796045783,
+				"landingMass": 754.4,
+				"landingArm": 0.443372216330859,
+				"takeoff": {
+					"status": "ok",
+					"total": 536,
+					"groundRoll": 322
+				},
+				"landing": {
+					"status": "ok",
+					"groundRoll": 173
+				},
+				"exceeded": []
+			}
+		},
+		{
+			"id": "dr-front-first",
+			"label": "Front tank first, light aircraft below the landing table",
+			"author": "Project test suite (fictional)",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"pilot": {
+						"mass": 80,
+						"position": "middle"
+					},
+					"passenger": {
+						"mass": 0,
+						"position": "middle"
+					},
+					"rear": {
+						"mass": 0
+					},
+					"baggage": {
+						"mass": 0
+					}
+				},
+				"fuel": {
+					"front": 20,
+					"rear": 30
+				},
+				"burnPlan": "frontFirst",
+				"flightTimeHours": 1,
+				"fuelFlow": 20,
+				"elevation": {
+					"value": 0,
+					"unit": "m"
+				},
+				"qnh": 1013.25,
+				"oat": 0,
+				"windDirection": null,
+				"windSpeed": null,
+				"runwayHeading": null,
+				"takeoffCondition": "grass",
+				"landingCondition": "grass"
+			},
+			"expected": {
+				"landingMass": 601.6,
+				"landingArm": 0.40518617021276593,
+				"takeoff": {
+					"status": "ok"
+				},
+				"landing": {
+					"status": "noData"
+				},
+				"exceeded": []
+			}
+		},
+		{
+			"id": "dr-over",
+			"label": "Over the limits",
+			"author": "Project test suite (fictional)",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"pilot": {
+						"mass": 120,
+						"position": "middle"
+					},
+					"passenger": {
+						"mass": 120,
+						"position": "middle"
+					},
+					"rear": {
+						"mass": 150
+					},
+					"baggage": {
+						"mass": 40
+					}
+				},
+				"fuel": {
+					"front": 50,
+					"rear": 60
+				},
+				"burnPlan": "even",
+				"flightTimeHours": 4,
+				"fuelFlow": 30,
+				"elevation": {
+					"value": 0,
+					"unit": "m"
+				},
+				"qnh": 1013.25,
+				"oat": 15,
+				"windDirection": null,
+				"windSpeed": null,
+				"runwayHeading": null,
+				"takeoffCondition": "hard",
+				"landingCondition": "hard"
+			},
+			"expected": {
+				"takeoffMass": 1009.2,
+				"exceeded": [
+					"fuelBurn",
+					"landingCg",
+					"landingMass",
+					"station:baggage",
+					"station:rear",
+					"takeoffCg",
+					"takeoffMass",
+					"tank:rear"
+				],
+				"takeoff": {
+					"status": "ok"
+				},
+				"landing": {
+					"status": "noResult"
+				}
+			}
+		},
+		{
+			"id": "dr-outside",
+			"label": "Outside the table gives no result",
+			"author": "Project test suite (fictional)",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"pilot": {
+						"mass": 80,
+						"position": "middle"
+					},
+					"passenger": {
+						"mass": 0,
+						"position": "middle"
+					},
+					"rear": {
+						"mass": 0
+					},
+					"baggage": {
+						"mass": 0
+					}
+				},
+				"fuel": {},
+				"burnPlan": "even",
+				"flightTimeHours": 0,
+				"fuelFlow": 0,
+				"elevation": {
+					"value": 2000,
+					"unit": "m"
+				},
+				"qnh": 1013.25,
+				"oat": 15,
+				"windDirection": null,
+				"windSpeed": null,
+				"runwayHeading": null,
+				"takeoffCondition": "hard",
+				"landingCondition": "hard"
+			},
+			"expected": {
+				"takeoff": {
+					"status": "noResult"
+				},
+				"landing": {
+					"status": "ok",
+					"groundRoll": 150
+				},
+				"exceeded": []
+			}
+		},
+		{
+			"id": "dr-needs-input",
+			"label": "Missing inputs ask for them",
+			"author": "Project test suite (fictional)",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"pilot": {
+						"mass": 80,
+						"position": "middle"
+					},
+					"passenger": {
+						"mass": 0,
+						"position": "middle"
+					},
+					"rear": {
+						"mass": 0
+					},
+					"baggage": {
+						"mass": 0
+					}
+				},
+				"fuel": {},
+				"burnPlan": "even",
+				"flightTimeHours": 0,
+				"fuelFlow": 0,
+				"elevation": null,
+				"qnh": null,
+				"oat": null,
+				"windDirection": null,
+				"windSpeed": null,
+				"runwayHeading": null,
+				"takeoffCondition": "hard",
+				"landingCondition": "hard"
+			},
+			"expected": {
+				"takeoff": {
+					"status": "needsInput"
+				},
+				"landing": {
+					"status": "ok",
+					"groundRoll": 150
+				},
+				"exceeded": []
+			}
+		},
+		{
+			"id": "dr-grass-on",
+			"label": "Grass, on a table value",
+			"author": "Project test suite (fictional), expected values from the separate reference calculator",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"pilot": {
+						"mass": 100,
+						"position": "middle"
+					},
+					"passenger": {
+						"mass": 100,
+						"position": "middle"
+					},
+					"rear": {
+						"mass": 70
+					},
+					"baggage": {
+						"mass": 0
+					}
+				},
+				"fuel": {},
+				"burnPlan": "even",
+				"flightTimeHours": 0,
+				"fuelFlow": 0,
+				"elevation": {
+					"value": 500,
+					"unit": "m"
+				},
+				"qnh": 1013.25,
+				"oat": 15,
+				"windDirection": 0,
+				"windSpeed": 0,
+				"runwayHeading": 0,
+				"takeoffCondition": "grass",
+				"landingCondition": "hard"
+			},
+			"expected": {
+				"takeoffMass": 770,
+				"takeoffArm": 0.4727272727272727,
+				"landingMass": 770,
+				"landingArm": 0.4727272727272727,
+				"takeoff": {
+					"status": "ok",
+					"total": 574,
+					"groundRoll": 402
+				},
+				"landing": {
+					"status": "ok",
+					"groundRoll": 175
+				},
+				"exceeded": []
+			}
+		},
+		{
+			"id": "dr-grass-between",
+			"label": "Grass, between table values",
+			"author": "Project test suite (fictional), expected values from the separate reference calculator",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"pilot": {
+						"mass": 90,
+						"position": "middle"
+					},
+					"passenger": {
+						"mass": 80,
+						"position": "middle"
+					},
+					"rear": {
+						"mass": 20
+					},
+					"baggage": {
+						"mass": 0
+					}
+				},
+				"fuel": {
+					"front": 30,
+					"rear": 10
+				},
+				"burnPlan": "even",
+				"flightTimeHours": 0.5,
+				"fuelFlow": 20,
+				"elevation": {
+					"value": 250,
+					"unit": "m"
+				},
+				"qnh": 1013.25,
+				"oat": 7.5,
+				"windDirection": 0,
+				"windSpeed": 0,
+				"runwayHeading": 0,
+				"takeoffCondition": "grass",
+				"landingCondition": "hard"
+			},
+			"expected": {
+				"takeoffMass": 718.8000000000001,
+				"takeoffArm": 0.4070673344462994,
+				"landingMass": 711.6,
+				"landingArm": 0.4066329398538504,
+				"takeoff": {
+					"status": "ok",
+					"total": 448,
+					"groundRoll": 314
+				},
+				"landing": {
+					"status": "ok",
+					"groundRoll": 166
+				},
+				"exceeded": []
+			}
+		},
+		{
+			"id": "dr-aft",
+			"label": "Aft loading",
+			"author": "Project test suite (fictional), expected values from the separate reference calculator",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"pilot": {
+						"mass": 70,
+						"position": "middle"
+					},
+					"passenger": {
+						"mass": 0,
+						"position": "middle"
+					},
+					"rear": {
+						"mass": 90
+					},
+					"baggage": {
+						"mass": 30
+					}
+				},
+				"fuel": {
+					"rear": 50
+				},
+				"burnPlan": "even",
+				"flightTimeHours": 0,
+				"fuelFlow": 0,
+				"elevation": {
+					"value": 0,
+					"unit": "m"
+				},
+				"qnh": 1013.25,
+				"oat": 15,
+				"windDirection": 0,
+				"windSpeed": 0,
+				"runwayHeading": 0,
+				"takeoffCondition": "hard",
+				"landingCondition": "hard"
+			},
+			"expected": {
+				"takeoffMass": 726,
+				"takeoffArm": 0.565564738292011,
+				"landingMass": 726,
+				"landingArm": 0.565564738292011,
+				"takeoff": {
+					"status": "ok",
+					"total": 372,
+					"groundRoll": 224
+				},
+				"landing": {
+					"status": "ok",
+					"groundRoll": 168
+				},
+				"exceeded": [
+					"landingCg",
+					"takeoffCg"
+				]
+			}
+		}
+	]
+}

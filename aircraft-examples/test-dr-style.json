@@ -771,6 +771,182 @@
 				},
 				"exceeded": []
 			}
+		},
+		{
+			"id": "dr-grass-on",
+			"label": "Grass, on a table value",
+			"author": "Project test suite (fictional), expected values from the separate reference calculator",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"pilot": {
+						"mass": 100,
+						"position": "middle"
+					},
+					"passenger": {
+						"mass": 100,
+						"position": "middle"
+					},
+					"rear": {
+						"mass": 70
+					},
+					"baggage": {
+						"mass": 0
+					}
+				},
+				"fuel": {},
+				"burnPlan": "even",
+				"flightTimeHours": 0,
+				"fuelFlow": 0,
+				"elevation": {
+					"value": 500,
+					"unit": "m"
+				},
+				"qnh": 1013.25,
+				"oat": 15,
+				"windDirection": 0,
+				"windSpeed": 0,
+				"runwayHeading": 0,
+				"takeoffCondition": "grass",
+				"landingCondition": "hard"
+			},
+			"expected": {
+				"takeoffMass": 770.0,
+				"takeoffArm": 0.4727272727272727,
+				"landingMass": 770.0,
+				"landingArm": 0.4727272727272727,
+				"takeoff": {
+					"status": "ok",
+					"total": 574,
+					"groundRoll": 402
+				},
+				"landing": {
+					"status": "ok",
+					"groundRoll": 175
+				},
+				"exceeded": []
+			}
+		},
+		{
+			"id": "dr-grass-between",
+			"label": "Grass, between table values",
+			"author": "Project test suite (fictional), expected values from the separate reference calculator",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"pilot": {
+						"mass": 90,
+						"position": "middle"
+					},
+					"passenger": {
+						"mass": 80,
+						"position": "middle"
+					},
+					"rear": {
+						"mass": 20
+					},
+					"baggage": {
+						"mass": 0
+					}
+				},
+				"fuel": {
+					"front": 30,
+					"rear": 10
+				},
+				"burnPlan": "even",
+				"flightTimeHours": 0.5,
+				"fuelFlow": 20,
+				"elevation": {
+					"value": 250,
+					"unit": "m"
+				},
+				"qnh": 1013.25,
+				"oat": 7.5,
+				"windDirection": 0,
+				"windSpeed": 0,
+				"runwayHeading": 0,
+				"takeoffCondition": "grass",
+				"landingCondition": "hard"
+			},
+			"expected": {
+				"takeoffMass": 718.8000000000001,
+				"takeoffArm": 0.4070673344462994,
+				"landingMass": 711.6,
+				"landingArm": 0.4066329398538504,
+				"takeoff": {
+					"status": "ok",
+					"total": 448,
+					"groundRoll": 314
+				},
+				"landing": {
+					"status": "ok",
+					"groundRoll": 166
+				},
+				"exceeded": []
+			}
+		},
+		{
+			"id": "dr-aft",
+			"label": "Aft loading",
+			"author": "Project test suite (fictional), expected values from the separate reference calculator",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"pilot": {
+						"mass": 70,
+						"position": "middle"
+					},
+					"passenger": {
+						"mass": 0,
+						"position": "middle"
+					},
+					"rear": {
+						"mass": 90
+					},
+					"baggage": {
+						"mass": 30
+					}
+				},
+				"fuel": {
+					"rear": 50
+				},
+				"burnPlan": "even",
+				"flightTimeHours": 0,
+				"fuelFlow": 0,
+				"elevation": {
+					"value": 0,
+					"unit": "m"
+				},
+				"qnh": 1013.25,
+				"oat": 15,
+				"windDirection": 0,
+				"windSpeed": 0,
+				"runwayHeading": 0,
+				"takeoffCondition": "hard",
+				"landingCondition": "hard"
+			},
+			"expected": {
+				"takeoffMass": 726.0,
+				"takeoffArm": 0.565564738292011,
+				"landingMass": 726.0,
+				"landingArm": 0.565564738292011,
+				"takeoff": {
+					"status": "ok",
+					"total": 372,
+					"groundRoll": 224
+				},
+				"landing": {
+					"status": "ok",
+					"groundRoll": 168
+				},
+				"exceeded": [
+					"landingCg",
+					"takeoffCg"
+				]
+			}
 		}
 	]
 }

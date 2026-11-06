@@ -15,7 +15,9 @@
     "verify:reference": "node --no-warnings tools/reference-calculator/compare.ts",
     "prepare": "svelte-kit sync || true",
     "pretest": "svelte-kit sync",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "data": "node --no-warnings tools/data/cli.ts",
+    "data:demo": "rm -rf static/data && node --no-warnings tools/data/cli.ts publish --source aircraft-examples --out static/data --release 1 --operator \"Demo data\" --notes \"Fictional demo aircraft with invented data.\""
   },
   "devDependencies": {
     "@playwright/test": "1.65.0",

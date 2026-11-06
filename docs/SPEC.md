@@ -119,7 +119,7 @@ When online, the app checks when it opens and when a connection returns, at most
 
 A release can mark an aircraft unavailable with a required reason. The app blocks that aircraft as soon as it sees the notice, without waiting for Install. A device that stays offline can't learn this, and the documentation says so.
 
-The app checks the stored data before each calculation and refuses to calculate if it's missing or fails. Being offline never blocks a calculation. It shows the data version and last-check date on screen and in Reports, and warns strongly after 30 days without a check.
+The app checks the stored data on every start and before each Report, and refuses to calculate if it's missing or fails. First launch installs by itself, because nothing else can happen until data exists. Being offline never blocks a calculation. It shows the data version and last-check date on screen and in Reports, and warns strongly after 30 days without a check.
 
 ## Admin GUI
 

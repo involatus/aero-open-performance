@@ -364,6 +364,111 @@
 					"station:baggage"
 				]
 			}
+		},
+		{
+			"id": "kf-between",
+			"label": "Between table values, aft loading",
+			"author": "Project test suite (fictional), expected values from the separate reference calculator",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"seats": {
+						"mass": 180
+					},
+					"baggage": {
+						"mass": 20
+					}
+				},
+				"fuel": {
+					"main": 60
+				},
+				"burnPlan": "even",
+				"flightTimeHours": 0,
+				"fuelFlow": 0,
+				"elevation": {
+					"value": 1000,
+					"unit": "ft"
+				},
+				"qnh": 1013.25,
+				"oat": 7.5,
+				"windDirection": 0,
+				"windSpeed": 0,
+				"runwayHeading": 0,
+				"takeoffCondition": "hard",
+				"landingCondition": "hard"
+			},
+			"expected": {
+				"takeoffMass": 558.2,
+				"takeoffArm": 37.15872447151558,
+				"landingMass": 558.2,
+				"landingArm": 37.15872447151558,
+				"takeoff": {
+					"status": "ok",
+					"total": 468,
+					"groundRoll": 177
+				},
+				"landing": {
+					"status": "ok",
+					"total": 418
+				},
+				"exceeded": [
+					"landingCg",
+					"landingMass",
+					"takeoffCg",
+					"takeoffMass"
+				]
+			}
+		},
+		{
+			"id": "kf-forward",
+			"label": "Forward loading",
+			"author": "Project test suite (fictional), expected values from the separate reference calculator",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"seats": {
+						"mass": 60
+					},
+					"baggage": {
+						"mass": 0
+					}
+				},
+				"fuel": {
+					"main": 15
+				},
+				"burnPlan": "even",
+				"flightTimeHours": 0,
+				"fuelFlow": 0,
+				"elevation": {
+					"value": 0,
+					"unit": "ft"
+				},
+				"qnh": 1013.25,
+				"oat": 15,
+				"windDirection": 0,
+				"windSpeed": 0,
+				"runwayHeading": 0,
+				"takeoffCondition": "hard",
+				"landingCondition": "hard"
+			},
+			"expected": {
+				"takeoffMass": 385.8,
+				"takeoffArm": 31.79885951270088,
+				"landingMass": 385.8,
+				"landingArm": 31.79885951270088,
+				"takeoff": {
+					"status": "ok",
+					"total": 430,
+					"groundRoll": 165
+				},
+				"landing": {
+					"status": "ok",
+					"total": 418
+				},
+				"exceeded": []
+			}
 		}
 	]
 }

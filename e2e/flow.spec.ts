@@ -265,3 +265,129 @@ test('the proxy has no key in this test, and says so without crashing', async ({
 	expect((await request.get('/api/metar?station=../x')).status()).toBe(400);
 	expect((await request.get('/api/metar?station=LSZH', { headers: { 'sec-fetch-site': 'cross-site' } })).status()).toBe(403);
 });
+
+async function realIndex(page: Page) {
+	return (await page.request.get('/data/index.json')).json();
+}
+
+test('new data: nothing changes until Install, then values need confirming again', async ({ page }) => {
+	const errors = await failOnErrors(page);
+	await page.goto('/');
+	await page.getByRole('button', { name: /^TEST-DR/ }).click();
+	await page.locator('.steps button', { hasText: '2. Fuel' }).click();
+	await page.getByRole('button', { name: 'Confirm' }).click();
+	await expect(page.locator('[id="w-flow"]')).toContainText('Confirmed');
+
+	const index = await realIndex(page);
+	await page.route('**/data/index.json', (route) => route.fulfill({ json: { ...index, release: 2, notes: 'Example update.' } }));
+	await page.getByRole('button', { name: 'Check for new data' }).click();
+	await expect(page.getByText('New data available: Release 2. Example update.')).toBeVisible();
+	await expect(page.locator('[id="w-flow"]')).toContainText('Confirmed');
+
+	await page.getByRole('button', { name: 'Install' }).click();
+	await expect(page.getByText('New data available')).toBeHidden();
+	await expect(page.getByText('Recalculated with Release 2')).toBeVisible();
+	await expect(page.locator('[id="w-flow"]')).toContainText('From aircraft data');
+	expect(errors).toEqual([]);
+});
+
+test('a bad download keeps the last verified release', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: /^TEST-DR/ }).click();
+	const index = await realIndex(page);
+	const bad = { ...index, release: 2, aircraft: index.aircraft.map((e: { sha256: string }, i: number) => (i === 0 ? { ...e, sha256: 'a'.repeat(64) } : e)) };
+	await page.route('**/data/index.json', (route) => route.fulfill({ json: bad }));
+	await page.getByRole('button', { name: 'Check for new data' }).click();
+	await page.getByRole('button', { name: 'Install' }).click();
+	await expect(page.getByText('Update failed, still using Release 1')).toBeVisible();
+	await expect(page.locator('.strip')).toBeVisible();
+	await page.unroute('**/data/index.json');
+	await page.route('**/data/index.json', (route) => route.abort());
+	await page.reload();
+	await expect(page.locator('.strip')).toBeVisible();
+});
+
+test('a withdrawn aircraft is blocked at once, before Install, with the reason', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: /^TEST-DR/ }).click();
+	await expect(page.locator('.strip')).toBeVisible();
+	const index = await realIndex(page);
+	const withdrawn = { ...index, release: 2, aircraft: index.aircraft.map((e: { registration: string; type: string; revision: number }) => (e.registration === 'TEST-DR' ? { registration: e.registration, type: e.type, revision: e.revision, withdrawn: { reason: 'Data error found' } } : e)) };
+	await page.route('**/data/index.json', (route) => route.fulfill({ json: withdrawn }));
+	await page.getByRole('button', { name: 'Check for new data' }).click();
+	await expect(page.getByRole('alert')).toContainText('Data error found');
+	await expect(page.locator('.strip')).toBeHidden();
+	await expect(page.getByRole('button', { name: '+ Next flight' })).toBeDisabled();
+
+	await page.route('**/data/index.json', (route) => route.abort());
+	await page.reload();
+	await expect(page.getByRole('alert')).toContainText('Data error found');
+
+	await page.unroute('**/data/index.json');
+	await page.route('**/data/index.json', (route) => route.fulfill({ json: withdrawn }));
+	await page.getByRole('button', { name: '+ New' }).click();
+	await expect(page.getByRole('button', { name: /^TEST-DR/ })).toBeHidden();
+	await expect(page.getByRole('button', { name: /^TEST-KF/ })).toBeVisible();
+});
+
+test('first launch with no data asks to connect, and can then recover', async ({ page }) => {
+	await page.route('**/data/index.json', (route) => route.abort());
+	await page.goto('/');
+	await expect(page.getByText('Connect to the internet once to download aircraft data')).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Choose an aircraft' })).toBeHidden();
+	await page.unroute('**/data/index.json');
+	await page.getByRole('button', { name: 'Try again' }).click();
+	await expect(page.getByRole('heading', { name: 'Choose an aircraft' })).toBeVisible();
+});
+
+test('damaged stored data is refused, and calculations cannot run on it', async ({ page }) => {
+	await page.goto('/');
+	await expect(page.getByRole('heading', { name: 'Choose an aircraft' })).toBeVisible();
+	await expect.poll(() => page.evaluate(() => new Promise((done) => {
+		const open = indexedDB.open('keyval-store');
+		open.onsuccess = () => {
+			const get = open.result.transaction('keyval').objectStore('keyval').get('data-release-v1');
+			get.onsuccess = () => done(!!get.result);
+		};
+	}))).toBe(true);
+	await page.evaluate(() => new Promise<void>((done) => {
+		const open = indexedDB.open('keyval-store');
+		open.onsuccess = () => {
+			const store = open.result.transaction('keyval', 'readwrite').objectStore('keyval');
+			const get = store.get('data-release-v1');
+			get.onsuccess = () => {
+				const data = get.result;
+				data.aircraft[0].tables[Object.keys(data.aircraft[0].tables)[0]].source = 'tampered';
+				store.put(data, 'data-release-v1').onsuccess = () => done();
+			};
+		};
+	}));
+	await page.route('**/data/index.json', (route) => route.abort());
+	await page.reload();
+	await expect(page.getByText("The aircraft data on this device is damaged")).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Choose an aircraft' })).toBeHidden();
+	await page.unroute('**/data/index.json');
+	await page.getByRole('button', { name: 'Try again' }).click();
+	await expect(page.getByRole('heading', { name: 'Choose an aircraft' })).toBeVisible();
+});
+
+test('warns strongly after 30 days without a check, but still calculates', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: /^TEST-KF/ }).click();
+	await expect(page.locator('.strip')).toBeVisible();
+	await expect.poll(() => page.evaluate(() => new Promise((done) => {
+		const open = indexedDB.open('keyval-store');
+		open.onsuccess = () => {
+			const store = open.result.transaction('keyval', 'readwrite').objectStore('keyval');
+			const get = store.get('data-meta-v1');
+			get.onsuccess = () => {
+				if (!get.result) return done(false);
+				store.put({ ...get.result, lastCheck: Date.now() - 31 * 86400000 }, 'data-meta-v1').onsuccess = () => done(true);
+			};
+		};
+	}))).toBe(true);
+	await page.route('**/data/index.json', (route) => route.abort());
+	await page.reload();
+	await expect(page.getByText('No check for new aircraft data in over 30 days')).toBeVisible();
+	await expect(page.locator('.strip')).toBeVisible();
+});

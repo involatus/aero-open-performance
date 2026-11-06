@@ -25,6 +25,7 @@ export type Calculation = {
 	elevationUnit: 'm' | 'ft';
 	notes: Record<string, boolean>;
 	weather?: AppliedWeather | null;
+	notice?: string | null;
 };
 export type AppliedWeather = { raw: string; station: string; stationName: string | null; distanceKm: number | null; observed: string | null; flags: string[] };
 export type Field = {
@@ -151,6 +152,23 @@ export function reportAgeMinutes(weather: AppliedWeather | null | undefined, now
 
 export function isOldCalculation(calc: Calculation, now: number): boolean {
 	return now - calc.created > OLD_CALCULATION_DAYS * 86400000;
+}
+
+/** After installing new data: confirmations no longer hold, and choices that no longer exist are reset. */
+export function reconcileAfterInstall(a: Aircraft, calc: Calculation, release: number) {
+	for (const key of Object.keys(calc.status)) if (calc.status[key] === 'ok') calc.status[key] = 'pre';
+	calc.notes = {};
+	if (!a.configurations.some((c) => c.id === calc.configuration)) calc.configuration = a.configurations[0].id;
+	if (!a.burnPlans.some((p) => p.id === calc.burnPlan)) calc.burnPlan = a.defaultBurnPlan;
+	a.stations.forEach((s) => {
+		if (s.positions && !s.positions.some((p) => p.id === calc.positions[s.id])) calc.positions[s.id] = s.defaultPosition!;
+	});
+	const perf = performanceOf(a, calc.configuration);
+	if (perf) {
+		if (!perf.takeoff.some((c) => c.id === calc.takeoffCondition)) calc.takeoffCondition = perf.takeoff[0].id;
+		if (!perf.landing.some((c) => c.id === calc.landingCondition)) calc.landingCondition = perf.landing[0].id;
+	}
+	calc.notice = `Recalculated with Release ${release}. Please check and confirm the values again.`;
 }
 
 export function changeConfiguration(a: Aircraft, calc: Calculation, id: string) {

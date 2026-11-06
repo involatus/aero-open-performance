@@ -27,6 +27,7 @@ One strict JSON file describes one registered aircraft. Unknown fields are error
 | `performance` | `takeoff` and `landing`, each a list of conditions |
 | `configurations` | At least one Configuration |
 | `handCases` | Hand-calculated cases |
+| `acknowledgedUnusualValues` | Optional. Unusual table values already checked against the manual |
 
 A **station** has `id`, `label`, `source`, an optional `maxMass`, and either an `arm`, or `positions` (`{ id, label, arm }`) with a `defaultPosition`.
 
@@ -180,6 +181,41 @@ A result's warnings are counted as follows, with no merging of identical ones:
 - Each axis using `nearestWarn` adds one, as does each wind rule using it.
 - `assumes` (`text`, `inputs`) adds one when `inputs` is empty, or when any listed input is missing or differs from its `value` by more than `EPSILON` in its `unit`. The result is still shown.
 - A chain with no `wind` step adds one, saying the wind was recorded and did not change the distance.
+
+## Data Releases
+
+A Data Release is one published folder, read by the app from `/data/`:
+
+```
+index.json
+releases/<release>/<registration>.json
+```
+
+`index.json` has `formatVersion`, `operator`, `release` (a whole number), `published`, optional `notes`, and `aircraft`. Each entry has `registration`, `type`, `revision`, optional `changes`, and either `file` and `sha256`, or `withdrawn: { reason }`.
+
+`sha256` is the SHA-256, as lowercase hex, of the file's parsed JSON in RFC 8785 canonical form, so formatting doesn't affect it.
+
+A device uses a release only if every file matches its checksum, passes validation and matches its entry's registration and revision. Releases are permanent. To undo one, republish an earlier version under a new number.
+
+Use the command-line tool to check and publish hand-written files:
+
+```sh
+npm run data -- check my-aircraft/*.json
+npm run data -- publish --source my-aircraft --out static/data --release 2 --operator "My club" --notes "New weighing" --second-entry second-entry
+```
+
+To withdraw an aircraft, add `--withdraw "HB-XXX=Reason"` and leave its file in the source folder.
+
+### Publish checks
+
+Publishing fails, with no override, unless every file passes all of these:
+
+- It is valid.
+- Every hand-calculated case passes.
+- Each selectable takeoff and landing condition with a table has a case exactly on a table value and one between values. Others have at least one case.
+- At least two cases check CG, and at least one exceeds a limit.
+- Any distance that shrinks as altitude, temperature or mass rises is listed in `acknowledgedUnusualValues`, using the checker's exact wording, after being compared with the manual.
+- A non-fictional aircraft has a matching file in `--second-entry`, with its tables entered separately. Any difference names the cell to check.
 
 ## Hand-calculated cases
 

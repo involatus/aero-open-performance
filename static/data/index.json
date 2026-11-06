@@ -1,0 +1,37 @@
+{
+	"formatVersion": "0.1.0",
+	"operator": "Demo data",
+	"release": 1,
+	"published": "2026-11-06T10:49:45.426Z",
+	"notes": "Fictional demo aircraft with invented data.",
+	"aircraft": [
+		{
+			"registration": "TEST-DR",
+			"type": "Fictional DR-style",
+			"revision": 1,
+			"file": "releases/1/TEST-DR.json",
+			"sha256": "68ce2c8d84af30efd7dc892852259a6bb9d3f89a579112c9a39b8bb6ecc954b2"
+		},
+		{
+			"registration": "TEST-GL",
+			"type": "Fictional GlaStar-style",
+			"revision": 1,
+			"file": "releases/1/TEST-GL.json",
+			"sha256": "b00c860686e0912e0d467c4fce8ce69f3e10dbe9ea5eb408d0be998e8f20294d"
+		},
+		{
+			"registration": "TEST-KF",
+			"type": "Fictional Kitfox-style",
+			"revision": 1,
+			"file": "releases/1/TEST-KF.json",
+			"sha256": "e9eabb2fda4865ec25aba856ba542e2d1d2e641aae7d7f1211f3aef860c726ba"
+		},
+		{
+			"registration": "TEST-SR",
+			"type": "Fictional SR22-style",
+			"revision": 1,
+			"file": "releases/1/TEST-SR.json",
+			"sha256": "ffd6071fb2272630e6d5e7cb3b85e2fe74bd047b87a1ef1c2713e383423480ed"
+		}
+	]
+}

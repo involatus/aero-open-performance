@@ -774,6 +774,227 @@
 				},
 				"exceeded": []
 			}
+		},
+		{
+			"id": "sr-grass-between",
+			"label": "Dry grass, between table values",
+			"author": "Project test suite (fictional), expected values from the separate reference calculator",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"front": {
+						"mass": 400
+					},
+					"rear": {
+						"mass": 90
+					},
+					"baggage": {
+						"mass": 0
+					}
+				},
+				"fuel": {
+					"main": 60
+				},
+				"burnPlan": "even",
+				"flightTimeHours": 0,
+				"fuelFlow": 0,
+				"elevation": {
+					"value": 1000,
+					"unit": "ft"
+				},
+				"qnh": 1013.25,
+				"oat": 10,
+				"windDirection": 0,
+				"windSpeed": 0,
+				"runwayHeading": 0,
+				"takeoffCondition": "dryGrass",
+				"landingCondition": "wetGrass"
+			},
+			"expected": {
+				"takeoffMass": 3150,
+				"takeoffArm": 143.29015873015874,
+				"landingMass": 3150,
+				"landingArm": 143.29015873015874,
+				"takeoff": {
+					"status": "ok",
+					"total": 1530,
+					"groundRoll": 1043
+				},
+				"landing": {
+					"status": "ok",
+					"total": 3130,
+					"groundRoll": 1892
+				},
+				"exceeded": []
+			}
+		},
+		{
+			"id": "sr-landing-between",
+			"label": "Landing between table values, forward loading",
+			"author": "Project test suite (fictional), expected values from the separate reference calculator",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"front": {
+						"mass": 380
+					},
+					"rear": {
+						"mass": 0
+					},
+					"baggage": {
+						"mass": 0
+					}
+				},
+				"fuel": {
+					"main": 30
+				},
+				"burnPlan": "even",
+				"flightTimeHours": 1,
+				"fuelFlow": 15,
+				"elevation": {
+					"value": 3000,
+					"unit": "ft"
+				},
+				"qnh": 1013.25,
+				"oat": 30,
+				"windDirection": 0,
+				"windSpeed": 0,
+				"runwayHeading": 0,
+				"takeoffCondition": "hard",
+				"landingCondition": "hard"
+			},
+			"expected": {
+				"takeoffMass": 2860,
+				"takeoffArm": 141.40279720279722,
+				"landingMass": 2770.0,
+				"landingArm": 140.96425992779783,
+				"takeoff": {
+					"status": "ok",
+					"total": 1438,
+					"groundRoll": 910
+				},
+				"landing": {
+					"status": "ok",
+					"total": 2688,
+					"groundRoll": 1368
+				},
+				"exceeded": []
+			}
+		},
+		{
+			"id": "sr-aft",
+			"label": "Aft loading",
+			"author": "Project test suite (fictional), expected values from the separate reference calculator",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"front": {
+						"mass": 180
+					},
+					"rear": {
+						"mass": 300
+					},
+					"baggage": {
+						"mass": 130
+					}
+				},
+				"fuel": {
+					"main": 50
+				},
+				"burnPlan": "even",
+				"flightTimeHours": 0,
+				"fuelFlow": 0,
+				"elevation": {
+					"value": 0,
+					"unit": "ft"
+				},
+				"qnh": 1013.25,
+				"oat": 20,
+				"windDirection": 0,
+				"windSpeed": 0,
+				"runwayHeading": 0,
+				"takeoffCondition": "hard",
+				"landingCondition": "hard"
+			},
+			"expected": {
+				"takeoffMass": 3210,
+				"takeoffArm": 148.0809968847352,
+				"landingMass": 3210,
+				"landingArm": 148.0809968847352,
+				"takeoff": {
+					"status": "ok",
+					"total": 1350,
+					"groundRoll": 871
+				},
+				"landing": {
+					"status": "ok",
+					"total": 2400,
+					"groundRoll": 1180
+				},
+				"exceeded": []
+			}
+		},
+		{
+			"id": "sr-over",
+			"label": "Over the limits",
+			"author": "Project test suite (fictional), expected values from the separate reference calculator",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"front": {
+						"mass": 500
+					},
+					"rear": {
+						"mass": 450
+					},
+					"baggage": {
+						"mass": 150
+					}
+				},
+				"fuel": {
+					"main": 92
+				},
+				"burnPlan": "even",
+				"flightTimeHours": 0,
+				"fuelFlow": 0,
+				"elevation": {
+					"value": 0,
+					"unit": "ft"
+				},
+				"qnh": 1013.25,
+				"oat": 20,
+				"windDirection": 0,
+				"windSpeed": 0,
+				"runwayHeading": 0,
+				"takeoffCondition": "hard",
+				"landingCondition": "hard"
+			},
+			"expected": {
+				"takeoffMass": 3952,
+				"takeoffArm": 149.6596153846154,
+				"landingMass": 3952,
+				"landingArm": 149.6596153846154,
+				"takeoff": {
+					"status": "noResult"
+				},
+				"landing": {
+					"status": "ok",
+					"total": 2400,
+					"groundRoll": 1180
+				},
+				"exceeded": [
+					"landingCg",
+					"landingMass",
+					"station:baggage",
+					"station:rear",
+					"takeoffCg",
+					"takeoffMass"
+				]
+			}
 		}
 	]
 }
