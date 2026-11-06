@@ -15,6 +15,15 @@ export type MassBalance = {
 	limits: Limit[];
 };
 
+/** One line for showing a limit, with units. Used on screen and in Reports, so they always agree. */
+export function limitText(a: Aircraft, limit: Limit): string {
+	const arm = (x: number) => `${x.toFixed(a.display.armDecimals)} ${a.units.arm}`;
+	if (limit.id === 'takeoffCg' || limit.id === 'landingCg') return arm(limit.value);
+	if (limit.id === 'crosswind') return `${limit.value.toFixed(0)} kt, manual figure ${limit.limit} kt`;
+	const unit = limit.id.startsWith('tank:') || limit.id === 'fuelBurn' ? a.units.volume : a.units.mass;
+	return `${limit.value.toFixed(1)} ${unit}${limit.limit !== undefined ? `, max ${limit.limit}` : ''}`;
+}
+
 export function configurationOf(a: Aircraft, id: string) {
 	const c = a.configurations.find((x) => x.id === id);
 	if (!c) throw new Error(`Unknown configuration: ${id}`);

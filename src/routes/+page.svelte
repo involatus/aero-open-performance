@@ -15,12 +15,23 @@
 		performanceOf, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation as Calc, type Field
 	} from '#lib/app/calculation.ts';
 	import { calculate } from '#lib/engine/index.ts';
+	import { limitText } from '#lib/engine/mass-balance.ts';
+	import { chartSvg } from '#lib/report/chart.ts';
+	import { renderPdf } from '#lib/report/pdf.ts';
+	import { RETENTION_DAYS, createReportData, deliveryLabel, fingerprint, newReportId, reportDocument, type StoredReport } from '#lib/report/report.ts';
+	import { version as toolVersion } from '../../package.json';
 
 	const app = new AppState();
 	let choosing = $state(false);
 	let padKey = $state<string | null>(null);
 	let padFresh = $state(true);
 	let confirmDelete = $state(false);
+	let showReports = $state(false);
+	let creating = $state(false);
+	let reportError = $state('');
+	let deleteReportId = $state<string | null>(null);
+	// Ready before the tap, because iPadOS only allows sharing right after one.
+	const pdfCache = new Map<string, File>();
 
 	let calc = $derived<Calc | undefined>(app.tabs[app.current]);
 	let aircraft = $derived(calc && demoAircraft.find((a) => a.registration === calc!.aircraft));
@@ -32,6 +43,8 @@
 	let perf = $derived(aircraft && calc ? performanceOf(aircraft, calc.configuration) : null);
 	let exceededLimits = $derived(results ? results.massBalance.limits.filter((l) => l.status === 'exceeded') : []);
 	let labels = $derived(tabLabels(app.tabs));
+	let latestReport = $derived(calc ? app.reports.find((r) => r.calculationId === calc!.id) : undefined);
+	let reportIsCurrent = $derived(!!(latestReport && aircraft && calc && latestReport.fingerprint === fingerprint(aircraft, calc)));
 	const makeId = () => `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
 
 	onMount(() => {
@@ -51,6 +64,71 @@
 		// Reads the whole state so any change saves it.
 		JSON.stringify(app.tabs); void app.current;
 	});
+
+	$effect(() => {
+		if (latestReport) preparePdf(latestReport.id);
+	});
+
+	async function preparePdf(id: string): Promise<File | undefined> {
+		if (pdfCache.has(id)) return pdfCache.get(id);
+		const blob = await app.pdf(id);
+		if (!blob) return undefined;
+		const file = new File([blob], `${id}.pdf`, { type: 'application/pdf' });
+		pdfCache.set(id, file);
+		return file;
+	}
+
+	async function createReport() {
+		if (!ready || !aircraft || !calc || !results || creating) return;
+		creating = true;
+		reportError = '';
+		try {
+			const now = Date.now();
+			const id = newReportId(now, crypto.getRandomValues(new Uint8Array(4)));
+			const data = createReportData(aircraft, $state.snapshot(calc), results, {
+				id, now, preRelease: true, toolVersion: `${toolVersion}, build ${version}`,
+				dataRelease: aircraft.fictional ? 'Demo data, no Data Release' : 'No Data Release',
+				lastDataCheck: 'not applicable to demo data',
+				chartSvg: chartSvg(aircraft, results, calc.configuration)
+			});
+			const pdf = await renderPdf(reportDocument(data));
+			const date = new Date(now).toISOString().slice(0, 16).replace('T', ' ');
+			const report: StoredReport = { id, calculationId: calc.id, created: now, label: `${aircraft.registration} ${data.departure}, ${date} UTC`, delivery: 'notSent', fingerprint: fingerprint(aircraft, calc), data };
+			await app.addReport(report, pdf);
+			await preparePdf(id);
+		} catch (error) {
+			reportError = `The report could not be created: ${(error as Error).message}. Nothing was saved. Try again.`;
+		}
+		creating = false;
+	}
+
+	async function shareReport(id: string) {
+		reportError = '';
+		const file = pdfCache.get(id) ?? (await preparePdf(id));
+		if (!file) { reportError = 'The PDF for this report is missing on this device.'; return; }
+		if (!navigator.canShare?.({ files: [file] })) { reportError = 'This device cannot share files from the app. Open the PDF and save or send it from there.'; return; }
+		try {
+			await navigator.share({ files: [file], title: `Performance report ${id}` });
+			await app.setDelivery(id, 'shared');
+		} catch (error) {
+			if ((error as Error).name !== 'AbortError') reportError = `Sharing failed: ${(error as Error).message}. Try again.`;
+		}
+	}
+
+	async function openReport(id: string) {
+		reportError = '';
+		const file = await preparePdf(id);
+		if (!file) { reportError = 'The PDF for this report is missing on this device.'; return; }
+		const url = URL.createObjectURL(file);
+		if (!window.open(url, '_blank')) location.href = url;
+	}
+
+	function removeReport(id: string) {
+		if (deleteReportId !== id) { deleteReportId = id; return; }
+		app.deleteReport(id);
+		pdfCache.delete(id);
+		deleteReportId = null;
+	}
 
 	function massText(x: number) { return `${x.toFixed(aircraft!.display.massDecimals)} ${aircraft!.units.mass}`; }
 	function armText(x: number) { return `${x.toFixed(aircraft!.display.armDecimals)} ${aircraft!.units.arm}`; }
@@ -127,7 +205,25 @@
 	<div class="notice">Pre-release, not for flight. These are fictional demo aircraft with invented data.</div>
 	{#if app.saveFailed}<div class="notice">This device isn't saving your calculations. They will be lost if you close the app.</div>{/if}
 
-	{#if app.loaded && (choosing || !app.tabs.length)}
+	{#if app.loaded && showReports}
+		<h1>Reports</h1>
+		<section>
+			<p class="muted">Reports stay only on this device, for {RETENTION_DAYS} days. Reports not yet sent stay until you send or delete them. Clearing browser data or losing this device loses them.</p>
+			{#if reportError}<div class="banner notsent" role="alert">{reportError}</div>{/if}
+			{#if !app.reports.length}<p>No reports yet. Reports appear here once you create them on the Send step.</p>{/if}
+			{#each app.reports as report (report.id)}
+				<div class="report-row">
+					<div><strong>{report.label}</strong><br /><span class="muted">{report.id}</span><br /><span class="delivery {report.delivery}">{deliveryLabel(report.delivery)}</span></div>
+					<div class="report-actions">
+						<button type="button" onclick={() => shareReport(report.id)}>Share PDF</button>
+						<button type="button" onclick={() => openReport(report.id)}>Open PDF</button>
+						<button type="button" class:danger={deleteReportId === report.id} onclick={() => removeReport(report.id)}>{deleteReportId === report.id ? 'Tap again to delete' : 'Delete'}</button>
+					</div>
+				</div>
+			{/each}
+			<button type="button" onclick={() => { showReports = false; deleteReportId = null; reportError = ''; }}>Back</button>
+		</section>
+	{:else if app.loaded && (choosing || !app.tabs.length)}
 		<h1>Aero Open Performance</h1>
 		<section>
 			<h2>Choose an aircraft</h2>
@@ -147,6 +243,7 @@
 			</Tabs.List>
 			<button type="button" class="flex-none" onclick={addNextFlight}>+ Next flight</button>
 			<button type="button" class="flex-none" onclick={() => { choosing = true; closePad(); }}>+ New</button>
+			<button type="button" class="flex-none" onclick={() => { showReports = true; closePad(); }}>Reports ({app.reports.length})</button>
 		</div>
 		<Tabs.Content value={calc.id} class="grid gap-3">
 
@@ -245,8 +342,16 @@
 								{#each exceededLimits as limit (limit.id)}<button type="button" class="link" onclick={() => goStep(stepOfLimit(limit.id))}><i class="fail">OVER</i> {limit.label}</button>{/each}
 							</div>
 						{/if}
-						<p class="muted">{ready ? 'Everything is checked.' : 'Reports need every item done and no exceeded limit.'} Creating and sending Reports comes in the next build.</p>
-						<button type="button" class="primary" disabled>Create report</button>
+						{#if reportError}<div class="banner notsent" role="alert">{reportError}</div>{/if}
+						{#if latestReport && reportIsCurrent}
+							<div class="banner {latestReport.delivery === 'shared' ? 'unk' : 'notsent'}" role="status">{deliveryLabel(latestReport.delivery)}. Report {latestReport.id}.</div>
+							<button type="button" class="primary" onclick={() => shareReport(latestReport!.id)}>Share PDF</button>
+							<button type="button" onclick={() => openReport(latestReport!.id)}>Open PDF</button>
+						{:else}
+							{#if latestReport}<div class="banner unk" role="status">The inputs changed after report {latestReport.id}. That report stays as it was. Create a new one for the current values.</div>{/if}
+							{#if !ready}<p class="muted">A report needs every item done and no exceeded limit.</p>{/if}
+							<button type="button" class="primary" disabled={!ready || creating} onclick={createReport}>{creating ? 'Creating report' : 'Create report'}</button>
+						{/if}
 						<div class="actions">
 							<button type="button" class:danger={confirmDelete} onclick={deleteTab}>{confirmDelete ? 'Tap again to delete this tab' : 'Delete this tab'}</button>
 						</div>
@@ -277,7 +382,7 @@
 						{#each results.massBalance.limits as limit (limit.id)}
 							<div class="check">
 								<i class={limit.status === 'ok' ? 'ok' : limit.status === 'warning' ? 'warnb' : 'fail'}>{limit.status === 'ok' ? 'OK' : limit.status === 'warning' ? 'CHECK' : 'OVER'}</i>
-								<span><strong>{limit.label}</strong> {limit.id.endsWith('Cg') ? armText(limit.value) : limit.value.toFixed(1)}{limit.limit !== undefined ? `, max ${limit.limit}` : ''}</span>
+								<span><strong>{limit.label}</strong> {limitText(aircraft, limit)}</span>
 							</div>
 						{/each}
 					</div>

@@ -1,39 +1,20 @@
 <script lang="ts">
 	import type { Aircraft } from '#lib/aircraft/schema.ts';
 	import type { Calculation } from '#lib/engine/index.ts';
-	import { configurationOf, envelopeArm } from '#lib/engine/mass-balance.ts';
+	import { CHART, chartGeometry } from '#lib/report/chart.ts';
 
 	let { aircraft, results, configuration }: { aircraft: Aircraft; results: Calculation; configuration: string } = $props();
 
-	const W = 440, H = 260, L = 50, R = 16, T = 14, B = 38;
-	let config = $derived(configurationOf(aircraft, configuration));
-	let envelope = $derived(config.envelope ?? aircraft.envelope);
-	let limits = $derived(config.massLimits ?? aircraft.massLimits);
-	let points = $derived(envelope.points.map((p) => ({ mass: p.mass, arm: envelopeArm(aircraft, p) })));
-	let to = $derived(results.massBalance.takeoff);
-	let ld = $derived(results.massBalance.landing);
-
-	function niceStep(span: number, count: number) {
-		const raw = span / count, power = 10 ** Math.floor(Math.log10(raw)), f = raw / power;
-		return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * power;
-	}
-	function domain(values: number[]) {
-		const lo = Math.min(...values), hi = Math.max(...values), pad = (hi - lo || 1) * 0.08;
-		return [lo - pad, hi + pad];
-	}
-	let massDomain = $derived(domain([...points.map((p) => p.mass), to.mass, ld.mass]));
-	let armDomain = $derived(domain([...points.map((p) => p.arm), to.arm, ld.arm]));
-	let x = $derived((arm: number) => L + ((arm - armDomain[0]) / (armDomain[1] - armDomain[0])) * (W - L - R));
-	let y = $derived((mass: number) => T + ((massDomain[1] - mass) / (massDomain[1] - massDomain[0])) * (H - T - B));
-	function ticks([lo, hi]: number[], count: number) {
-		const step = niceStep(hi - lo, count), out: number[] = [];
-		for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(Number(v.toPrecision(10)));
-		return out;
-	}
-	let massTicks = $derived(ticks(massDomain, 4));
-	let armTicks = $derived(ticks(armDomain, 5));
-	let polygon = $derived(points.map((p) => `${x(p.arm).toFixed(1)},${y(p.mass).toFixed(1)}`).join(' '));
-	let landingLine = $derived(limits.maxLanding.value < limits.maxTakeoff.value);
+	const { W, H, L, R, B } = CHART;
+	let g = $derived(chartGeometry(aircraft, results, configuration));
+	let to = $derived(g.to);
+	let ld = $derived(g.ld);
+	let x = $derived(g.x);
+	let y = $derived(g.y);
+	let massTicks = $derived(g.massTicks);
+	let armTicks = $derived(g.armTicks);
+	let polygon = $derived(g.polygon);
+	let armDomain = $derived(g.armDomain);
 </script>
 
 <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`CG envelope. Takeoff ${to.mass.toFixed(0)} ${aircraft.units.mass} at ${to.arm.toFixed(aircraft.display.armDecimals)} ${aircraft.units.arm}. Landing ${ld.mass.toFixed(0)} ${aircraft.units.mass} at ${ld.arm.toFixed(aircraft.display.armDecimals)} ${aircraft.units.arm}.`}>
@@ -45,9 +26,9 @@
 		<text x={x(a)} y={H - B + 16} text-anchor="middle">{a}</text>
 	{/each}
 	<polygon points={polygon} fill="var(--good-bg)" stroke="var(--good)" stroke-width="1.5" />
-	{#if landingLine}
-		<line x1={x(armDomain[0])} x2={x(armDomain[1])} y1={y(limits.maxLanding.value)} y2={y(limits.maxLanding.value)} stroke="var(--amber)" stroke-dasharray="5 4" />
-		<text x={W - R - 2} y={y(limits.maxLanding.value) - 4} text-anchor="end">Max landing {limits.maxLanding.value}</text>
+	{#if g.maxLanding !== null}
+		<line x1={x(armDomain[0])} x2={x(armDomain[1])} y1={y(g.maxLanding)} y2={y(g.maxLanding)} stroke="var(--amber)" stroke-dasharray="5 4" />
+		<text x={W - R - 2} y={y(g.maxLanding) - 4} text-anchor="end">Max landing {g.maxLanding}</text>
 	{/if}
 	<line x1={x(to.arm)} y1={y(to.mass)} x2={x(ld.arm)} y2={y(ld.mass)} stroke="var(--accent)" stroke-width="2" />
 	<circle cx={x(to.arm)} cy={y(to.mass)} r="6" fill="var(--accent)" />

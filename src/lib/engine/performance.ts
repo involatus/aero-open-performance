@@ -37,6 +37,8 @@ function inputFor(axis: { input: string; unit: string }, ctx: Context): number |
 		default: throw new Error(`Unknown axis input: ${axis.input}`);
 	}
 }
+const OUTPUT_NAMES = { total: 'Total', groundRoll: 'Ground roll' };
+const showUnit = (unit: string) => (unit === 'C' || unit === 'F' ? `°${unit}` : unit);
 const INPUT_NAMES: Record<string, string> = { pressureAltitude: 'elevation and QNH', densityAltitude: 'elevation, QNH and OAT', elevation: 'elevation', temperature: 'OAT', mass: 'mass' };
 
 /** Factor for one wind direction, or null when the manual gives no result at this wind. */
@@ -75,9 +77,9 @@ export function runCondition(a: Aircraft, condition: Condition, ctx: Context): P
 				const x = inputFor(axis, ctx);
 				if (x === null) return stop('needsInput', `Enter ${INPUT_NAMES[axis.input]}`, [INPUT_NAMES[axis.input]]);
 				const b = bracket(axis, x);
-				if (!b) return stop('noResult', `No result: ${axis.name} ${x.toFixed(1)} ${axis.unit} is outside the table (${axis.values[0]} to ${axis.values[axis.values.length - 1]} ${axis.unit})`);
-				if (b.warn) result.warnings.push(`${axis.name} ${x.toFixed(1)} ${axis.unit} is outside the table: uses the nearest value`);
-				parts.push(`${axis.name} ${x.toFixed(1)} ${axis.unit}`);
+				if (!b) return stop('noResult', `No result: ${axis.name} ${x.toFixed(1)} ${showUnit(axis.unit)} is outside the table (${axis.values[0]} to ${axis.values[axis.values.length - 1]} ${showUnit(axis.unit)})`);
+				if (b.warn) result.warnings.push(`${axis.name} ${x.toFixed(1)} ${showUnit(axis.unit)} is outside the table: uses the nearest value`);
+				parts.push(`${axis.name} ${x.toFixed(1)} ${showUnit(axis.unit)}`);
 				brackets.push(b);
 			}
 			if (table.outputs.total) total = interpolate(table.outputs.total, brackets);
@@ -94,7 +96,7 @@ export function runCondition(a: Aircraft, condition: Condition, ctx: Context): P
 		} else if (step.type === 'massCorrection') {
 			const factor = Math.pow(ctx.mass / step.referenceMass, step.exponent);
 			apply(step.applies, factor);
-			trace('massCorrection', `(${ctx.mass.toFixed(1)} ÷ ${step.referenceMass})^${step.exponent} = ${factor.toFixed(4)}`, { source: step.source });
+			trace('massCorrection', `Mass correction (${ctx.mass.toFixed(1)} ÷ ${step.referenceMass})^${step.exponent} = ${factor.toFixed(4)}`, { source: step.source });
 		} else if (step.type === 'wind') {
 			if (!ctx.wind) return stop('needsInput', 'Enter wind and runway heading', ['wind and runway heading']);
 			const head = ctx.wind.headwind;
@@ -114,7 +116,7 @@ export function runCondition(a: Aircraft, condition: Condition, ctx: Context): P
 			const from: number | null = step.from === 'total' ? total : groundRoll;
 			const value: number = (from as number) * step.value;
 			if (step.into === 'total') total = value; else groundRoll = value;
-			trace('ratio', `${step.into} is ${step.value * 100}% of ${step.from}`, { source: step.source });
+			trace('ratio', `${OUTPUT_NAMES[step.into]} is ${Math.round(step.value * 10000) / 100}% of ${OUTPUT_NAMES[step.from].toLowerCase()}`, { source: step.source });
 		}
 	}
 
