@@ -1,0 +1,2701 @@
+{
+	"type": "object",
+	"properties": {
+		"formatVersion": {
+			"type": "string",
+			"minLength": 1
+		},
+		"registration": {
+			"type": "string",
+			"minLength": 1
+		},
+		"type": {
+			"type": "string",
+			"minLength": 1
+		},
+		"revision": {
+			"type": "integer",
+			"minimum": 1
+		},
+		"fictional": {
+			"type": "boolean"
+		},
+		"units": {
+			"type": "object",
+			"properties": {
+				"mass": {
+					"enum": [
+						"kg",
+						"lb"
+					],
+					"type": "string"
+				},
+				"arm": {
+					"enum": [
+						"m",
+						"cm",
+						"in"
+					],
+					"type": "string"
+				},
+				"volume": {
+					"enum": [
+						"L",
+						"USgal"
+					],
+					"type": "string"
+				}
+			},
+			"required": [
+				"mass",
+				"arm",
+				"volume"
+			],
+			"additionalProperties": false
+		},
+		"display": {
+			"type": "object",
+			"properties": {
+				"massDecimals": {
+					"type": "integer",
+					"minimum": 0
+				},
+				"armDecimals": {
+					"type": "integer",
+					"minimum": 0
+				}
+			},
+			"required": [
+				"massDecimals",
+				"armDecimals"
+			],
+			"additionalProperties": false
+		},
+		"sources": {
+			"type": "object",
+			"propertyNames": {
+				"type": "string",
+				"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+			},
+			"additionalProperties": {
+				"type": "object",
+				"properties": {
+					"document": {
+						"type": "string",
+						"minLength": 1
+					},
+					"revision": {
+						"type": "string",
+						"minLength": 1
+					},
+					"page": {
+						"type": "string",
+						"minLength": 1
+					},
+					"date": {
+						"type": "string",
+						"minLength": 1
+					}
+				},
+				"required": [
+					"document"
+				],
+				"additionalProperties": false
+			}
+		},
+		"stations": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+					},
+					"label": {
+						"type": "string",
+						"minLength": 1
+					},
+					"arm": {
+						"type": "number"
+					},
+					"positions": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"id": {
+									"type": "string",
+									"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+								},
+								"label": {
+									"type": "string",
+									"minLength": 1
+								},
+								"arm": {
+									"type": "number"
+								}
+							},
+							"required": [
+								"id",
+								"label",
+								"arm"
+							],
+							"additionalProperties": false
+						},
+						"minItems": 1
+					},
+					"defaultPosition": {
+						"type": "string",
+						"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+					},
+					"maxMass": {
+						"type": "number",
+						"exclusiveMinimum": 0
+					},
+					"source": {
+						"type": "string",
+						"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+					}
+				},
+				"required": [
+					"id",
+					"label",
+					"source"
+				],
+				"additionalProperties": false
+			},
+			"minItems": 1
+		},
+		"tanks": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+					},
+					"label": {
+						"type": "string",
+						"minLength": 1
+					},
+					"arm": {
+						"type": "number"
+					},
+					"capacity": {
+						"type": "number",
+						"exclusiveMinimum": 0
+					},
+					"density": {
+						"type": "number",
+						"exclusiveMinimum": 0
+					},
+					"source": {
+						"type": "string",
+						"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+					}
+				},
+				"required": [
+					"id",
+					"label",
+					"arm",
+					"capacity",
+					"density",
+					"source"
+				],
+				"additionalProperties": false
+			},
+			"minItems": 1
+		},
+		"combinedLimits": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+					},
+					"label": {
+						"type": "string",
+						"minLength": 1
+					},
+					"stations": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+						},
+						"minItems": 2
+					},
+					"maxMass": {
+						"type": "number",
+						"exclusiveMinimum": 0
+					},
+					"source": {
+						"type": "string",
+						"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+					}
+				},
+				"required": [
+					"id",
+					"label",
+					"stations",
+					"maxMass",
+					"source"
+				],
+				"additionalProperties": false
+			}
+		},
+		"massLimits": {
+			"type": "object",
+			"properties": {
+				"maxTakeoff": {
+					"type": "object",
+					"properties": {
+						"value": {
+							"type": "number",
+							"exclusiveMinimum": 0
+						},
+						"source": {
+							"type": "string",
+							"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+						}
+					},
+					"required": [
+						"value",
+						"source"
+					],
+					"additionalProperties": false
+				},
+				"maxLanding": {
+					"type": "object",
+					"properties": {
+						"value": {
+							"type": "number",
+							"exclusiveMinimum": 0
+						},
+						"source": {
+							"type": "string",
+							"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+						}
+					},
+					"required": [
+						"value",
+						"source"
+					],
+					"additionalProperties": false
+				}
+			},
+			"required": [
+				"maxTakeoff",
+				"maxLanding"
+			],
+			"additionalProperties": false
+		},
+		"envelope": {
+			"type": "object",
+			"properties": {
+				"points": {
+					"type": "array",
+					"items": {
+						"anyOf": [
+							{
+								"type": "object",
+								"properties": {
+									"mass": {
+										"type": "number",
+										"exclusiveMinimum": 0
+									},
+									"arm": {
+										"type": "number"
+									}
+								},
+								"required": [
+									"mass",
+									"arm"
+								],
+								"additionalProperties": false
+							},
+							{
+								"type": "object",
+								"properties": {
+									"mass": {
+										"type": "number",
+										"exclusiveMinimum": 0
+									},
+									"percentMac": {
+										"type": "number"
+									}
+								},
+								"required": [
+									"mass",
+									"percentMac"
+								],
+								"additionalProperties": false
+							}
+						]
+					},
+					"minItems": 3
+				},
+				"source": {
+					"type": "string",
+					"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+				}
+			},
+			"required": [
+				"points",
+				"source"
+			],
+			"additionalProperties": false
+		},
+		"mac": {
+			"type": "object",
+			"properties": {
+				"leadingEdgeArm": {
+					"type": "number"
+				},
+				"length": {
+					"type": "number",
+					"exclusiveMinimum": 0
+				},
+				"source": {
+					"type": "string",
+					"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+				}
+			},
+			"required": [
+				"leadingEdgeArm",
+				"length",
+				"source"
+			],
+			"additionalProperties": false
+		},
+		"burnPlans": {
+			"type": "array",
+			"items": {
+				"oneOf": [
+					{
+						"type": "object",
+						"properties": {
+							"id": {
+								"type": "string",
+								"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+							},
+							"label": {
+								"type": "string",
+								"minLength": 1
+							},
+							"type": {
+								"const": "even"
+							}
+						},
+						"required": [
+							"id",
+							"label",
+							"type"
+						],
+						"additionalProperties": false
+					},
+					{
+						"type": "object",
+						"properties": {
+							"id": {
+								"type": "string",
+								"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+							},
+							"label": {
+								"type": "string",
+								"minLength": 1
+							},
+							"type": {
+								"const": "sequence"
+							},
+							"tanks": {
+								"type": "array",
+								"items": {
+									"type": "string",
+									"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+								},
+								"minItems": 1
+							}
+						},
+						"required": [
+							"id",
+							"label",
+							"type",
+							"tanks"
+						],
+						"additionalProperties": false
+					}
+				]
+			},
+			"minItems": 1
+		},
+		"defaultBurnPlan": {
+			"type": "string",
+			"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+		},
+		"fuelFlow": {
+			"type": "object",
+			"properties": {
+				"value": {
+					"type": "number",
+					"exclusiveMinimum": 0
+				},
+				"source": {
+					"type": "string",
+					"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+				}
+			},
+			"required": [
+				"value",
+				"source"
+			],
+			"additionalProperties": false
+		},
+		"crosswind": {
+			"type": "object",
+			"properties": {
+				"value": {
+					"type": "number",
+					"exclusiveMinimum": 0
+				},
+				"source": {
+					"type": "string",
+					"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+				}
+			},
+			"required": [
+				"value",
+				"source"
+			],
+			"additionalProperties": false
+		},
+		"notes": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+					},
+					"text": {
+						"type": "string",
+						"minLength": 1
+					},
+					"source": {
+						"type": "string",
+						"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+					}
+				},
+				"required": [
+					"id",
+					"text",
+					"source"
+				],
+				"additionalProperties": false
+			}
+		},
+		"tables": {
+			"type": "object",
+			"propertyNames": {
+				"type": "string",
+				"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+			},
+			"additionalProperties": {
+				"type": "object",
+				"properties": {
+					"axes": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"name": {
+									"type": "string",
+									"minLength": 1
+								},
+								"input": {
+									"enum": [
+										"pressureAltitude",
+										"densityAltitude",
+										"elevation",
+										"temperature",
+										"mass"
+									],
+									"type": "string"
+								},
+								"unit": {
+									"type": "string",
+									"minLength": 1
+								},
+								"values": {
+									"type": "array",
+									"items": {
+										"type": "number"
+									},
+									"minItems": 1
+								},
+								"below": {
+									"enum": [
+										"none",
+										"nearest",
+										"nearestWarn"
+									],
+									"type": "string"
+								},
+								"above": {
+									"enum": [
+										"none",
+										"nearest",
+										"nearestWarn"
+									],
+									"type": "string"
+								}
+							},
+							"required": [
+								"name",
+								"input",
+								"unit",
+								"values",
+								"below",
+								"above"
+							],
+							"additionalProperties": false
+						},
+						"minItems": 1
+					},
+					"outputs": {
+						"type": "object",
+						"properties": {
+							"total": {
+								"type": "array",
+								"items": {
+									"anyOf": [
+										{
+											"type": "number"
+										},
+										{
+											"$ref": "#/$defs/0"
+										}
+									]
+								}
+							},
+							"groundRoll": {
+								"$ref": "#/$defs/0"
+							}
+						},
+						"required": [],
+						"additionalProperties": false
+					},
+					"source": {
+						"type": "string",
+						"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+					}
+				},
+				"required": [
+					"axes",
+					"outputs",
+					"source"
+				],
+				"additionalProperties": false
+			}
+		},
+		"performance": {
+			"type": "object",
+			"properties": {
+				"takeoff": {
+					"type": "array",
+					"items": {
+						"oneOf": [
+							{
+								"type": "object",
+								"properties": {
+									"kind": {
+										"const": "steps"
+									},
+									"id": {
+										"type": "string",
+										"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+									},
+									"label": {
+										"type": "string",
+										"minLength": 1
+									},
+									"distanceUnit": {
+										"enum": [
+											"m",
+											"ft"
+										],
+										"type": "string"
+									},
+									"steps": {
+										"type": "array",
+										"items": {
+											"oneOf": [
+												{
+													"type": "object",
+													"properties": {
+														"type": {
+															"const": "lookup"
+														},
+														"table": {
+															"type": "string",
+															"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+														}
+													},
+													"required": [
+														"type",
+														"table"
+													],
+													"additionalProperties": false
+												},
+												{
+													"type": "object",
+													"properties": {
+														"type": {
+															"const": "fixed"
+														},
+														"total": {
+															"type": "number",
+															"minimum": 0
+														},
+														"groundRoll": {
+															"type": "number",
+															"minimum": 0
+														},
+														"source": {
+															"type": "string",
+															"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+														}
+													},
+													"required": [
+														"type",
+														"source"
+													],
+													"additionalProperties": false
+												},
+												{
+													"type": "object",
+													"properties": {
+														"type": {
+															"const": "factor"
+														},
+														"value": {
+															"type": "number",
+															"exclusiveMinimum": 0
+														},
+														"applies": {
+															"type": "array",
+															"items": {
+																"enum": [
+																	"total",
+																	"groundRoll"
+																],
+																"type": "string"
+															},
+															"minItems": 1
+														},
+														"reason": {
+															"type": "string",
+															"minLength": 1
+														},
+														"source": {
+															"type": "string",
+															"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+														}
+													},
+													"required": [
+														"type",
+														"value",
+														"applies",
+														"reason",
+														"source"
+													],
+													"additionalProperties": false
+												},
+												{
+													"type": "object",
+													"properties": {
+														"type": {
+															"const": "massCorrection"
+														},
+														"referenceMass": {
+															"type": "number",
+															"exclusiveMinimum": 0
+														},
+														"exponent": {
+															"type": "number"
+														},
+														"applies": {
+															"type": "array",
+															"items": {
+																"enum": [
+																	"total",
+																	"groundRoll"
+																],
+																"type": "string"
+															},
+															"minItems": 1
+														},
+														"source": {
+															"type": "string",
+															"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+														}
+													},
+													"required": [
+														"type",
+														"referenceMass",
+														"exponent",
+														"applies",
+														"source"
+													],
+													"additionalProperties": false
+												},
+												{
+													"type": "object",
+													"properties": {
+														"type": {
+															"const": "wind"
+														},
+														"headwind": {
+															"type": "object",
+															"properties": {
+																"mode": {
+																	"enum": [
+																		"proportional",
+																		"stepped"
+																	],
+																	"type": "string"
+																},
+																"percent": {
+																	"type": "number",
+																	"exclusiveMinimum": 0
+																},
+																"perKnots": {
+																	"type": "number",
+																	"exclusiveMinimum": 0
+																},
+																"maxKnots": {
+																	"type": "number",
+																	"exclusiveMinimum": 0
+																},
+																"above": {
+																	"enum": [
+																		"none",
+																		"nearest",
+																		"nearestWarn"
+																	],
+																	"type": "string"
+																}
+															},
+															"required": [
+																"mode",
+																"percent",
+																"perKnots",
+																"above"
+															],
+															"additionalProperties": false
+														},
+														"tailwind": {
+															"type": "object",
+															"properties": {
+																"mode": {
+																	"enum": [
+																		"proportional",
+																		"stepped"
+																	],
+																	"type": "string"
+																},
+																"percent": {
+																	"type": "number",
+																	"exclusiveMinimum": 0
+																},
+																"perKnots": {
+																	"type": "number",
+																	"exclusiveMinimum": 0
+																},
+																"maxKnots": {
+																	"type": "number",
+																	"exclusiveMinimum": 0
+																},
+																"above": {
+																	"enum": [
+																		"none",
+																		"nearest",
+																		"nearestWarn"
+																	],
+																	"type": "string"
+																}
+															},
+															"required": [
+																"mode",
+																"percent",
+																"perKnots",
+																"above"
+															],
+															"additionalProperties": false
+														},
+														"applies": {
+															"type": "array",
+															"items": {
+																"enum": [
+																	"total",
+																	"groundRoll"
+																],
+																"type": "string"
+															},
+															"minItems": 1
+														},
+														"source": {
+															"type": "string",
+															"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+														}
+													},
+													"required": [
+														"type",
+														"applies",
+														"source"
+													],
+													"additionalProperties": false
+												},
+												{
+													"type": "object",
+													"properties": {
+														"type": {
+															"const": "surface"
+														},
+														"percent": {
+															"type": "number"
+														},
+														"carryToTotal": {
+															"type": "boolean"
+														},
+														"source": {
+															"type": "string",
+															"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+														}
+													},
+													"required": [
+														"type",
+														"percent",
+														"carryToTotal",
+														"source"
+													],
+													"additionalProperties": false
+												},
+												{
+													"type": "object",
+													"properties": {
+														"type": {
+															"const": "ratio"
+														},
+														"from": {
+															"enum": [
+																"total",
+																"groundRoll"
+															],
+															"type": "string"
+														},
+														"into": {
+															"enum": [
+																"total",
+																"groundRoll"
+															],
+															"type": "string"
+														},
+														"value": {
+															"type": "number",
+															"exclusiveMinimum": 0
+														},
+														"source": {
+															"type": "string",
+															"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+														}
+													},
+													"required": [
+														"type",
+														"from",
+														"into",
+														"value",
+														"source"
+													],
+													"additionalProperties": false
+												}
+											]
+										},
+										"minItems": 1
+									},
+									"assumes": {
+										"type": "object",
+										"properties": {
+											"text": {
+												"type": "string",
+												"minLength": 1
+											},
+											"inputs": {
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"input": {
+															"enum": [
+																"pressureAltitude",
+																"densityAltitude",
+																"elevation",
+																"temperature"
+															],
+															"type": "string"
+														},
+														"value": {
+															"type": "number"
+														},
+														"unit": {
+															"type": "string",
+															"minLength": 1
+														}
+													},
+													"required": [
+														"input",
+														"value",
+														"unit"
+													],
+													"additionalProperties": false
+												}
+											}
+										},
+										"required": [
+											"text",
+											"inputs"
+										],
+										"additionalProperties": false
+									}
+								},
+								"required": [
+									"kind",
+									"id",
+									"label",
+									"distanceUnit",
+									"steps"
+								],
+								"additionalProperties": false
+							},
+							{
+								"type": "object",
+								"properties": {
+									"kind": {
+										"const": "noData"
+									},
+									"id": {
+										"type": "string",
+										"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+									},
+									"label": {
+										"type": "string",
+										"minLength": 1
+									}
+								},
+								"required": [
+									"kind",
+									"id",
+									"label"
+								],
+								"additionalProperties": false
+							}
+						]
+					},
+					"minItems": 1
+				},
+				"landing": {
+					"type": "array",
+					"items": {
+						"oneOf": [
+							{
+								"type": "object",
+								"properties": {
+									"kind": {
+										"const": "steps"
+									},
+									"id": {
+										"type": "string",
+										"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+									},
+									"label": {
+										"type": "string",
+										"minLength": 1
+									},
+									"distanceUnit": {
+										"enum": [
+											"m",
+											"ft"
+										],
+										"type": "string"
+									},
+									"steps": {
+										"type": "array",
+										"items": {
+											"oneOf": [
+												{
+													"type": "object",
+													"properties": {
+														"type": {
+															"const": "lookup"
+														},
+														"table": {
+															"type": "string",
+															"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+														}
+													},
+													"required": [
+														"type",
+														"table"
+													],
+													"additionalProperties": false
+												},
+												{
+													"type": "object",
+													"properties": {
+														"type": {
+															"const": "fixed"
+														},
+														"total": {
+															"type": "number",
+															"minimum": 0
+														},
+														"groundRoll": {
+															"type": "number",
+															"minimum": 0
+														},
+														"source": {
+															"type": "string",
+															"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+														}
+													},
+													"required": [
+														"type",
+														"source"
+													],
+													"additionalProperties": false
+												},
+												{
+													"type": "object",
+													"properties": {
+														"type": {
+															"const": "factor"
+														},
+														"value": {
+															"type": "number",
+															"exclusiveMinimum": 0
+														},
+														"applies": {
+															"type": "array",
+															"items": {
+																"enum": [
+																	"total",
+																	"groundRoll"
+																],
+																"type": "string"
+															},
+															"minItems": 1
+														},
+														"reason": {
+															"type": "string",
+															"minLength": 1
+														},
+														"source": {
+															"type": "string",
+															"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+														}
+													},
+													"required": [
+														"type",
+														"value",
+														"applies",
+														"reason",
+														"source"
+													],
+													"additionalProperties": false
+												},
+												{
+													"type": "object",
+													"properties": {
+														"type": {
+															"const": "massCorrection"
+														},
+														"referenceMass": {
+															"type": "number",
+															"exclusiveMinimum": 0
+														},
+														"exponent": {
+															"type": "number"
+														},
+														"applies": {
+															"type": "array",
+															"items": {
+																"enum": [
+																	"total",
+																	"groundRoll"
+																],
+																"type": "string"
+															},
+															"minItems": 1
+														},
+														"source": {
+															"type": "string",
+															"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+														}
+													},
+													"required": [
+														"type",
+														"referenceMass",
+														"exponent",
+														"applies",
+														"source"
+													],
+													"additionalProperties": false
+												},
+												{
+													"type": "object",
+													"properties": {
+														"type": {
+															"const": "wind"
+														},
+														"headwind": {
+															"type": "object",
+															"properties": {
+																"mode": {
+																	"enum": [
+																		"proportional",
+																		"stepped"
+																	],
+																	"type": "string"
+																},
+																"percent": {
+																	"type": "number",
+																	"exclusiveMinimum": 0
+																},
+																"perKnots": {
+																	"type": "number",
+																	"exclusiveMinimum": 0
+																},
+																"maxKnots": {
+																	"type": "number",
+																	"exclusiveMinimum": 0
+																},
+																"above": {
+																	"enum": [
+																		"none",
+																		"nearest",
+																		"nearestWarn"
+																	],
+																	"type": "string"
+																}
+															},
+															"required": [
+																"mode",
+																"percent",
+																"perKnots",
+																"above"
+															],
+															"additionalProperties": false
+														},
+														"tailwind": {
+															"type": "object",
+															"properties": {
+																"mode": {
+																	"enum": [
+																		"proportional",
+																		"stepped"
+																	],
+																	"type": "string"
+																},
+																"percent": {
+																	"type": "number",
+																	"exclusiveMinimum": 0
+																},
+																"perKnots": {
+																	"type": "number",
+																	"exclusiveMinimum": 0
+																},
+																"maxKnots": {
+																	"type": "number",
+																	"exclusiveMinimum": 0
+																},
+																"above": {
+																	"enum": [
+																		"none",
+																		"nearest",
+																		"nearestWarn"
+																	],
+																	"type": "string"
+																}
+															},
+															"required": [
+																"mode",
+																"percent",
+																"perKnots",
+																"above"
+															],
+															"additionalProperties": false
+														},
+														"applies": {
+															"type": "array",
+															"items": {
+																"enum": [
+																	"total",
+																	"groundRoll"
+																],
+																"type": "string"
+															},
+															"minItems": 1
+														},
+														"source": {
+															"type": "string",
+															"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+														}
+													},
+													"required": [
+														"type",
+														"applies",
+														"source"
+													],
+													"additionalProperties": false
+												},
+												{
+													"type": "object",
+													"properties": {
+														"type": {
+															"const": "surface"
+														},
+														"percent": {
+															"type": "number"
+														},
+														"carryToTotal": {
+															"type": "boolean"
+														},
+														"source": {
+															"type": "string",
+															"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+														}
+													},
+													"required": [
+														"type",
+														"percent",
+														"carryToTotal",
+														"source"
+													],
+													"additionalProperties": false
+												},
+												{
+													"type": "object",
+													"properties": {
+														"type": {
+															"const": "ratio"
+														},
+														"from": {
+															"enum": [
+																"total",
+																"groundRoll"
+															],
+															"type": "string"
+														},
+														"into": {
+															"enum": [
+																"total",
+																"groundRoll"
+															],
+															"type": "string"
+														},
+														"value": {
+															"type": "number",
+															"exclusiveMinimum": 0
+														},
+														"source": {
+															"type": "string",
+															"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+														}
+													},
+													"required": [
+														"type",
+														"from",
+														"into",
+														"value",
+														"source"
+													],
+													"additionalProperties": false
+												}
+											]
+										},
+										"minItems": 1
+									},
+									"assumes": {
+										"type": "object",
+										"properties": {
+											"text": {
+												"type": "string",
+												"minLength": 1
+											},
+											"inputs": {
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"input": {
+															"enum": [
+																"pressureAltitude",
+																"densityAltitude",
+																"elevation",
+																"temperature"
+															],
+															"type": "string"
+														},
+														"value": {
+															"type": "number"
+														},
+														"unit": {
+															"type": "string",
+															"minLength": 1
+														}
+													},
+													"required": [
+														"input",
+														"value",
+														"unit"
+													],
+													"additionalProperties": false
+												}
+											}
+										},
+										"required": [
+											"text",
+											"inputs"
+										],
+										"additionalProperties": false
+									}
+								},
+								"required": [
+									"kind",
+									"id",
+									"label",
+									"distanceUnit",
+									"steps"
+								],
+								"additionalProperties": false
+							},
+							{
+								"type": "object",
+								"properties": {
+									"kind": {
+										"const": "noData"
+									},
+									"id": {
+										"type": "string",
+										"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+									},
+									"label": {
+										"type": "string",
+										"minLength": 1
+									}
+								},
+								"required": [
+									"kind",
+									"id",
+									"label"
+								],
+								"additionalProperties": false
+							}
+						]
+					},
+					"minItems": 1
+				}
+			},
+			"required": [
+				"takeoff",
+				"landing"
+			],
+			"additionalProperties": false
+		},
+		"configurations": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+					},
+					"label": {
+						"type": "string",
+						"minLength": 1
+					},
+					"weighing": {
+						"type": "object",
+						"properties": {
+							"mass": {
+								"type": "number",
+								"exclusiveMinimum": 0
+							},
+							"moment": {
+								"type": "number"
+							},
+							"date": {
+								"type": "string",
+								"minLength": 1
+							},
+							"source": {
+								"type": "string",
+								"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+							}
+						},
+						"required": [
+							"mass",
+							"moment",
+							"date",
+							"source"
+						],
+						"additionalProperties": false
+					},
+					"massLimits": {
+						"type": "object",
+						"properties": {
+							"maxTakeoff": {
+								"type": "object",
+								"properties": {
+									"value": {
+										"type": "number",
+										"exclusiveMinimum": 0
+									},
+									"source": {
+										"type": "string",
+										"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+									}
+								},
+								"required": [
+									"value",
+									"source"
+								],
+								"additionalProperties": false
+							},
+							"maxLanding": {
+								"type": "object",
+								"properties": {
+									"value": {
+										"type": "number",
+										"exclusiveMinimum": 0
+									},
+									"source": {
+										"type": "string",
+										"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+									}
+								},
+								"required": [
+									"value",
+									"source"
+								],
+								"additionalProperties": false
+							}
+						},
+						"required": [
+							"maxTakeoff",
+							"maxLanding"
+						],
+						"additionalProperties": false
+					},
+					"envelope": {
+						"type": "object",
+						"properties": {
+							"points": {
+								"type": "array",
+								"items": {
+									"anyOf": [
+										{
+											"type": "object",
+											"properties": {
+												"mass": {
+													"type": "number",
+													"exclusiveMinimum": 0
+												},
+												"arm": {
+													"type": "number"
+												}
+											},
+											"required": [
+												"mass",
+												"arm"
+											],
+											"additionalProperties": false
+										},
+										{
+											"type": "object",
+											"properties": {
+												"mass": {
+													"type": "number",
+													"exclusiveMinimum": 0
+												},
+												"percentMac": {
+													"type": "number"
+												}
+											},
+											"required": [
+												"mass",
+												"percentMac"
+											],
+											"additionalProperties": false
+										}
+									]
+								},
+								"minItems": 3
+							},
+							"source": {
+								"type": "string",
+								"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+							}
+						},
+						"required": [
+							"points",
+							"source"
+						],
+						"additionalProperties": false
+					},
+					"performance": {
+						"anyOf": [
+							{
+								"type": "object",
+								"properties": {
+									"takeoff": {
+										"type": "array",
+										"items": {
+											"oneOf": [
+												{
+													"type": "object",
+													"properties": {
+														"kind": {
+															"const": "steps"
+														},
+														"id": {
+															"type": "string",
+															"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+														},
+														"label": {
+															"type": "string",
+															"minLength": 1
+														},
+														"distanceUnit": {
+															"enum": [
+																"m",
+																"ft"
+															],
+															"type": "string"
+														},
+														"steps": {
+															"type": "array",
+															"items": {
+																"oneOf": [
+																	{
+																		"type": "object",
+																		"properties": {
+																			"type": {
+																				"const": "lookup"
+																			},
+																			"table": {
+																				"type": "string",
+																				"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+																			}
+																		},
+																		"required": [
+																			"type",
+																			"table"
+																		],
+																		"additionalProperties": false
+																	},
+																	{
+																		"type": "object",
+																		"properties": {
+																			"type": {
+																				"const": "fixed"
+																			},
+																			"total": {
+																				"type": "number",
+																				"minimum": 0
+																			},
+																			"groundRoll": {
+																				"type": "number",
+																				"minimum": 0
+																			},
+																			"source": {
+																				"type": "string",
+																				"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+																			}
+																		},
+																		"required": [
+																			"type",
+																			"source"
+																		],
+																		"additionalProperties": false
+																	},
+																	{
+																		"type": "object",
+																		"properties": {
+																			"type": {
+																				"const": "factor"
+																			},
+																			"value": {
+																				"type": "number",
+																				"exclusiveMinimum": 0
+																			},
+																			"applies": {
+																				"type": "array",
+																				"items": {
+																					"enum": [
+																						"total",
+																						"groundRoll"
+																					],
+																					"type": "string"
+																				},
+																				"minItems": 1
+																			},
+																			"reason": {
+																				"type": "string",
+																				"minLength": 1
+																			},
+																			"source": {
+																				"type": "string",
+																				"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+																			}
+																		},
+																		"required": [
+																			"type",
+																			"value",
+																			"applies",
+																			"reason",
+																			"source"
+																		],
+																		"additionalProperties": false
+																	},
+																	{
+																		"type": "object",
+																		"properties": {
+																			"type": {
+																				"const": "massCorrection"
+																			},
+																			"referenceMass": {
+																				"type": "number",
+																				"exclusiveMinimum": 0
+																			},
+																			"exponent": {
+																				"type": "number"
+																			},
+																			"applies": {
+																				"type": "array",
+																				"items": {
+																					"enum": [
+																						"total",
+																						"groundRoll"
+																					],
+																					"type": "string"
+																				},
+																				"minItems": 1
+																			},
+																			"source": {
+																				"type": "string",
+																				"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+																			}
+																		},
+																		"required": [
+																			"type",
+																			"referenceMass",
+																			"exponent",
+																			"applies",
+																			"source"
+																		],
+																		"additionalProperties": false
+																	},
+																	{
+																		"type": "object",
+																		"properties": {
+																			"type": {
+																				"const": "wind"
+																			},
+																			"headwind": {
+																				"type": "object",
+																				"properties": {
+																					"mode": {
+																						"enum": [
+																							"proportional",
+																							"stepped"
+																						],
+																						"type": "string"
+																					},
+																					"percent": {
+																						"type": "number",
+																						"exclusiveMinimum": 0
+																					},
+																					"perKnots": {
+																						"type": "number",
+																						"exclusiveMinimum": 0
+																					},
+																					"maxKnots": {
+																						"type": "number",
+																						"exclusiveMinimum": 0
+																					},
+																					"above": {
+																						"enum": [
+																							"none",
+																							"nearest",
+																							"nearestWarn"
+																						],
+																						"type": "string"
+																					}
+																				},
+																				"required": [
+																					"mode",
+																					"percent",
+																					"perKnots",
+																					"above"
+																				],
+																				"additionalProperties": false
+																			},
+																			"tailwind": {
+																				"type": "object",
+																				"properties": {
+																					"mode": {
+																						"enum": [
+																							"proportional",
+																							"stepped"
+																						],
+																						"type": "string"
+																					},
+																					"percent": {
+																						"type": "number",
+																						"exclusiveMinimum": 0
+																					},
+																					"perKnots": {
+																						"type": "number",
+																						"exclusiveMinimum": 0
+																					},
+																					"maxKnots": {
+																						"type": "number",
+																						"exclusiveMinimum": 0
+																					},
+																					"above": {
+																						"enum": [
+																							"none",
+																							"nearest",
+																							"nearestWarn"
+																						],
+																						"type": "string"
+																					}
+																				},
+																				"required": [
+																					"mode",
+																					"percent",
+																					"perKnots",
+																					"above"
+																				],
+																				"additionalProperties": false
+																			},
+																			"applies": {
+																				"type": "array",
+																				"items": {
+																					"enum": [
+																						"total",
+																						"groundRoll"
+																					],
+																					"type": "string"
+																				},
+																				"minItems": 1
+																			},
+																			"source": {
+																				"type": "string",
+																				"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+																			}
+																		},
+																		"required": [
+																			"type",
+																			"applies",
+																			"source"
+																		],
+																		"additionalProperties": false
+																	},
+																	{
+																		"type": "object",
+																		"properties": {
+																			"type": {
+																				"const": "surface"
+																			},
+																			"percent": {
+																				"type": "number"
+																			},
+																			"carryToTotal": {
+																				"type": "boolean"
+																			},
+																			"source": {
+																				"type": "string",
+																				"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+																			}
+																		},
+																		"required": [
+																			"type",
+																			"percent",
+																			"carryToTotal",
+																			"source"
+																		],
+																		"additionalProperties": false
+																	},
+																	{
+																		"type": "object",
+																		"properties": {
+																			"type": {
+																				"const": "ratio"
+																			},
+																			"from": {
+																				"enum": [
+																					"total",
+																					"groundRoll"
+																				],
+																				"type": "string"
+																			},
+																			"into": {
+																				"enum": [
+																					"total",
+																					"groundRoll"
+																				],
+																				"type": "string"
+																			},
+																			"value": {
+																				"type": "number",
+																				"exclusiveMinimum": 0
+																			},
+																			"source": {
+																				"type": "string",
+																				"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+																			}
+																		},
+																		"required": [
+																			"type",
+																			"from",
+																			"into",
+																			"value",
+																			"source"
+																		],
+																		"additionalProperties": false
+																	}
+																]
+															},
+															"minItems": 1
+														},
+														"assumes": {
+															"type": "object",
+															"properties": {
+																"text": {
+																	"type": "string",
+																	"minLength": 1
+																},
+																"inputs": {
+																	"type": "array",
+																	"items": {
+																		"type": "object",
+																		"properties": {
+																			"input": {
+																				"enum": [
+																					"pressureAltitude",
+																					"densityAltitude",
+																					"elevation",
+																					"temperature"
+																				],
+																				"type": "string"
+																			},
+																			"value": {
+																				"type": "number"
+																			},
+																			"unit": {
+																				"type": "string",
+																				"minLength": 1
+																			}
+																		},
+																		"required": [
+																			"input",
+																			"value",
+																			"unit"
+																		],
+																		"additionalProperties": false
+																	}
+																}
+															},
+															"required": [
+																"text",
+																"inputs"
+															],
+															"additionalProperties": false
+														}
+													},
+													"required": [
+														"kind",
+														"id",
+														"label",
+														"distanceUnit",
+														"steps"
+													],
+													"additionalProperties": false
+												},
+												{
+													"type": "object",
+													"properties": {
+														"kind": {
+															"const": "noData"
+														},
+														"id": {
+															"type": "string",
+															"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+														},
+														"label": {
+															"type": "string",
+															"minLength": 1
+														}
+													},
+													"required": [
+														"kind",
+														"id",
+														"label"
+													],
+													"additionalProperties": false
+												}
+											]
+										},
+										"minItems": 1
+									},
+									"landing": {
+										"type": "array",
+										"items": {
+											"oneOf": [
+												{
+													"type": "object",
+													"properties": {
+														"kind": {
+															"const": "steps"
+														},
+														"id": {
+															"type": "string",
+															"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+														},
+														"label": {
+															"type": "string",
+															"minLength": 1
+														},
+														"distanceUnit": {
+															"enum": [
+																"m",
+																"ft"
+															],
+															"type": "string"
+														},
+														"steps": {
+															"type": "array",
+															"items": {
+																"oneOf": [
+																	{
+																		"type": "object",
+																		"properties": {
+																			"type": {
+																				"const": "lookup"
+																			},
+																			"table": {
+																				"type": "string",
+																				"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+																			}
+																		},
+																		"required": [
+																			"type",
+																			"table"
+																		],
+																		"additionalProperties": false
+																	},
+																	{
+																		"type": "object",
+																		"properties": {
+																			"type": {
+																				"const": "fixed"
+																			},
+																			"total": {
+																				"type": "number",
+																				"minimum": 0
+																			},
+																			"groundRoll": {
+																				"type": "number",
+																				"minimum": 0
+																			},
+																			"source": {
+																				"type": "string",
+																				"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+																			}
+																		},
+																		"required": [
+																			"type",
+																			"source"
+																		],
+																		"additionalProperties": false
+																	},
+																	{
+																		"type": "object",
+																		"properties": {
+																			"type": {
+																				"const": "factor"
+																			},
+																			"value": {
+																				"type": "number",
+																				"exclusiveMinimum": 0
+																			},
+																			"applies": {
+																				"type": "array",
+																				"items": {
+																					"enum": [
+																						"total",
+																						"groundRoll"
+																					],
+																					"type": "string"
+																				},
+																				"minItems": 1
+																			},
+																			"reason": {
+																				"type": "string",
+																				"minLength": 1
+																			},
+																			"source": {
+																				"type": "string",
+																				"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+																			}
+																		},
+																		"required": [
+																			"type",
+																			"value",
+																			"applies",
+																			"reason",
+																			"source"
+																		],
+																		"additionalProperties": false
+																	},
+																	{
+																		"type": "object",
+																		"properties": {
+																			"type": {
+																				"const": "massCorrection"
+																			},
+																			"referenceMass": {
+																				"type": "number",
+																				"exclusiveMinimum": 0
+																			},
+																			"exponent": {
+																				"type": "number"
+																			},
+																			"applies": {
+																				"type": "array",
+																				"items": {
+																					"enum": [
+																						"total",
+																						"groundRoll"
+																					],
+																					"type": "string"
+																				},
+																				"minItems": 1
+																			},
+																			"source": {
+																				"type": "string",
+																				"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+																			}
+																		},
+																		"required": [
+																			"type",
+																			"referenceMass",
+																			"exponent",
+																			"applies",
+																			"source"
+																		],
+																		"additionalProperties": false
+																	},
+																	{
+																		"type": "object",
+																		"properties": {
+																			"type": {
+																				"const": "wind"
+																			},
+																			"headwind": {
+																				"type": "object",
+																				"properties": {
+																					"mode": {
+																						"enum": [
+																							"proportional",
+																							"stepped"
+																						],
+																						"type": "string"
+																					},
+																					"percent": {
+																						"type": "number",
+																						"exclusiveMinimum": 0
+																					},
+																					"perKnots": {
+																						"type": "number",
+																						"exclusiveMinimum": 0
+																					},
+																					"maxKnots": {
+																						"type": "number",
+																						"exclusiveMinimum": 0
+																					},
+																					"above": {
+																						"enum": [
+																							"none",
+																							"nearest",
+																							"nearestWarn"
+																						],
+																						"type": "string"
+																					}
+																				},
+																				"required": [
+																					"mode",
+																					"percent",
+																					"perKnots",
+																					"above"
+																				],
+																				"additionalProperties": false
+																			},
+																			"tailwind": {
+																				"type": "object",
+																				"properties": {
+																					"mode": {
+																						"enum": [
+																							"proportional",
+																							"stepped"
+																						],
+																						"type": "string"
+																					},
+																					"percent": {
+																						"type": "number",
+																						"exclusiveMinimum": 0
+																					},
+																					"perKnots": {
+																						"type": "number",
+																						"exclusiveMinimum": 0
+																					},
+																					"maxKnots": {
+																						"type": "number",
+																						"exclusiveMinimum": 0
+																					},
+																					"above": {
+																						"enum": [
+																							"none",
+																							"nearest",
+																							"nearestWarn"
+																						],
+																						"type": "string"
+																					}
+																				},
+																				"required": [
+																					"mode",
+																					"percent",
+																					"perKnots",
+																					"above"
+																				],
+																				"additionalProperties": false
+																			},
+																			"applies": {
+																				"type": "array",
+																				"items": {
+																					"enum": [
+																						"total",
+																						"groundRoll"
+																					],
+																					"type": "string"
+																				},
+																				"minItems": 1
+																			},
+																			"source": {
+																				"type": "string",
+																				"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+																			}
+																		},
+																		"required": [
+																			"type",
+																			"applies",
+																			"source"
+																		],
+																		"additionalProperties": false
+																	},
+																	{
+																		"type": "object",
+																		"properties": {
+																			"type": {
+																				"const": "surface"
+																			},
+																			"percent": {
+																				"type": "number"
+																			},
+																			"carryToTotal": {
+																				"type": "boolean"
+																			},
+																			"source": {
+																				"type": "string",
+																				"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+																			}
+																		},
+																		"required": [
+																			"type",
+																			"percent",
+																			"carryToTotal",
+																			"source"
+																		],
+																		"additionalProperties": false
+																	},
+																	{
+																		"type": "object",
+																		"properties": {
+																			"type": {
+																				"const": "ratio"
+																			},
+																			"from": {
+																				"enum": [
+																					"total",
+																					"groundRoll"
+																				],
+																				"type": "string"
+																			},
+																			"into": {
+																				"enum": [
+																					"total",
+																					"groundRoll"
+																				],
+																				"type": "string"
+																			},
+																			"value": {
+																				"type": "number",
+																				"exclusiveMinimum": 0
+																			},
+																			"source": {
+																				"type": "string",
+																				"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+																			}
+																		},
+																		"required": [
+																			"type",
+																			"from",
+																			"into",
+																			"value",
+																			"source"
+																		],
+																		"additionalProperties": false
+																	}
+																]
+															},
+															"minItems": 1
+														},
+														"assumes": {
+															"type": "object",
+															"properties": {
+																"text": {
+																	"type": "string",
+																	"minLength": 1
+																},
+																"inputs": {
+																	"type": "array",
+																	"items": {
+																		"type": "object",
+																		"properties": {
+																			"input": {
+																				"enum": [
+																					"pressureAltitude",
+																					"densityAltitude",
+																					"elevation",
+																					"temperature"
+																				],
+																				"type": "string"
+																			},
+																			"value": {
+																				"type": "number"
+																			},
+																			"unit": {
+																				"type": "string",
+																				"minLength": 1
+																			}
+																		},
+																		"required": [
+																			"input",
+																			"value",
+																			"unit"
+																		],
+																		"additionalProperties": false
+																	}
+																}
+															},
+															"required": [
+																"text",
+																"inputs"
+															],
+															"additionalProperties": false
+														}
+													},
+													"required": [
+														"kind",
+														"id",
+														"label",
+														"distanceUnit",
+														"steps"
+													],
+													"additionalProperties": false
+												},
+												{
+													"type": "object",
+													"properties": {
+														"kind": {
+															"const": "noData"
+														},
+														"id": {
+															"type": "string",
+															"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+														},
+														"label": {
+															"type": "string",
+															"minLength": 1
+														}
+													},
+													"required": [
+														"kind",
+														"id",
+														"label"
+													],
+													"additionalProperties": false
+												}
+											]
+										},
+										"minItems": 1
+									}
+								},
+								"required": [
+									"takeoff",
+									"landing"
+								],
+								"additionalProperties": false
+							},
+							{
+								"const": "none"
+							}
+						]
+					}
+				},
+				"required": [
+					"id",
+					"label",
+					"weighing"
+				],
+				"additionalProperties": false
+			},
+			"minItems": 1
+		},
+		"handCases": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+					},
+					"label": {
+						"type": "string",
+						"minLength": 1
+					},
+					"author": {
+						"type": "string",
+						"minLength": 1
+					},
+					"date": {
+						"type": "string",
+						"minLength": 1
+					},
+					"input": {
+						"type": "object",
+						"properties": {
+							"configuration": {
+								"type": "string",
+								"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+							},
+							"loads": {
+								"type": "object",
+								"propertyNames": {
+									"type": "string",
+									"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+								},
+								"additionalProperties": {
+									"type": "object",
+									"properties": {
+										"mass": {
+											"type": "number",
+											"minimum": 0
+										},
+										"position": {
+											"type": "string",
+											"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+										}
+									},
+									"required": [
+										"mass"
+									],
+									"additionalProperties": false
+								}
+							},
+							"fuel": {
+								"type": "object",
+								"propertyNames": {
+									"type": "string",
+									"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+								},
+								"additionalProperties": {
+									"type": "number",
+									"minimum": 0
+								}
+							},
+							"burnPlan": {
+								"type": "string",
+								"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+							},
+							"flightTimeHours": {
+								"type": "number",
+								"minimum": 0
+							},
+							"fuelFlow": {
+								"type": "number",
+								"minimum": 0
+							},
+							"elevation": {
+								"anyOf": [
+									{
+										"type": "object",
+										"properties": {
+											"value": {
+												"type": "number"
+											},
+											"unit": {
+												"enum": [
+													"m",
+													"ft"
+												],
+												"type": "string"
+											}
+										},
+										"required": [
+											"value",
+											"unit"
+										],
+										"additionalProperties": false
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"qnh": {
+								"anyOf": [
+									{
+										"type": "number",
+										"exclusiveMinimum": 0
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"oat": {
+								"anyOf": [
+									{
+										"type": "number"
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"windDirection": {
+								"anyOf": [
+									{
+										"type": "number"
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"windSpeed": {
+								"anyOf": [
+									{
+										"type": "number",
+										"minimum": 0
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"runwayHeading": {
+								"anyOf": [
+									{
+										"type": "number"
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"takeoffCondition": {
+								"type": "string",
+								"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+							},
+							"landingCondition": {
+								"type": "string",
+								"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+							}
+						},
+						"required": [
+							"configuration",
+							"loads",
+							"fuel",
+							"burnPlan",
+							"flightTimeHours",
+							"fuelFlow",
+							"elevation",
+							"qnh",
+							"oat",
+							"windDirection",
+							"windSpeed",
+							"runwayHeading",
+							"takeoffCondition",
+							"landingCondition"
+						],
+						"additionalProperties": false
+					},
+					"expected": {
+						"type": "object",
+						"properties": {
+							"takeoffMass": {
+								"type": "number"
+							},
+							"takeoffArm": {
+								"type": "number"
+							},
+							"landingMass": {
+								"type": "number"
+							},
+							"landingArm": {
+								"type": "number"
+							},
+							"takeoff": {
+								"type": "object",
+								"properties": {
+									"status": {
+										"enum": [
+											"ok",
+											"noData",
+											"noResult",
+											"needsInput"
+										],
+										"type": "string"
+									},
+									"total": {
+										"type": "number"
+									},
+									"groundRoll": {
+										"type": "number"
+									}
+								},
+								"required": [
+									"status"
+								],
+								"additionalProperties": false
+							},
+							"landing": {
+								"type": "object",
+								"properties": {
+									"status": {
+										"enum": [
+											"ok",
+											"noData",
+											"noResult",
+											"needsInput"
+										],
+										"type": "string"
+									},
+									"total": {
+										"type": "number"
+									},
+									"groundRoll": {
+										"type": "number"
+									}
+								},
+								"required": [
+									"status"
+								],
+								"additionalProperties": false
+							},
+							"exceeded": {
+								"type": "array",
+								"items": {
+									"type": "string",
+									"minLength": 1
+								}
+							}
+						},
+						"required": [
+							"exceeded"
+						],
+						"additionalProperties": false
+					}
+				},
+				"required": [
+					"id",
+					"label",
+					"author",
+					"date",
+					"input",
+					"expected"
+				],
+				"additionalProperties": false
+			}
+		}
+	},
+	"required": [
+		"formatVersion",
+		"registration",
+		"type",
+		"revision",
+		"units",
+		"display",
+		"sources",
+		"stations",
+		"tanks",
+		"combinedLimits",
+		"massLimits",
+		"envelope",
+		"burnPlans",
+		"defaultBurnPlan",
+		"notes",
+		"tables",
+		"performance",
+		"configurations",
+		"handCases"
+	],
+	"additionalProperties": false,
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$defs": {
+		"0": {
+			"type": "array",
+			"items": {
+				"anyOf": [
+					{
+						"type": "number"
+					},
+					{
+						"$ref": "#/$defs/0"
+					}
+				]
+			}
+		}
+	}
+}

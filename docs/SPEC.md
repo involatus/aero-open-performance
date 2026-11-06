@@ -163,8 +163,7 @@ After slice 6, an Operator can run the tool with hand-written aircraft files.
 
 ## Still unverified
 
-- Installed-app behaviour on a real iPad: offline start, data retention, and PDF sharing. Slice 1 tests this.
-- `pdfmake` bundling under Vite 8.
+- On a real iPad, these passed: installing, offline start, keeping data across restarts, and creating and sharing a PDF offline. Still untested: whether Mail sends by itself after reconnecting, data retention over weeks, and low storage.
 - RevoGrid on a real iPad and with real Excel.
 - Google sign-in on real hosting and on iPad.
 - Whether CheckWX's free tier includes every endpoint used, and its terms for long-term use.
