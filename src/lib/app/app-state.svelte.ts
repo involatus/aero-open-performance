@@ -9,6 +9,7 @@ const REPORTS = 'reports-v1';
 const DATA = 'data-release-v1';
 const META = 'data-meta-v1';
 const BASE = '/data';
+const PUBLISHED = '/api/data';
 const pdfKey = (id: string) => `report-pdf:${id}`;
 
 export class AppState {
@@ -41,9 +42,14 @@ export class AppState {
 	}
 
 	private async getJson(file: string) {
-		const response = await fetch(`${BASE}/${file}`, { cache: 'no-store', signal: AbortSignal.timeout(20000) });
-		if (!response.ok) throw new ReleaseError(`Could not download ${file}`);
-		return response.json();
+		// Data published through the admin GUI comes first, then any data bundled with this copy of the app.
+		for (const base of [PUBLISHED, BASE]) {
+			const response = await fetch(`${base}/${file}`, { cache: 'no-store', signal: AbortSignal.timeout(20000) });
+			if (!response.ok) continue;
+			const data = await response.json();
+			if (data !== null) return data;
+		}
+		throw new ReleaseError(`Could not download ${file}`);
 	}
 
 	private async loadData() {
