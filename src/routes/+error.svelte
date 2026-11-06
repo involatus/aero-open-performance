@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 </script>
 
-<svelte:head><title>Page not found</title></svelte:head>
+<svelte:head><title>{page.status === 404 ? 'Page not found' : 'Something went wrong'}</title></svelte:head>
 
 <main>
 	<h1>{page.status === 404 ? 'Page not found' : 'Something went wrong'}</h1>

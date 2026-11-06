@@ -201,7 +201,7 @@
 
 	<section>
 		<h2>Test steps</h2>
-		<ol style="margin:0;padding-left:22px;display:grid;gap:6px">
+		<ol class="m-0 grid list-decimal gap-1.5 pl-[22px]">
 			<li>In Safari, tap Share, then Add to Home Screen, and keep Open as Web App on.</li>
 			<li>Open it once from the icon while online, and wait for Offline support to say active.</li>
 			<li>Force-quit it, turn on Airplane Mode with Wi-Fi off, and open it from the icon.</li>

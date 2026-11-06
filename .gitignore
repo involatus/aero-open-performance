@@ -9,3 +9,6 @@ build
 
 # Local planning notes hold private and real aircraft data
 .scratch/
+
+test-results
+playwright-report

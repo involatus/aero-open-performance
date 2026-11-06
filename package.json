@@ -12,23 +12,32 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
     "schema": "node --no-warnings scripts/export-schema.ts",
-    "verify:reference": "node --no-warnings tools/reference-calculator/compare.ts"
+    "verify:reference": "node --no-warnings tools/reference-calculator/compare.ts",
+    "prepare": "svelte-kit sync || true",
+    "pretest": "svelte-kit sync",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "1.65.0",
     "@sveltejs/adapter-vercel": "7.0.2",
     "@sveltejs/kit": "3.1.1",
     "@sveltejs/vite-plugin-svelte": "7.3.1",
+    "@tailwindcss/vite": "4.3.4",
     "@types/node": "26.6.6",
     "ajv": "8.20.0",
     "fast-check": "4.10.2",
     "svelte": "5.57.3",
     "svelte-check": "4.7.8",
+    "tailwindcss": "4.3.4",
     "typescript": "6.0.3",
     "vite": "8.3.6",
     "vitest": "5.1.0"
   },
   "dependencies": {
+    "@internationalized/date": "3.12.4",
     "@valibot/to-json-schema": "1.8.0",
+    "bits-ui": "2.20.6",
+    "idb-keyval": "6.3.0",
     "pdfmake": "0.3.13",
     "valibot": "1.5.0"
   },

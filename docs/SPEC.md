@@ -28,7 +28,7 @@ Each Operator deploys their own copy, with one settings file and their own Aircr
 
 ## Stack
 
-SvelteKit 3 with Svelte 5, client-rendered with prerendered shells; the built-in service worker; `idb-keyval`; `pdfmake`; Valibot; TanStack Query for METAR and update checks; Vitest, `fast-check` and Playwright. Admin only: SJSF, RevoGrid Core behind our own wrapper (jspreadsheet CE as fallback), `jsondiffpatch` and Better Auth. Hosting is not final, so keep host-specific code behind small layers. Licence: Apache-2.0.
+SvelteKit 3 with Svelte 5, client-rendered with prerendered shells; Tailwind CSS 4 and Bits UI, with all colours in one set of tokens; the built-in service worker; `idb-keyval`; `pdfmake`; Valibot; TanStack Query for METAR and update checks; Vitest, `fast-check` and Playwright. Admin only: SJSF, RevoGrid Core behind our own wrapper (jspreadsheet CE as fallback), `jsondiffpatch` and Better Auth. Hosting is not final, so keep host-specific code behind small layers. Licence: Apache-2.0.
 
 ## Aircraft data format
 
@@ -163,7 +163,7 @@ After slice 6, an Operator can run the tool with hand-written aircraft files.
 
 ## Still unverified
 
-- On a real iPad, these passed: installing, offline start, keeping data across restarts, and creating and sharing a PDF offline. Still untested: whether Mail sends by itself after reconnecting, data retention over weeks, and low storage.
+- On a real iPad, these passed: installing, offline start, keeping data across restarts, and creating and sharing a PDF offline. A report shared to Mail offline also arrived after reconnecting. Still untested: data retention over weeks, and low storage.
 - RevoGrid on a real iPad and with real Excel.
 - Google sign-in on real hosting and on iPad.
 - Whether CheckWX's free tier includes every endpoint used, and its terms for long-term use.

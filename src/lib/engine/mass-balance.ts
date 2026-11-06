@@ -49,7 +49,7 @@ export function burnFuel(a: Aircraft, fuel: Record<string, number>, planId: stri
 	return { left, exceeds: remaining > EPSILON };
 }
 
-function envelopeArm(a: Aircraft, p: Envelope['points'][number]): number {
+export function envelopeArm(a: Aircraft, p: Envelope['points'][number]): number {
 	if ('arm' in p) return p.arm;
 	return a.mac!.leadingEdgeArm + (p.percentMac / 100) * a.mac!.length;
 }
