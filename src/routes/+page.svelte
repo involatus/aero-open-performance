@@ -328,7 +328,7 @@
 			{/each}
 			{#if app.tabs.length}<button type="button" onclick={() => (choosing = false)}>Cancel</button>{/if}
 		</section>
-		<p class="muted">Version {version}. <a href={resolve('/device-test')}>Device test</a></p>
+		<p class="muted">Version {version}. <a href={resolve('/device-test')}>Device test</a>. <a href={resolve('/admin')}>Admin</a></p>
 	{:else if calc}
 		<Tabs.Root value={calc.id} onValueChange={(id) => selectTab(app.tabs.findIndex((t) => t.id === id))} class="grid gap-3">
 		<div class="flex gap-1.5 overflow-x-auto">

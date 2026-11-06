@@ -3,6 +3,8 @@ import { currentAdmin, authIsConfigured } from '#lib/server/auth.ts';
 import { storageFromEnv } from '#lib/server/storage/from-env.ts';
 import { AdminError, checkDraft, deleteDraft, getDraft, getSettings, latestIndex, listDrafts, listReleases, publish, restoreRelease, saveDraft, saveSettings } from '#lib/server/admin.ts';
 import { testAdminEmail } from '#lib/server/auth-rules.ts';
+import { availableUpdate } from '#lib/server/updates.ts';
+import { version } from '../../../../package.json';
 import type { RequestHandler } from './$types';
 
 export const prerender = false;
@@ -30,7 +32,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	const now = Date.now();
 	try {
 		switch (body.action) {
-			case 'overview': return json({ drafts: await listDrafts(storage), settings: await getSettings(storage), index: await latestIndex(storage), releases: await listReleases(storage) });
+			case 'overview': return json({ drafts: await listDrafts(storage), settings: await getSettings(storage), index: await latestIndex(storage), releases: await listReleases(storage), version, updateAvailable: await availableUpdate(version) });
 			case 'getDraft': return json(await getDraft(storage, body.id));
 			case 'saveDraft': return json(await saveDraft(storage, body.id, body, admin, now));
 			case 'deleteDraft': await deleteDraft(storage, body.id); return json({ ok: true });

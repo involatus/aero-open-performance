@@ -91,6 +91,20 @@ button.confirm { min-height: 44px; padding: 2px 14px; background: var(--amber-bg
 .list { display: grid; gap: 4px; } .check { display: flex; gap: 8px; align-items: baseline; font-size: 15px; padding: 3px 0; } i.ok, i.fail, i.warnb { font-weight: 700; font-size: 12px; font-style: normal; padding: 2px 7px; border-radius: 3px; flex: none; } i.ok { color: var(--good); background: var(--good-bg); } i.fail { color: var(--bad); background: var(--bad-bg); } i.warnb { color: var(--amber); background: var(--amber-bg); }
 button.link { text-align: left; background: none; border: 0; padding: 4px 0; min-height: 44px; font-size: 15px; font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
 .actions { display: flex; justify-content: flex-end; } button.danger { background: var(--bad-bg); color: var(--bad); border-color: var(--bad); }
+/* Admin */
+main.admin { max-width: 1100px; gap: 12px; }
+.adm { min-height: 44px; min-width: 0; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); color: var(--ink); padding: 6px 8px; font-size: 16px; width: 100%; }
+.adm-field { display: grid; gap: 4px; font-size: 14px; font-weight: 600; min-width: 0; align-content: start; }
+.adm-tab { min-height: 44px; padding: 4px 10px; font-size: 15px; }
+.adm-cell { width: 76px; min-height: 40px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); color: var(--ink); text-align: right; padding: 4px 6px; font: 500 15px ui-monospace, Menlo, monospace; }
+.adm-cell:focus { outline: 2px solid var(--accent); } .adm-bad { border: 2px solid var(--bad); background: var(--bad-bg); }
+.aop-form { color: var(--ink); } .aop-form button[type='submit'] { display: none; }
+.aop-form input, .aop-form select, .aop-form textarea { min-height: 44px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); color: var(--ink); padding: 6px 8px; font-size: 16px; width: 100%; }
+.aop-form input[type='checkbox'] { width: 22px; min-height: 22px; }
+.aop-form fieldset { border: 1px solid var(--line); border-radius: 5px; padding: 10px; margin: 6px 0; }
+.aop-form legend { font-weight: 700; padding: 0 4px; }
+.aop-form label { font-size: 14px; font-weight: 600; }
+.aop-form button { min-height: 40px; padding: 2px 10px; font-size: 14px; }
 .banner.update { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .fld-label { font-size: 15px; font-weight: 600; }
 .metar { display: grid; gap: 6px; } .metar .raw { font: 500 14px ui-monospace, Menlo, monospace; overflow-wrap: anywhere; } .flag { color: var(--amber); font-weight: 600; font-size: 15px; } button.wide { width: 100%; min-height: 52px; }

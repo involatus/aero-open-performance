@@ -1,6 +1,6 @@
 {
   "name": "aero-open-performance",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Open-source mass and balance and performance PWA for piston aircraft. Pre-release, not for flight.",
   "license": "Apache-2.0",
@@ -37,11 +37,18 @@
   },
   "dependencies": {
     "@internationalized/date": "3.12.4",
+    "@sjsf/ajv8-validator": "3.9.1",
+    "@sjsf/basic-theme": "3.9.1",
+    "@sjsf/form": "3.9.1",
+    "@standard-schema/spec": "1.1.0",
     "@valibot/to-json-schema": "1.8.0",
     "@vercel/blob": "2.8.2",
     "better-auth": "1.7.18",
     "bits-ui": "2.20.6",
+    "esm-env": "1.2.2",
     "idb-keyval": "6.3.0",
+    "json-schema-merge-allof": "0.8.1",
+    "json-schema-typed": "8.0.2",
     "pdfmake": "0.3.13",
     "valibot": "1.5.0"
   },
