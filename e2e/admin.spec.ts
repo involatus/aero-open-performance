@@ -176,6 +176,7 @@ test('publishing is blocked until the checks pass, then pilots get the data', as
 	broken.handCases[0].expected.takeoff.total += 1;
 	await importAircraft(page, broken);
 	await expect(page.getByText('Imported TEST-KF')).toBeVisible();
+	await page.getByRole('checkbox', { name: /^TEST-KF/ }).check();
 	await page.getByRole('button', { name: 'Publish new release' }).click();
 	await expect(page.getByText('Nothing was published')).toBeVisible();
 	await expect(page.locator('main > ul')).toContainText('expected');
@@ -198,6 +199,7 @@ test('publishing is blocked until the checks pass, then pilots get the data', as
 	await page.getByRole('button', { name: 'Back to list' }).click();
 
 	await page.getByLabel('What changed, shown to pilots').fill('First release.');
+	await page.getByRole('checkbox', { name: /^TEST-KF/ }).check();
 	await page.getByRole('button', { name: 'Publish new release' }).click();
 	await expect(page.getByText('Published Release 1')).toBeVisible();
 	await expect(page.getByText('Pilots are on Release 1')).toBeVisible();
@@ -216,6 +218,7 @@ test('a real aircraft needs a blind second entry, and a typo is pointed out', as
 	await page.goto('/admin');
 	await importAircraft(page, real);
 	await expect(page.getByText('Imported TEST-REAL')).toBeVisible();
+	await page.getByRole('checkbox', { name: /^TEST-REAL/ }).check();
 	await page.getByRole('button', { name: 'Publish new release' }).click();
 	await expect(page.locator('main > ul')).toContainText('entered twice');
 

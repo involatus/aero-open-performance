@@ -26,9 +26,9 @@ Then open `/admin`, enter your name and the password, and sign in. Your name is 
 2. Add hand-calculated cases, worked out by a person.
 3. For a real aircraft, type every table again under **Second entry**, ideally by a second person.
 4. Open **Check**, and fix anything listed.
-5. Back on the list, choose **Publish new release**.
+5. Back on the list, tick the aircraft to publish, then choose **Publish new release**. Only the ticked aircraft are checked, so an unfinished draft of another aircraft doesn't hold you up.
 
-Publishing has no override. Releases are permanent: to undo one, restore the earlier version as a draft and publish it under a new number. Pilots see a new release as a notice, and install it when they choose. A withdrawn aircraft is blocked as soon as a device sees the notice, but a device that stays offline can't learn this.
+Aircraft you don't tick stay as pilots have them, even if you delete their draft. To take an aircraft away from pilots, withdraw it with a reason. Publishing has no override. Releases are permanent: to undo one, restore the earlier version as a draft and publish it under a new number. Pilots see a new release as a notice, and install it when they choose. A withdrawn aircraft is blocked as soon as a device sees the notice, but a device that stays offline can't learn this.
 
 ## Keeping up to date
 

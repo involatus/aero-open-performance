@@ -15,6 +15,8 @@ export type ReleaseRequest = {
 	operator: string;
 	notes?: string;
 	withdraw?: Record<string, string>;
+	/** Keeps every previously published aircraft that isn't in `drafts` or `withdraw`, unchanged. */
+	carryOver?: boolean;
 	now: number;
 };
 export type BuiltRelease =
@@ -59,6 +61,11 @@ export async function buildRelease(r: ReleaseRequest): Promise<BuiltRelease> {
 		if (!reason.trim()) { problems.push(`${registration}: withdrawing needs a reason`); continue; }
 		const known = r.previous?.aircraft.find((e) => e.registration === registration);
 		entries.push({ registration, type: known?.type ?? registration, revision: known?.revision ?? 1, withdrawn: { reason } });
+	}
+	if (r.carryOver) {
+		// Aircraft not chosen this time stay exactly as pilots have them, including withdrawals.
+		const handled = new Set(entries.map((e) => e.registration));
+		for (const e of r.previous?.aircraft ?? []) if (!handled.has(e.registration) && !seen.has(e.registration)) entries.push({ ...e });
 	}
 	if (!entries.length) problems.push('A release needs at least one aircraft.');
 	if (problems.length) return { ok: false, problems };

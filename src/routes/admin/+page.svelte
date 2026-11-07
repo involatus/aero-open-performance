@@ -35,6 +35,7 @@
 	let operator = $state('');
 	let notes = $state('');
 	let withdrawReg = $state('');
+	let chosen = $state<string[]>([]);
 	let withdrawReason = $state('');
 	let confirmDelete = $state<string | null>(null);
 	let tableName = $state('');
@@ -58,6 +59,8 @@
 		Notes: { title: 'Notes for pilots', component: NotesEditor }
 	};
 	let section = $derived(EDITORS[tab]);
+	// Pilots can only lose an aircraft through a withdrawal, so every published one can be withdrawn.
+	let withdrawable = $derived([...new Set([...(overview?.index?.aircraft.filter((e) => !e.withdrawn).map((e) => e.registration) ?? []), ...(overview?.drafts.map((d) => d.registration).filter(Boolean) ?? [])])]);
 	let parsed = $derived.by(() => { if (!editing) return null; const v = validateAircraft($state.snapshot(editing.aircraft)); return v.ok ? v.aircraft : null; });
 	let validationProblems = $derived.by(() => { if (!editing) return []; const v = validateAircraft($state.snapshot(editing.aircraft)); return v.ok ? [] : v.problems; });
 	let isFictional = $derived(editing?.aircraft?.fictional === true);
@@ -169,9 +172,9 @@
 	const saveOperator = () => run(async () => { await api('saveSettings', { settings: { operator } }); await refresh(); message = 'Saved.'; });
 	const publish = () => run(async () => {
 		const withdraw = withdrawReg ? { [withdrawReg]: withdrawReason } : undefined;
-		const result = await api('publish', { notes, withdraw });
+		const result = await api('publish', { notes, withdraw, include: chosen });
 		if (!result.ok) { problems = result.problems; message = 'Nothing was published. Fix these first:'; return; }
-		notes = ''; withdrawReg = ''; withdrawReason = '';
+		notes = ''; withdrawReg = ''; withdrawReason = ''; chosen = [];
 		await refresh();
 		message = `Published Release ${result.release}. Pilots see it when they next check for new data.`;
 	});
@@ -412,16 +415,25 @@
 		</section>
 		<section>
 			<h2>Publish</h2>
-			<p>{overview.index ? `Pilots are on Release ${overview.index.release}.` : 'Nothing is published yet.'} Publishing checks every draft, with no override. Releases are permanent.</p>
-			<label class="adm-field">What changed, shown to pilots<input class="adm" bind:value={notes} /></label>
+			<p>{overview.index ? `Pilots are on Release ${overview.index.release}.` : 'Nothing is published yet.'} Tick the aircraft to publish. Each one is checked, with no override. Aircraft you don't tick stay as pilots have them. Releases are permanent.</p>
 			{#if overview.drafts.length}
+				<fieldset class="m-0 grid gap-1 border-0 p-0">
+					<legend class="adm-field">Aircraft in this release</legend>
+					{#each overview.drafts as d (d.id)}
+						{@const live = overview.index?.aircraft.find((e) => e.registration === d.registration && !e.withdrawn)}
+						<label class="adm-check"><input type="checkbox" checked={chosen.includes(d.id)} onchange={(e) => (chosen = e.currentTarget.checked ? [...chosen, d.id] : chosen.filter((x) => x !== d.id))} /> {d.registration || d.id} <span class="adm-hint">{live ? 'published now, this updates it' : 'new for pilots'}</span></label>
+					{/each}
+				</fieldset>
+			{/if}
+			<label class="adm-field">What changed, shown to pilots<input class="adm" bind:value={notes} /></label>
+			{#if withdrawable.length}
 				<div class="grid gap-2 md:grid-cols-2">
-					<label class="adm-field">Withdraw an aircraft<select class="adm" bind:value={withdrawReg}><option value="">None</option>{#each overview.drafts as d (d.id)}<option value={d.registration}>{d.registration}</option>{/each}</select></label>
+					<label class="adm-field">Withdraw an aircraft<select class="adm" bind:value={withdrawReg}><option value="">None</option>{#each withdrawable as reg (reg)}<option value={reg}>{reg}</option>{/each}</select></label>
 					{#if withdrawReg}<label class="adm-field">Reason, shown to pilots (required)<input class="adm" bind:value={withdrawReason} /></label>{/if}
 				</div>
 				{#if withdrawReg}<p class="muted">Devices block this aircraft as soon as they see the release. A device that stays offline can't learn this.</p>{/if}
 			{/if}
-			<button type="button" class="primary" disabled={working || !overview.drafts.length} onclick={publish}>{working ? 'Working' : 'Publish new release'}</button>
+			<button type="button" class="primary" disabled={working || (!chosen.length && !withdrawReg)} onclick={publish}>{working ? 'Working' : 'Publish new release'}</button>
 		</section>
 		<section>
 			<h2>Released</h2>

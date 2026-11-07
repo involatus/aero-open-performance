@@ -162,6 +162,39 @@ describe('publishing', () => {
 		expect(await publishedFile(s, 'releases/1/TEST-KF.json')).not.toBeNull();
 		for (const path of ['../settings.json', 'settings.json', '../drafts/TEST-KF.json', 'releases/1/../../../drafts/TEST-KF.json', 'history/1.json']) expect(await publishedFile(s, path)).toBeNull();
 	});
+	it('publishes only the chosen aircraft, while another draft is unfinished', async () => {
+		await saveDraft(s, 'HB-WIP', { aircraft: { registration: 'HB-WIP' } }, ADMIN, NOW);
+		const all = await publish(s, {}, ADMIN, NOW);
+		expect(all.ok).toBe(false);
+		const chosen = await publish(s, { include: ['TEST-KF'] }, ADMIN, NOW);
+		expect(chosen.ok).toBe(true);
+		expect((await latestIndex(s))?.aircraft.map((e) => e.registration)).toEqual(['TEST-KF']);
+	});
+	it('keeps aircraft that weren\'t chosen exactly as pilots have them, including withdrawals', async () => {
+		await saveDraft(s, 'TEST-DR', { aircraft: raw('test-dr-style') }, ADMIN, NOW);
+		await publish(s, {}, ADMIN, NOW);
+		const first = await latestIndex(s);
+		const kf = first!.aircraft.find((e) => e.registration === 'TEST-KF')!;
+		const changed = raw('test-dr-style'); changed.revision = 2;
+		const { version } = await getDraft(s, 'TEST-DR');
+		await saveDraft(s, 'TEST-DR', { aircraft: changed, version }, ADMIN, NOW);
+		expect((await publish(s, { include: ['TEST-DR'] }, ADMIN, NOW)).ok).toBe(true);
+		const second = await latestIndex(s);
+		expect(second!.aircraft.find((e) => e.registration === 'TEST-KF')).toEqual(kf);
+		expect(second!.aircraft.find((e) => e.registration === 'TEST-DR')?.revision).toBe(2);
+		const installed = await downloadRelease(second!, async (f) => (await publishedFile(s, f))!.data, NOW);
+		expect(await verifyInstalled(installed)).toBe(true);
+		await publish(s, { include: [], withdraw: { 'TEST-KF': 'Data error' } }, ADMIN, NOW);
+		await publish(s, { include: ['TEST-DR'] }, ADMIN, NOW);
+		expect((await latestIndex(s))!.aircraft.find((e) => e.registration === 'TEST-KF')?.withdrawn?.reason).toBe('Data error');
+	});
+	it('keeps a published aircraft for pilots when its draft is deleted; only a withdrawal removes it', async () => {
+		await publish(s, {}, ADMIN, NOW);
+		await deleteDraft(s, 'TEST-KF');
+		await saveDraft(s, 'TEST-DR', { aircraft: raw('test-dr-style') }, ADMIN, NOW);
+		await publish(s, { include: ['TEST-DR'] }, ADMIN, NOW);
+		expect((await latestIndex(s))?.aircraft.map((e) => e.registration).sort()).toEqual(['TEST-DR', 'TEST-KF']);
+	});
 	it('removes a draft without touching what was published', async () => {
 		await publish(s, {}, ADMIN, NOW);
 		await deleteDraft(s, 'TEST-KF');

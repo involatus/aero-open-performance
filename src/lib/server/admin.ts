@@ -78,20 +78,25 @@ export function checkDraft(aircraft: unknown) {
 export { unusualValues, validateAircraft };
 
 /**
+ * Publishing a chosen set of drafts: aircraft already published but not chosen carry over unchanged,
+ * and an aircraft only leaves pilots' devices by being withdrawn with a reason.
  * Publishing writes every aircraft file first and the index last. Pilots only ever follow
  * the index, so a failure part-way leaves the previous release in force.
  */
-export async function publish(s: Storage, request: { notes?: string; withdraw?: Record<string, string> }, admin: string, now: number) {
+export async function publish(s: Storage, request: { notes?: string; withdraw?: Record<string, string>; include?: string[] }, admin: string, now: number) {
 	const previous = await s.get(INDEX);
 	const previousIndex = previous ? parseIndex(previous.data) : null;
 	const settings = await getSettings(s);
 	const drafts: DraftInput[] = [];
 	for (const path of await s.list('drafts/')) {
 		const stored = await s.get<Draft>(path);
-		if (stored) drafts.push({ name: path.slice('drafts/'.length, -'.json'.length), data: stored.data.aircraft, secondEntry: stored.data.secondEntry ?? undefined });
+		const name = path.slice('drafts/'.length, -'.json'.length);
+		// Only the chosen drafts are checked and published. Without a choice, all of them are.
+		if (Array.isArray(request?.include) && !request.include.includes(name)) continue;
+		if (stored) drafts.push({ name, data: stored.data.aircraft, secondEntry: stored.data.secondEntry ?? undefined });
 	}
 	const release = nextReleaseNumber(previousIndex);
-	const built = await buildRelease({ drafts, previous: previousIndex, release, operator: settings.operator, notes: request?.notes, withdraw: request?.withdraw, now });
+	const built = await buildRelease({ drafts, previous: previousIndex, release, operator: settings.operator, notes: request?.notes, withdraw: request?.withdraw, carryOver: true, now });
 	if (!built.ok) return built;
 	for (const file of built.files) await s.put(`published/${file.path}`, file.data, { ifVersion: null });
 	try {
