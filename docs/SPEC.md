@@ -28,7 +28,7 @@ Each Operator deploys their own copy, with one settings file and their own Aircr
 
 ## Stack
 
-SvelteKit 3 with Svelte 5, client-rendered with prerendered shells; Tailwind CSS 4 and Bits UI, with all colours in one set of tokens; the built-in service worker; `idb-keyval`; `pdfmake`; Valibot; Vitest, `fast-check` and Playwright. Admin only: SJSF generated forms, native input tables with Excel paste, and Better Auth. Hosting is not final, so keep host-specific code behind small layers. Licence: Apache-2.0.
+SvelteKit 3 with Svelte 5, client-rendered with prerendered shells; Tailwind CSS 4 and Bits UI, with all colours in one set of tokens; the built-in service worker; `idb-keyval`; `pdfmake`; Valibot; Vitest, `fast-check` and Playwright. Admin only: SJSF generated forms, and native input tables with Excel paste. Hosting is not final, so keep host-specific code behind small layers. Licence: Apache-2.0.
 
 ## Aircraft data format
 
@@ -127,7 +127,7 @@ The app checks the stored data on every start and before each Report, and refuse
 Optional, online and mainly for a laptop, while still working on an iPad. It covers aircraft setup, Operator settings and publishing, and doesn't store Reports.
 
 - **Storage:** file storage behind a small layer. Drafts are one file per aircraft, and releases are permanent files. A database comes later only if Operators need separate accounts.
-- **Login:** Better Auth without a database, with Google sign-in and an email allow-list in the host's settings, checked on every request. Set `requireEmailVerification: true`. Sessions last 8 hours. Removing an admin means editing the list and redeploying. There is no password fallback.
+- **Login:** one admin password per copy, in the host's settings, plus the admin's typed name, which is recorded on drafts and releases. Sessions last 8 hours in a signed cookie. Changing the password signs everyone out.
 - **Tables:** native input tables with paste from Excel, then a second pass with first values hidden, highlighting any differences. No OCR at first.
 - **Steps:** forms build each result's ordered steps, with a live test panel. An aircraft can be copied as an independent start; its tables and sources must then be entered and checked again.
 - **Publish:** disabled until required values and sources are present, all out-of-range choices are set, every table has been entered twice and matches, every unusual value has been acknowledged, and every hand-calculated case passes. No override.
@@ -166,6 +166,6 @@ After slice 6, an Operator can run the tool with hand-written aircraft files.
 
 - On a real iPad, these passed: installing, offline start, keeping data across restarts, and creating and sharing a PDF offline. A report shared to Mail offline also arrived after reconnecting. Still untested: data retention over weeks, and low storage.
 - The admin table grid on a real iPad and with real Excel. Paste is tested only with a simulated clipboard.
-- Google sign-in and Vercel Blob storage on real hosting. Automated tests use a test-only login and a local folder.
+- Password sign-in and Vercel Blob storage on real hosting. Automated tests use a local server and a local folder.
 - Whether CheckWX's free tier includes every endpoint used, and its terms for long-term use.
 - Final hosting, including Vercel Hobby's non-commercial limit and file storage limits.

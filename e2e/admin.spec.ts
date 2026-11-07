@@ -18,6 +18,31 @@ async function importAircraft(page: Page, data: unknown, name = 'aircraft.json')
 	await page.locator('input[type=file]').setInputFiles({ name, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(data)) });
 }
 
+test.beforeEach(async ({ page }) => {
+	const r = await page.request.post('/api/admin', { data: { action: 'signIn', name: 'Test Admin', password: 'playwright-test-password' } });
+	expect(r.ok()).toBe(true);
+});
+
+test('only the right password signs in, and sign out ends the session', async ({ browser }) => {
+	const context = await browser.newContext({ baseURL: 'http://localhost:4319' });
+	const page = await context.newPage();
+	expect((await page.request.post('/api/admin', { data: { action: 'overview' } })).status()).toBe(401);
+	await page.goto('/admin');
+	await page.getByLabel('Your name').fill('Anna Example');
+	await page.getByLabel('Admin password').fill('wrong-password');
+	await page.getByRole('button', { name: 'Sign in' }).click();
+	await expect(page.getByText('That password isn\'t right.')).toBeVisible();
+	expect((await page.request.post('/api/admin', { data: { action: 'overview' } })).status()).toBe(401);
+	await page.getByLabel('Admin password').fill('playwright-test-password');
+	await page.getByRole('button', { name: 'Sign in' }).click();
+	await expect(page.getByText('Anna Example')).toBeVisible();
+	expect((await page.request.post('/api/admin', { data: { action: 'overview' } })).status()).toBe(200);
+	await page.getByRole('button', { name: 'Sign out' }).click();
+	await expect(page.getByLabel('Admin password')).toBeVisible();
+	expect((await page.request.post('/api/admin', { data: { action: 'overview' } })).status()).toBe(401);
+	await context.close();
+});
+
 test('the public can read nothing private, and other sites are refused', async ({ page, playwright }) => {
 	const outsider = await playwright.request.newContext({ baseURL: 'http://localhost:4317' });
 	const r = await outsider.post('/api/admin', { data: { action: 'status' } });

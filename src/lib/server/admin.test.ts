@@ -4,7 +4,6 @@ import { join } from 'node:path';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { downloadRelease, verifyInstalled } from '../data/release.ts';
 import { AdminError, checkDraft, deleteDraft, getDraft, latestIndex, listDrafts, listReleases, publish, publishedFile, restoreRelease, saveDraft, saveSettings } from './admin.ts';
-import { allowedEmails, authConfig, isAdmin, testAdminEmail } from './auth-rules.ts';
 import { fileStorage } from './storage/file.ts';
 import { AlreadyExists, VersionConflict, memoryStorage, type Storage } from './storage/index.ts';
 
@@ -43,32 +42,6 @@ describe.each([['memory', () => memoryStorage()], ['file', () => fileStorage(joi
 it('file storage cannot escape its folder', async () => {
 	const s = fileStorage(join(work, 'jail'));
 	await expect(s.put('../outside.json', 1)).rejects.toThrow('outside');
-});
-
-describe('who is an admin', () => {
-	const allowed = allowedEmails(' Admin@Example.com, other@example.com ,');
-	it('requires a verified address on the list, in any capitalisation', () => {
-		expect(isAdmin({ email: 'admin@example.com', emailVerified: true }, allowed)).toBe(true);
-		expect(isAdmin({ email: 'ADMIN@example.com', emailVerified: true }, allowed)).toBe(true);
-	});
-	it('refuses an unverified address, even on the list', () => expect(isAdmin({ email: 'admin@example.com', emailVerified: false }, allowed)).toBe(false));
-	it('refuses a missing verification flag', () => expect(isAdmin({ email: 'admin@example.com' }, allowed)).toBe(false));
-	it('refuses anyone not on the list, and nobody at all', () => {
-		expect(isAdmin({ email: 'someone@example.com', emailVerified: true }, allowed)).toBe(false);
-		expect(isAdmin(null, allowed)).toBe(false);
-		expect(isAdmin({ email: 'admin@example.com', emailVerified: true }, allowedEmails(''))).toBe(false);
-	});
-	it('reports what is missing to set it up', () => {
-		expect(authConfig({}).configured).toBe(false);
-		expect(authConfig({ GOOGLE_CLIENT_ID: 'a' }).missing).toContain('ADMIN_EMAILS');
-		expect(authConfig({ GOOGLE_CLIENT_ID: 'a', GOOGLE_CLIENT_SECRET: 'b', BETTER_AUTH_SECRET: 'c', ADMIN_EMAILS: 'd' }).configured).toBe(true);
-	});
-	it('the test login needs its exact flag and never works on a real host', () => {
-		expect(testAdminEmail({})).toBeNull();
-		expect(testAdminEmail({ AOP_TEST_ADMIN: 'true' })).toBeNull();
-		expect(testAdminEmail({ AOP_TEST_ADMIN: 'insecure-test-only' })).toBe('test-admin@example.com');
-		for (const host of ['VERCEL', 'NETLIFY', 'CF_PAGES']) expect(testAdminEmail({ AOP_TEST_ADMIN: 'insecure-test-only', [host]: '1' })).toBeNull();
-	});
 });
 
 describe('drafts', () => {

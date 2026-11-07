@@ -8,31 +8,16 @@ The admin area is optional. It lets a Data Owner set up aircraft and publish Dat
 
 In Vercel, open your project, then **Storage**, create a **Blob** store with **Private** access, and connect it to the project. Check that plan's limits and terms for your use. Vercel's Hobby plan is limited to non-commercial, personal use.
 
-## 2. Create a Google sign-in
+## 2. Set an admin password
 
-1. In the [Google Cloud console](https://console.cloud.google.com/), create a project.
-2. Set up the **OAuth consent screen** as **External**, with only the basic email and profile scopes, then publish it.
-3. Under **Credentials**, create an **OAuth client ID** of type **Web application**.
-4. Add this **Authorized redirect URI**, using your own address: `https://your-site.example/api/auth/callback/google`
+Create a long random password, for example with `openssl rand -base64 24`. In your host's environment variables, add it as `ADMIN_PASSWORD`, then redeploy. It must have at least 16 characters.
 
-## 3. Add the settings
-
-Add these in your host's environment variables, then redeploy:
-
-| Name | Value |
-| --- | --- |
-| `GOOGLE_CLIENT_ID` | From step 2 |
-| `GOOGLE_CLIENT_SECRET` | From step 2 |
-| `BETTER_AUTH_SECRET` | A long random text, such as the output of `openssl rand -base64 32` |
-| `BETTER_AUTH_URL` | Your site's address, such as `https://your-site.example` |
-| `ADMIN_EMAILS` | The Google addresses allowed in, separated by commas |
-
-Then open `/admin` and sign in.
+Then open `/admin`, enter your name and the password, and sign in. Your name is recorded on the drafts you change and the releases you publish.
 
 ## Managing admins
 
-- **To remove an admin,** delete their address from `ADMIN_EMAILS` and redeploy. They lose access on their next request.
-- **To sign everyone out,** change `BETTER_AUTH_SECRET` and redeploy.
+- Everyone at a club uses the same password, so the recorded name isn't proof of who made a change. Keep the password to the people who need it.
+- **To remove an admin or replace a leaked password,** change `ADMIN_PASSWORD` and redeploy. This signs everyone out.
 - Sessions last 8 hours.
 
 ## Publishing

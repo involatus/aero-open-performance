@@ -43,7 +43,6 @@
     "@standard-schema/spec": "1.1.0",
     "@valibot/to-json-schema": "1.8.0",
     "@vercel/blob": "2.8.2",
-    "better-auth": "1.7.18",
     "bits-ui": "2.20.6",
     "esm-env": "1.2.2",
     "idb-keyval": "6.3.0",

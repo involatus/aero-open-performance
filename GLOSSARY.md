@@ -5,7 +5,7 @@ An open-source tool that helps pilots calculate mass, balance, and takeoff and l
 ## Language
 
 **Operator**:
-A club, school or aircraft owner running their own copy of the tool.
+A club, school or aircraft owner with their own copy of the tool, whoever set it up.
 _Avoid_: Tenant, customer
 
 **Aircraft Data**:

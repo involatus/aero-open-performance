@@ -1,36 +1,42 @@
-/** Google sign-in through Better Auth, with no database. Loaded only once configured, so the app builds and runs without it. */
-import { getRequestEvent } from '$app/server';
-import { allowedEmails, authConfig, isAdmin, testAdminEmail } from './auth-rules.ts';
+/** One admin password per copy, set in the host's settings. Pilots never sign in. */
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
-let instance: Promise<any> | null = null;
+export const SESSION_COOKIE = 'aop_admin';
+export const SESSION_SECONDS = 8 * 3600;
+const MIN_PASSWORD_LENGTH = 16;
 
-export function getAuth() {
-	instance ??= (async () => {
-		const { betterAuth } = await import('better-auth');
-		const { sveltekitCookies } = await import('better-auth/svelte-kit');
-		const env = process.env;
-		return betterAuth({
-			baseURL: env.BETTER_AUTH_URL,
-			secret: env.BETTER_AUTH_SECRET,
-			socialProviders: { google: { clientId: env.GOOGLE_CLIENT_ID!, clientSecret: env.GOOGLE_CLIENT_SECRET!, requireEmailVerification: true } } as never,
-			session: { expiresIn: 8 * 3600, cookieCache: { enabled: true, maxAge: 8 * 3600, strategy: 'jwe', refreshCache: false } },
-			account: { storeStateStrategy: 'cookie', storeAccountCookie: true },
-			plugins: [sveltekitCookies(getRequestEvent)]
-		});
-	})();
-	return instance;
+/** A short password counts as not set up, so a guessable one can't protect the admin area. */
+export function adminPassword(env: Record<string, string | undefined>): string | null {
+	const password = env.ADMIN_PASSWORD;
+	return password && password.length >= MIN_PASSWORD_LENGTH ? password : null;
 }
 
-export function authIsConfigured() {
-	return authConfig(process.env).configured;
+const hash = (value: string) => createHash('sha256').update(value).digest();
+
+export function passwordMatches(password: string, attempt: unknown): boolean {
+	return typeof attempt === 'string' && timingSafeEqual(hash(password), hash(attempt));
 }
 
-/** The signed-in admin's email, or null. The allow-list is read fresh each time. */
-export async function currentAdmin(request: Request): Promise<string | null> {
-	const test = testAdminEmail(process.env);
-	if (test) return test;
-	if (!authIsConfigured()) return null;
-	const auth = await getAuth();
-	const session = await auth.api.getSession({ headers: request.headers });
-	return isAdmin(session?.user, allowedEmails(process.env.ADMIN_EMAILS)) ? session.user.email : null;
+/** The name recorded on changes. It's typed by the admin, so it isn't proof of identity. */
+export function cleanName(value: unknown): string | null {
+	if (typeof value !== 'string') return null;
+	const name = value.replace(/\s+/g, ' ').trim();
+	return name && name.length <= 60 ? name : null;
+}
+
+const sign = (password: string, payload: string) => createHmac('sha256', password).update(payload).digest('base64url');
+
+/** Signed with the password, so changing the password signs everyone out. */
+export function createSession(password: string, name: string, now: number): string {
+	const payload = Buffer.from(JSON.stringify({ name, expires: now + SESSION_SECONDS * 1000 })).toString('base64url');
+	return `${payload}.${sign(password, payload)}`;
+}
+
+/** The signed-in admin's name, or null. */
+export function readSession(password: string, cookie: string | undefined, now: number): string | null {
+	const [payload, signature, ...rest] = (cookie ?? '').split('.');
+	if (!payload || !signature || rest.length) return null;
+	if (!timingSafeEqual(hash(sign(password, payload)), hash(signature))) return null;
+	const { name, expires } = JSON.parse(Buffer.from(payload, 'base64url').toString()) as { name: string; expires: number };
+	return now < expires ? name : null;
 }

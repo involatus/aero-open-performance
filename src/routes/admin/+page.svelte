@@ -11,7 +11,7 @@
 	import type { Aircraft, CalculationInput, HandCase } from '#lib/aircraft/schema.ts';
 	import { calculate, runHandCases } from '#lib/engine/index.ts';
 
-	type Status = { configured: boolean; signedIn: boolean; email: string | null; storage: string | null };
+	type Status = { configured: boolean; signedIn: boolean; name: string | null; storage: string | null };
 	type Overview = { drafts: { id: string; registration: string; type: string; revision: number | null; updatedBy: string; updatedAt: string }[]; settings: { operator: string }; index: { release: number; aircraft: { registration: string; withdrawn?: { reason: string } }[] } | null; releases: { release: number; publishedBy: string; published: string; notes: string | null; changes: { registration: string; text: string }[] }[]; version: string; updateAvailable: string | null };
 
 	let status = $state<Status | null>(null);
@@ -47,6 +47,9 @@
 	let caseFailures = $derived.by(() => { if (!parsed) return []; try { return runHandCases(parsed); } catch { return []; } });
 	let testResult = $derived.by(() => { if (!parsed || !testInput) return null; try { return calculate(parsed, $state.snapshot(testInput)); } catch (e) { return String((e as Error).message); } });
 
+	let signInName = $state('');
+	let signInPassword = $state('');
+
 	async function api(action: string, body: Record<string, unknown> = {}) {
 		const response = await fetch('/api/admin', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action, ...body }) });
 		const data = await response.json();
@@ -73,16 +76,17 @@
 		try { await task(); } catch (e) { message = (e as Error).message; }
 		working = false;
 	}
-	async function signIn() {
+	async function signIn(event: SubmitEvent) {
+		event.preventDefault();
 		await run(async () => {
-			const r = await fetch('/api/auth/sign-in/social', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ provider: 'google', callbackURL: '/admin' }) });
-			const data = await r.json();
-			if (!data.url) throw new Error('Sign-in could not start. Check the Google settings.');
-			location.href = data.url;
+			await api('signIn', { name: signInName, password: signInPassword });
+			signInPassword = '';
+			status = await api('status');
+			await refresh();
 		});
 	}
 	async function signOut() {
-		await fetch('/api/auth/sign-out', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+		await api('signOut');
 		location.reload();
 	}
 	const safeId = (reg: string) => reg.trim().replace(/[^A-Za-z0-9._-]/g, '-');
@@ -196,7 +200,7 @@
 	}
 	function addCase() {
 		const a = parsed!, n = editing!.aircraft.handCases.length + 1;
-		editing!.aircraft.handCases.push({ id: `case-${n}-${Date.now().toString(36)}`, label: `Case ${n}`, author: status?.email ?? '', date: new Date().toISOString().slice(0, 10), input: blankInput(a), expected: { exceeded: [] } } satisfies HandCase);
+		editing!.aircraft.handCases.push({ id: `case-${n}-${Date.now().toString(36)}`, label: `Case ${n}`, author: status?.name ?? '', date: new Date().toISOString().slice(0, 10), input: blankInput(a), expected: { exceeded: [] } } satisfies HandCase);
 		touch();
 	}
 	function setExpected(c: any, key: string, text: string) {
@@ -232,10 +236,7 @@
 			<h2>Not set up on this deployment</h2>
 			<p>The admin area is optional. Pilots aren't affected. To turn it on, set these in your host's settings and redeploy:</p>
 			<ul class="m-0 list-disc pl-5">
-				<li><code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code>, from a Google Cloud OAuth client</li>
-				<li><code>BETTER_AUTH_SECRET</code>, a long random text</li>
-				<li><code>BETTER_AUTH_URL</code>, this site's address</li>
-				<li><code>ADMIN_EMAILS</code>, the Google addresses allowed in, separated by commas</li>
+				<li><code>ADMIN_PASSWORD</code>, a long random password of at least 16 characters</li>
 				<li>A connected Vercel Blob store (private)</li>
 			</ul>
 			<p class="muted">You can also publish hand-written files with the command-line tool. See <code>docs/FORMAT.md</code>.</p>
@@ -244,8 +245,11 @@
 	{:else if !status.signedIn}
 		<h1>Admin</h1>
 		<section>
-			<p>Sign in with an allowed Google account to manage aircraft data.</p>
-			<button type="button" class="primary" disabled={working} onclick={signIn}>Sign in with Google</button>
+			<form class="grid gap-2" onsubmit={signIn}>
+				<label class="adm-field">Your name, recorded on what you change and publish<input class="adm" autocomplete="name" required maxlength="60" bind:value={signInName} /></label>
+				<label class="adm-field">Admin password<input class="adm" type="password" autocomplete="current-password" required bind:value={signInPassword} /></label>
+				<button type="submit" class="primary" disabled={working}>Sign in</button>
+			</form>
 			<p><a href={resolve('/')}>Back to the app</a></p>
 		</section>
 	{:else if editing}
@@ -375,7 +379,7 @@
 	{:else if overview}
 		<div class="flex flex-wrap items-center justify-between gap-2">
 			<h1>Admin</h1>
-			<div class="flex flex-wrap items-center gap-2"><span class="muted">{status.email}</span><button type="button" onclick={signOut}>Sign out</button><a href={resolve('/')}>Back to the app</a></div>
+			<div class="flex flex-wrap items-center gap-2"><span class="muted">{status.name}</span><button type="button" onclick={signOut}>Sign out</button><a href={resolve('/')}>Back to the app</a></div>
 		</div>
 		{#if overview.updateAvailable}<div class="banner unk" role="status">Version {overview.updateAvailable} of the app is available, and this copy is on {overview.version}. Updates can include security fixes. Your copy doesn't update itself: see <code>docs/ADMIN.md</code>.</div>{/if}
 		<section>

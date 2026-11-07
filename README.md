@@ -1,6 +1,6 @@
 # Aero Open Performance
 
-Open-source mass and balance and takeoff and landing performance for piston aircraft. It runs offline in the browser, with no app store. Any club, school or aircraft owner can deploy their own copy.
+Open-source mass and balance and takeoff and landing performance for piston aircraft. It runs offline in the browser, with no app store. Each club, school or aircraft owner uses their own copy, which they can deploy themselves or have someone set up for them.
 
 > **Pre-release, not for flight.** Results from any pre-release version must not be used for flight preparation. It currently offers only fictional demo aircraft with invented data.
 
@@ -16,6 +16,17 @@ npm run dev
 npm run build
 npm run preview
 ```
+
+## Set up a copy for a club
+
+Each club gets its own Vercel project and its own storage, all built from this repository. The club doesn't need a Git or Vercel account.
+
+1. In Vercel, choose **Add New**, then **Project**, and import this repository under a name for the club. A push to the repository then updates this copy too.
+2. In the new project, open **Storage**, create a **Blob** store with **Private** access, and connect it. Never reuse another club's store.
+3. Create a password with `openssl rand -base64 24`, and add it as `ADMIN_PASSWORD` in the project's environment variables. Add `CHECKWX_API_KEY` too if the club wants weather.
+4. Redeploy, then send the club its address and password. They sign in at `/admin`.
+
+Vercel's Hobby plan is limited to non-commercial, personal use, so check that it fits. See [docs/ADMIN.md](docs/ADMIN.md) for managing the password and publishing.
 
 ## Your own aircraft
 
