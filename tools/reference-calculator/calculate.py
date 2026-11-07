@@ -357,18 +357,24 @@ def calculate(ac, inp):
 def check(path):
     ac = json.load(open(path))
     md, ad = ac["display"]["massDecimals"], ac["display"]["armDecimals"]
+    # Hand cases are compared in the manual's units when the file has them (FORMAT.md).
+    mu = ac.get("manualUnits", ac["units"])
+    kmass = {"kg": 1.0, "lb": LB}[ac["units"]["mass"]] / {"kg": 1.0, "lb": LB}[mu["mass"]]
+    karm = LENGTH[ac["units"]["arm"]] / LENGTH[mu["arm"]]
+    back = lambda x, k: float(f"{x * k:.10g}")
     fails = 0
     for hc in ac.get("handCases", []):
         r = calculate(ac, hc["input"])
         ex = hc["expected"]
         bad = []
-        for k, d in (("takeoffMass", md), ("landingMass", md), ("takeoffArm", ad), ("landingArm", ad)):
+        for k, d, kf in (("takeoffMass", md, kmass), ("landingMass", md, kmass), ("takeoffArm", ad, karm), ("landingArm", ad, karm)):
             if k in ex:
                 # AMBIGUITY: "text with display decimals" taken as fixed-point formatting
                 # of both sides; the expected value is formatted the same way.
-                got = None if r[k] is None else f"{r[k]:.{d}f}"
-                if got != f"{ex[k]:.{d}f}":
-                    bad.append(f"{k}: got {got}, expected {ex[k]:.{d}f}")
+                got = None if r[k] is None else f"{back(r[k], kf):.{d}f}"
+                want = f"{back(ex[k], kf):.{d}f}"
+                if got != want:
+                    bad.append(f"{k}: got {got}, expected {want}")
         for k in ("takeoff", "landing"):
             for f, v in ex.get(k, {}).items():
                 if r[k][f] != v:

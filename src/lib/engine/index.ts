@@ -3,7 +3,7 @@ import type { Aircraft, CalculationInput, HandCase } from '../aircraft/schema.ts
 import { atmosphere, type Atmosphere } from './atmosphere.ts';
 import { configurationOf, massBalance, type MassBalance } from './mass-balance.ts';
 import { runCondition, type PerformanceResult, type Wind } from './performance.ts';
-import { convertLength } from './units.ts';
+import { convertLength, massArmFactors } from './units.ts';
 
 export type Calculation = {
 	massBalance: MassBalance;
@@ -57,7 +57,11 @@ export type CaseFailure = { caseId: string; field: string; expected: unknown; ac
 /** Runs an aircraft file's hand-calculated cases and compares displayed values exactly. */
 export function runHandCases(a: Aircraft): CaseFailure[] {
 	const failures: CaseFailure[] = [];
-	const massText = (x: number) => x.toFixed(a.display.massDecimals), armText = (x: number) => x.toFixed(a.display.armDecimals);
+	// In the manual's units when there are some, because that is how a person works the case out.
+	// Converting back first gives the typed value exactly, then both sides are rounded the same way.
+	const f = massArmFactors(a.units, a.manualUnits ?? a.units);
+	const back = (x: number, k: number) => Number((x * k).toPrecision(10));
+	const massText = (x: number) => back(x, f.mass).toFixed(a.display.massDecimals), armText = (x: number) => back(x, f.arm).toFixed(a.display.armDecimals);
 	a.handCases.forEach((c: HandCase) => {
 		const r = calculate(a, c.input), e = c.expected;
 		const compare = (field: string, expected: unknown, actual: unknown) => {

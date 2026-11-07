@@ -1,10 +1,17 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
 	import { resolve } from '$app/paths';
-	import SectionForm from '#lib/components/admin/SectionForm.svelte';
+	import AircraftEditor from '#lib/components/admin/AircraftEditor.svelte';
+	import SourcesEditor from '#lib/components/admin/SourcesEditor.svelte';
+	import ConfigurationsEditor from '#lib/components/admin/ConfigurationsEditor.svelte';
+	import LoadEditor from '#lib/components/admin/LoadEditor.svelte';
+	import FuelEditor from '#lib/components/admin/FuelEditor.svelte';
+	import LimitsEditor from '#lib/components/admin/LimitsEditor.svelte';
+	import PerformanceEditor from '#lib/components/admin/PerformanceEditor.svelte';
+	import NotesEditor from '#lib/components/admin/NotesEditor.svelte';
 	import TableEditor from '#lib/components/admin/TableEditor.svelte';
 	import CaseInputs from '#lib/components/admin/CaseInputs.svelte';
-	import { CONFIGURATIONS, SECTIONS, SOURCES, cleanForFormat, rowsToSources, sourcesToRows } from '#lib/admin/form-schema.ts';
+	import { entryUnits, limitLabel, makeId, shown, stored } from '#lib/admin/editing.ts';
 	import { NEW_AIRCRAFT, copyForNewAircraft, emptyCells, secondEntryFor } from '#lib/admin/table-grid.ts';
 	import { publishChecks } from '#lib/data/publish-checks.ts';
 	import { validateAircraft } from '#lib/aircraft/validate.ts';
@@ -38,8 +45,19 @@
 	let jsonText = $state('');
 	let jsonError = $state('');
 
-	const TABS = ['Aircraft', 'Load', 'Fuel', 'Limits', 'Notes', 'Sources', 'Configurations', 'Tables', 'Performance', 'Test cases', 'Second entry', 'Try it', 'Check', 'JSON'];
-	let section = $derived(SECTIONS.find((s) => s.title === tab));
+	// In the order a manual is usually entered.
+	const TABS = ['Aircraft', 'Documents', 'Weighing', 'Load', 'Fuel', 'Limits', 'Tables', 'Performance', 'Notes', 'Test cases', 'Second entry', 'Try it', 'Check', 'JSON'];
+	const EDITORS: Record<string, { title: string; component: any }> = {
+		Aircraft: { title: 'Aircraft', component: AircraftEditor },
+		Documents: { title: 'Documents', component: SourcesEditor },
+		Weighing: { title: 'Weighing and Configurations', component: ConfigurationsEditor },
+		Load: { title: 'Loading Stations', component: LoadEditor },
+		Fuel: { title: 'Fuel', component: FuelEditor },
+		Limits: { title: 'Limits', component: LimitsEditor },
+		Performance: { title: 'Takeoff and landing', component: PerformanceEditor },
+		Notes: { title: 'Notes for pilots', component: NotesEditor }
+	};
+	let section = $derived(EDITORS[tab]);
 	let parsed = $derived.by(() => { if (!editing) return null; const v = validateAircraft($state.snapshot(editing.aircraft)); return v.ok ? v.aircraft : null; });
 	let validationProblems = $derived.by(() => { if (!editing) return []; const v = validateAircraft($state.snapshot(editing.aircraft)); return v.ok ? [] : v.problems; });
 	let isFictional = $derived(editing?.aircraft?.fictional === true);
@@ -164,16 +182,10 @@
 	});
 
 	function touch() { dirty = true; checked = null; }
-	function readKeys(keys: string[]) { return () => Object.fromEntries(keys.map((k) => [k, editing!.aircraft[k]])); }
-	function writeKeys(keys: string[]) {
-		return (value: any) => {
-			for (const k of keys) { if (value?.[k] === undefined) delete editing!.aircraft[k]; else editing!.aircraft[k] = cleanForFormat(value[k]); }
-			touch();
-		};
-	}
 	function addTable() {
-		const id = tableName.trim();
-		if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(id) || editing!.aircraft.tables[id]) { message = 'Use a new short name with no spaces.'; return; }
+		const name = tableName.trim();
+		if (!name) { message = 'Name the table first, such as "takeoff".'; return; }
+		const id = makeId(name, Object.keys(editing!.aircraft.tables), 'table');
 		const axes = [{ name: 'Altitude', input: 'pressureAltitude', unit: 'ft', values: [0, 2000], below: 'none', above: 'none' }, { name: 'Temperature', input: 'temperature', unit: 'C', values: [0, 20], below: 'none', above: 'none' }];
 		editing!.aircraft.tables[id] = { axes, outputs: { total: emptyCells([2, 2]) }, source: Object.keys(editing!.aircraft.sources ?? {})[0] ?? '' };
 		currentTable = id; tableName = ''; touch();
@@ -203,9 +215,11 @@
 		editing!.aircraft.handCases.push({ id: `case-${n}-${Date.now().toString(36)}`, label: `Case ${n}`, author: status?.name ?? '', date: new Date().toISOString().slice(0, 10), input: blankInput(a), expected: { exceeded: [] } } satisfies HandCase);
 		touch();
 	}
+	// Expected masses and arms are typed in the manual's units, like the inputs.
+	const expectedKind = (key: string) => (key.endsWith('Mass') ? 'mass' : 'arm') as 'mass' | 'arm';
 	function setExpected(c: any, key: string, text: string) {
 		const n = Number(text.replace(',', '.'));
-		if (text.trim() === '' || !Number.isFinite(n)) delete c.expected[key]; else c.expected[key] = n;
+		if (text.trim() === '' || !Number.isFinite(n)) delete c.expected[key]; else c.expected[key] = stored(editing!.aircraft, expectedKind(key), n);
 		touch();
 	}
 	function setExpectedResult(c: any, phase: 'takeoff' | 'landing', field: string, text: string) {
@@ -268,20 +282,13 @@
 		<section>
 			{#if section}
 				<h2>{section.title}</h2>
-				{#key section.title}<SectionForm schema={section.schema} read={readKeys(section.keys)} write={writeKeys(section.keys)} />{/key}
-			{:else if tab === 'Sources'}
-				<h2>Sources</h2>
-				<p class="muted">Every table, limit, factor and weighing refers to one of these by its short name.</p>
-				<SectionForm schema={SOURCES} read={() => ({ sources: sourcesToRows(editing!.aircraft.sources) })} write={(v: any) => { editing!.aircraft.sources = rowsToSources(v?.sources); touch(); }} />
-			{:else if tab === 'Configurations'}
-				<h2>Configurations</h2>
-				<SectionForm schema={CONFIGURATIONS} read={readKeys(['configurations'])} write={writeKeys(['configurations'])} />
+				<section.component a={editing.aircraft} {touch} />
 			{:else if tab === 'Tables'}
 				<h2>Tables</h2>
 				<p class="muted">Enter values exactly as printed in the manual. Steps such as factors go under Performance.</p>
 				<div class="flex flex-wrap gap-1">
 					{#each tableIds as id (id)}<button type="button" class:primary={currentTable === id} onclick={() => (currentTable = id)}>{id}</button>{/each}
-					<input class="adm" placeholder="New table short name" aria-label="New table short name" bind:value={tableName} />
+					<input class="adm" placeholder="New table, e.g. takeoff" aria-label="New table name" bind:value={tableName} />
 					<button type="button" onclick={addTable}>Add table</button>
 				</div>
 				{#if currentTable && editing.aircraft.tables[currentTable]}
@@ -318,7 +325,7 @@
 								<h3 class="m-0 font-bold">Expected results, worked out by hand</h3>
 								<div class="grid grid-cols-2 gap-2 md:grid-cols-4">
 									{#each [['takeoffMass', 'Takeoff mass'], ['takeoffArm', 'Takeoff CG'], ['landingMass', 'Landing mass'], ['landingArm', 'Landing CG']] as [key, label] (key)}
-										<label class="adm-field">{label}<input class="adm" inputmode="decimal" value={c.expected[key] ?? ''} onchange={(e) => setExpected(c, key, e.currentTarget.value)} /></label>
+										<label class="adm-field">{label}, {entryUnits(editing.aircraft)[expectedKind(key)]}<input class="adm" inputmode="decimal" value={c.expected[key] === undefined ? '' : shown(editing.aircraft, expectedKind(key), c.expected[key])} onchange={(e) => setExpected(c, key, e.currentTarget.value)} /></label>
 									{/each}
 									{#each ['takeoff', 'landing'] as const as phase (phase)}
 										<label class="adm-field">{phase === 'takeoff' ? 'Takeoff' : 'Landing'} result<select class="adm" value={c.expected[phase]?.status ?? ''} onchange={(e) => setExpectedResult(c, phase, 'status', e.currentTarget.value)}><option value="">Not checked</option><option value="ok">A distance</option><option value="noData">No data</option><option value="noResult">No result</option><option value="needsInput">Needs input</option></select></label>
@@ -327,7 +334,7 @@
 									{/each}
 								</div>
 								<fieldset class="m-0 flex flex-wrap gap-3 border-0 p-0"><legend class="font-bold">Limits this case should exceed</legend>
-									{#each limitIds(parsed) as id (id)}<label class="flex items-center gap-1 text-sm"><input type="checkbox" checked={c.expected.exceeded.includes(id)} onchange={(e) => toggleExceeded(c, id, e.currentTarget.checked)} /> {id}</label>{/each}
+									{#each limitIds(parsed) as id (id)}<label class="flex items-center gap-1 text-sm"><input type="checkbox" checked={c.expected.exceeded.includes(id)} onchange={(e) => toggleExceeded(c, id, e.currentTarget.checked)} /> {limitLabel(parsed, id)}</label>{/each}
 								</fieldset>
 								{#if fails.length}<ul class="m-0 list-disc pl-5 text-bad">{#each fails as f (f.field)}<li>{f.field}: you expected {String(f.expected)}, the tool got {String(f.actual)}. Check both against the manual.</li>{/each}</ul>{/if}
 								<button type="button" onclick={() => { editing!.aircraft.handCases.splice(i, 1); touch(); }}>Delete this case</button>

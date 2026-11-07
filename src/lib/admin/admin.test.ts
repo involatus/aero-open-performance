@@ -4,7 +4,6 @@ import fc from 'fast-check';
 import { validateAircraft } from '../aircraft/validate.ts';
 import { publishChecks, secondEntryDifferences } from '../data/publish-checks.ts';
 import { isNewer, availableUpdate } from '../server/updates.ts';
-import { CONFIGURATIONS, SECTIONS, SOURCES, cleanForFormat, rowsToSources, sourcesToRows } from './form-schema.ts';
 import { NEW_AIRCRAFT, copyForNewAircraft, countBlank, differingCells, emptyCells, getCell, isMultiCell, parseCell, parsePaste, reshape, secondEntryFor, setCell } from './table-grid.ts';
 
 const raw = (n: string) => JSON.parse(readFileSync(`aircraft-examples/${n}.json`, 'utf8'));
@@ -94,45 +93,8 @@ describe('second entry', () => {
 	});
 });
 
-describe('forms', () => {
-	it('covers every top-level field of the format in some section', () => {
-		const schema = JSON.parse(readFileSync('schema/aircraft.schema.json', 'utf8'));
-		const covered = new Set([...SECTIONS.flatMap((s) => s.keys), 'configurations', 'sources', 'tables', 'handCases', 'formatVersion', 'acknowledgedUnusualValues']);
-		expect(Object.keys(schema.properties).filter((k) => !covered.has(k))).toEqual([]);
-	});
-	it('gives readable names to step types', () => {
-		const text = JSON.stringify(SECTIONS.find((s) => s.title === 'Performance')!.schema);
-		for (const t of ['Table lookup', 'Mass correction', 'Wind correction', 'Surface factor', 'Reference mass']) expect(text).toContain(t);
-		expect(CONFIGURATIONS.properties.configurations.items.properties.weighing.title).toBe('Weighing');
-		expect(SOURCES.properties.sources.items.properties.document.title).toBe('Document');
-	});
-	it('round-trips sources between the file and the form', () => {
-		const s = raw('test-dr-style').sources;
-		expect(rowsToSources(sourcesToRows(s))).toEqual(s);
-		expect(rowsToSources([{ id: 'a', document: 'D', page: '', revision: undefined }, { document: 'no id' }])).toEqual({ a: { document: 'D' } });
-	});
-	it('removes what cleared fields leave behind, keeping zero and false', () => {
-		expect(cleanForFormat({ a: '', b: null, c: undefined, d: 0, e: false, f: [{ g: '', h: 1 }] })).toEqual({ d: 0, e: false, f: [{ h: 1 }] });
-	});
-	it('drops optional groups a form leaves empty, and keeps the rest', () => {
-		expect(cleanForFormat({ takeoff: [{ id: 'a', assumes: { inputs: [] } }] })).toEqual({ takeoff: [{ id: 'a' }] });
-		const used = { text: 'sea level', inputs: [] };
-		expect(cleanForFormat({ assumes: used })).toEqual({ assumes: used });
-		expect(cleanForFormat({ wind: { headwind: {}, tailwind: { percent: 1 } } })).toEqual({ wind: { tailwind: { percent: 1 } } });
-		expect(cleanForFormat({ stations: [], notes: [] })).toEqual({ stations: [], notes: [] });
-	});
-	it.each(['test-dr-style', 'test-sr22-style', 'test-glastar-style', 'test-kitfox-style'])('%s passes through the form cleaning unchanged', (n) => {
-		const a = raw(n);
-		for (const key of [...SECTIONS.flatMap((section) => section.keys), 'configurations']) {
-			if (a[key] !== undefined) expect(cleanForFormat({ [key]: a[key] })).toEqual({ [key]: a[key] });
-		}
-	});
-	it('labels a fixed type without borrowing the aircraft type label', () => {
-		const text = JSON.stringify(SECTIONS.find((s) => s.title === 'Performance')!.schema);
-		expect(text).not.toContain('Aircraft type');
-		expect(text).toContain('Type (set by the choice above)');
-	});
-	it('a new aircraft starts unfinished, and is saved as a draft', () => {
+describe('new aircraft', () => {
+	it('starts unfinished, and is saved as a draft', () => {
 		const d = NEW_AIRCRAFT('HB-NEW');
 		expect(d.registration).toBe('HB-NEW');
 		expect(publishChecks(d).problems.length).toBeGreaterThan(0);

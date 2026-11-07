@@ -98,13 +98,20 @@ main.admin { max-width: 1100px; gap: 12px; }
 .adm-tab { min-height: 44px; padding: 4px 10px; font-size: 15px; }
 .adm-cell { width: 76px; min-height: 40px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); color: var(--ink); text-align: right; padding: 4px 6px; font: 500 15px ui-monospace, Menlo, monospace; }
 .adm-cell:focus { outline: 2px solid var(--accent); } .adm-bad { border: 2px solid var(--bad); background: var(--bad-bg); }
-.aop-form { color: var(--ink); } .aop-form button[type='submit'] { display: none; }
-.aop-form input, .aop-form select, .aop-form textarea { min-height: 44px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); color: var(--ink); padding: 6px 8px; font-size: 16px; width: 100%; }
-.aop-form input[type='checkbox'] { width: 22px; min-height: 22px; }
-.aop-form fieldset { border: 1px solid var(--line); border-radius: 5px; padding: 10px; margin: 6px 0; }
-.aop-form legend { font-weight: 700; padding: 0 4px; }
-.aop-form label { font-size: 14px; font-weight: 600; }
-.aop-form button { min-height: 40px; padding: 2px 10px; font-size: 14px; }
+.adm-card { background: var(--bg); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 6px; padding: 12px; display: grid; gap: 10px; min-width: 0; }
+.adm-card.sub { border-left-color: var(--line); background: var(--panel); }
+.adm-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
+.adm-card-head h3 { margin: 0; font-size: 17px; font-weight: 700; }
+.adm-row { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); align-items: start; }
+.adm-tools { display: flex; flex-wrap: wrap; gap: 4px; }
+.adm-tools button, button.small { min-height: 40px; padding: 2px 10px; font-size: 14px; }
+.adm-unit { display: flex; align-items: center; gap: 6px; } .adm-unit > span { color: var(--muted); font-size: 14px; font-weight: 600; white-space: nowrap; }
+.adm-hint { color: var(--muted); font-size: 14px; font-weight: 500; margin: 0; }
+.adm-error { color: var(--bad); font-size: 14px; font-weight: 600; margin: 0; }
+.adm-check { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; min-height: 40px; } .adm-check input { width: 22px; height: 22px; }
+.adm-source { grid-column: 1 / -1; max-width: 34rem; }
+.adm-preview { align-self: start; position: sticky; top: 8px;  background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
+.adm-preview svg { width: 100%; height: auto; font-size: 12px; fill: var(--muted); }
 .banner.update { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .fld-label { font-size: 15px; font-weight: 600; }
 .metar { display: grid; gap: 6px; } .metar .raw { font: 500 14px ui-monospace, Menlo, monospace; overflow-wrap: anywhere; } .flag { color: var(--amber); font-weight: 600; font-size: 15px; } button.wide { width: 100%; min-height: 52px; }

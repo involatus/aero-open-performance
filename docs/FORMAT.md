@@ -12,6 +12,7 @@ One strict JSON file describes one registered aircraft. Unknown fields are error
 | `registration`, `type`, `revision` | Identity. `revision` is a whole number from 1 |
 | `fictional` | Optional. `true` for invented data |
 | `units` | `mass` is `kg` or `lb`; `arm` is `m`, `cm` or `in`; `volume` is `L` or `USgal` |
+| `manualUnits` | Optional, same shape as `units`. The units printed in the manual: the admin editor shows and accepts values in these and stores them converted to `units`, using the exact constants below. Calculations never read it |
 | `display` | `massDecimals` and `armDecimals`, used for showing values and comparing hand-calculated cases |
 | `sources` | Named sources: `document`, and optional `revision`, `page`, `date`. Every table, limit, factor and weighing refers to one |
 | `stations` | Loading Stations |
@@ -53,7 +54,7 @@ Every id must exist in the file. An unknown id is an error in the calling code, 
 
 ## Constants
 
-`1 lb = 0.45359237 kg`. `1 ft = 0.3048 m`, `1 in = 0.0254 m`, `1 cm = 0.01 m`. `°F = °C × 9/5 + 32`. `EPSILON = 1e-9`.
+`1 lb = 0.45359237 kg`. `1 US gal = 3.785411784 L`. `1 ft = 0.3048 m`, `1 in = 0.0254 m`, `1 cm = 0.01 m`. `°F = °C × 9/5 + 32`. `EPSILON = 1e-9`.
 
 ## Mass and balance
 
@@ -219,4 +220,4 @@ Publishing fails, with no override, unless every file passes all of these:
 
 ## Hand-calculated cases
 
-Each case has `id`, `label`, `author`, `date`, `input` and `expected`. Compare displayed values exactly: mass and arm as text with `display` decimals, distances as rounded numbers, and status as given. `expected.exceeded` lists every limit id exceeded by the inputs. Fields left out of `expected`, other than `exceeded`, aren't compared.
+Each case has `id`, `label`, `author`, `date`, `input` and `expected`. Compare displayed values exactly: mass and arm as text with `display` decimals, in `manualUnits` when the file has them and in `units` otherwise, distances as rounded numbers, and status as given. `expected.exceeded` lists every limit id exceeded by the inputs. Fields left out of `expected`, other than `exceeded`, aren't compared.

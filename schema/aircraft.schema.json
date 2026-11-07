@@ -53,6 +53,39 @@
 			],
 			"additionalProperties": false
 		},
+		"manualUnits": {
+			"type": "object",
+			"properties": {
+				"mass": {
+					"enum": [
+						"kg",
+						"lb"
+					],
+					"type": "string"
+				},
+				"arm": {
+					"enum": [
+						"m",
+						"cm",
+						"in"
+					],
+					"type": "string"
+				},
+				"volume": {
+					"enum": [
+						"L",
+						"USgal"
+					],
+					"type": "string"
+				}
+			},
+			"required": [
+				"mass",
+				"arm",
+				"volume"
+			],
+			"additionalProperties": false
+		},
 		"display": {
 			"type": "object",
 			"properties": {

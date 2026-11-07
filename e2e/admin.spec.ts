@@ -71,7 +71,7 @@ test('forms, tables and JSON all edit the same draft, and saving survives a relo
 	await page.getByLabel('New registration').fill('HB-NEW');
 	await page.getByRole('button', { name: 'Add aircraft' }).click();
 	await expect(page.getByRole('heading', { name: 'HB-NEW' })).toBeVisible();
-	for (const tab of ['Aircraft', 'Load', 'Fuel', 'Limits', 'Notes', 'Sources', 'Configurations', 'Tables', 'Performance', 'Test cases', 'Second entry', 'Try it', 'Check', 'JSON']) {
+	for (const tab of ['Aircraft', 'Documents', 'Weighing', 'Load', 'Fuel', 'Limits', 'Tables', 'Performance', 'Notes', 'Test cases', 'Second entry', 'Try it', 'Check', 'JSON']) {
 		await page.getByRole('navigation').getByRole('button', { name: tab, exact: true }).click();
 		await expect(page.locator('section h2').first()).toBeVisible();
 	}
@@ -80,7 +80,7 @@ test('forms, tables and JSON all edit the same draft, and saving survives a relo
 	await expect(page.getByRole('button', { name: 'Save draft' })).toBeEnabled();
 
 	await page.getByRole('navigation').getByRole('button', { name: 'Tables', exact: true }).click();
-	await page.getByLabel('New table short name').fill('takeoff');
+	await page.getByLabel('New table name').fill('takeoff');
 	await page.getByRole('button', { name: 'Add table' }).click();
 	await page.getByRole('textbox', { name: 'Altitude 0, Temperature 0' }).focus();
 	await page.evaluate(() => {
@@ -106,6 +106,64 @@ test('forms, tables and JSON all edit the same draft, and saving survives a relo
 	await page.getByRole('button', { name: 'Delete' }).click();
 	await page.getByRole('button', { name: 'Tap again to delete draft' }).click();
 	await expect(page.getByText('No aircraft yet')).toBeVisible();
+});
+
+test('a US manual is typed in lb and inches, pilots get kg and cm, and the envelope is drawn', async ({ page }) => {
+	const errors = await failOnErrors(page);
+	await page.goto('/admin');
+	await page.getByLabel('New registration').fill('HB-USA');
+	await page.getByRole('button', { name: 'Add aircraft' }).click();
+	const tab = (name: string) => page.getByRole('navigation').getByRole('button', { name, exact: true }).click();
+
+	await page.getByLabel('Aircraft type').fill('US type');
+	const manual = page.getByRole('group', { name: 'Units in the manual' });
+	await manual.getByLabel('Mass').selectOption('lb');
+	await manual.getByLabel('Arm').selectOption('in');
+	await manual.getByLabel('Fuel').selectOption('USgal');
+	await page.getByRole('group', { name: 'Units pilots see' }).getByLabel('Arm').selectOption('cm');
+
+	await tab('Documents');
+	await page.getByLabel('Document').first().fill('POH Test');
+	await page.getByLabel('Document').first().blur();
+
+	await tab('Load');
+	await page.getByRole('button', { name: 'Add station' }).click();
+	await page.getByLabel('Name pilots see').fill('Pilot');
+	await page.getByRole('textbox', { name: 'Arm', exact: true }).fill('101');
+	await expect(page.getByText('Pilots see 256.54 cm')).toBeVisible();
+	await page.getByLabel('Source page').fill('6-3');
+	await page.getByLabel('Source page').blur();
+	await page.getByRole('button', { name: 'Add station' }).click();
+	await page.getByLabel('Name pilots see').nth(1).fill('Baggage');
+	await page.getByLabel('Maximum load').nth(1).fill('1,960');
+	await expect(page.getByText('a comma before three digits could mean either')).toBeVisible();
+	await page.getByLabel('Maximum load').nth(1).fill('250');
+	await expect(page.getByText('Pilots see 113.398 kg')).toBeVisible();
+
+	await tab('Limits');
+	await page.getByLabel('Maximum takeoff mass').fill('1960');
+	await page.getByRole('button', { name: 'Landing is the same as takeoff' }).click();
+	await page.getByText('Fill in a box-shaped envelope').click();
+	await page.getByLabel('Forward limit').fill('95.6');
+	await page.getByLabel('Aft limit').fill('103.5');
+	await page.getByLabel('Lowest mass on the graph').fill('1300');
+	await page.getByLabel('Highest mass').fill('1960');
+	await page.getByRole('button', { name: 'Make these four corners' }).click();
+	await expect(page.getByRole('img', { name: 'CG envelope preview with 4 points' })).toBeVisible();
+
+	await tab('JSON');
+	const json = JSON.parse(await page.getByLabel('Aircraft file as JSON').inputValue());
+	expect(json.units).toEqual({ mass: 'kg', arm: 'cm', volume: 'L' });
+	expect(json.manualUnits).toEqual({ mass: 'lb', arm: 'in', volume: 'USgal' });
+	expect(json.stations.map((s: any) => [s.id, s.label, s.arm, s.maxMass])).toEqual([['station-1', 'Pilot', 256.54, undefined], ['station-2', 'Baggage', 0, 113.3980925]]);
+	expect(json.sources[json.stations[0].source]).toEqual({ document: 'POH Test', page: '6-3' });
+	expect(json.massLimits.maxLanding.value).toBe(889.0410452);
+	expect(json.envelope.points[0]).toEqual({ mass: 589.670081, arm: 242.824 });
+	await page.getByRole('button', { name: 'Save draft' }).click();
+	await page.getByRole('button', { name: 'Saved', exact: true }).waitFor();
+	await page.getByRole('button', { name: 'Back to list' }).click();
+	await api(page, 'deleteDraft', { id: 'HB-USA' });
+	expect(errors).toEqual([]);
 });
 
 test('publishing is blocked until the checks pass, then pilots get the data', async ({ page, browser }) => {
@@ -189,7 +247,7 @@ for (const name of ['test-dr-style', 'test-sr22-style', 'test-glastar-style', 't
 		await importAircraft(page, original);
 		await expect(page.getByText(`Imported ${original.registration}`)).toBeVisible();
 		await page.locator('div', { hasText: new RegExp(`^${original.registration}`) }).getByRole('button', { name: 'Edit' }).last().click();
-		for (const tab of ['Aircraft', 'Load', 'Fuel', 'Limits', 'Notes', 'Sources', 'Configurations', 'Tables', 'Performance', 'Test cases', 'Try it', 'Check']) {
+		for (const tab of ['Aircraft', 'Documents', 'Weighing', 'Load', 'Fuel', 'Limits', 'Tables', 'Performance', 'Notes', 'Test cases', 'Try it', 'Check']) {
 			await page.getByRole('navigation').getByRole('button', { name: tab, exact: true }).click();
 			await page.waitForTimeout(150);
 			await expect(page.getByRole('button', { name: 'Saved', exact: true }), `${tab} marked the draft as changed`).toBeDisabled();

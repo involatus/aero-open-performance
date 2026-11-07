@@ -191,6 +191,8 @@ export const Aircraft = v.strictObject({
 	revision: v.pipe(Num, v.integer(), v.minValue(1)),
 	fictional: v.optional(v.boolean()),
 	units: v.strictObject({ mass: MassUnit, arm: ArmUnit, volume: VolumeUnit }),
+	// Only for the admin editor: values are typed as printed in the manual and stored in `units`.
+	manualUnits: v.optional(v.strictObject({ mass: MassUnit, arm: ArmUnit, volume: VolumeUnit })),
 	display: v.strictObject({
 		massDecimals: v.pipe(Num, v.integer(), v.minValue(0)),
 		armDecimals: v.pipe(Num, v.integer(), v.minValue(0))

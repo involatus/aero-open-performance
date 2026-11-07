@@ -18,6 +18,15 @@ export function convertMass(value: number, from: string, to: string): number {
 	throw new Error(`Unknown mass unit: ${from} or ${to}`);
 }
 
+const KG: Record<string, number> = { kg: 1, lb: KG_PER_LB };
+
+/** Mass and arm in other units, for comparing hand-calculated cases in the manual's units. */
+export function massArmFactors(from: { mass: string; arm: string }, to: { mass: string; arm: string }) {
+	const mass = KG[from.mass] / KG[to.mass], arm = lengthInMetres[from.arm] / lengthInMetres[to.arm];
+	if (!Number.isFinite(mass) || !Number.isFinite(arm)) throw new Error(`Unknown unit: ${from.mass}, ${from.arm}, ${to.mass} or ${to.arm}`);
+	return { mass, arm };
+}
+
 export function convertTemperature(value: number, from: string, to: string): number {
 	if (from === to) return value;
 	if (from === 'C' && to === 'F') return (value * 9) / 5 + 32;
