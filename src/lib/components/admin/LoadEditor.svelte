@@ -16,15 +16,9 @@
 		for (const l of a.combinedLimits) l.stations = l.stations.filter((s: string) => s !== id);
 		touch();
 	}
-	function setPositions(s: any, on: boolean) {
-		if (on) {
-			s.positions = [{ id: 'forward', label: 'Forward', arm: s.arm ?? 0 }, { id: 'aft', label: 'Aft', arm: s.arm ?? 0 }];
-			s.defaultPosition = 'forward';
-			delete s.arm;
-		} else {
-			s.arm = s.positions?.[0]?.arm ?? 0;
-			delete s.positions; delete s.defaultPosition;
-		}
+	function useOneArm(s: any) {
+		s.arm = s.positions?.[0]?.arm ?? 0;
+		delete s.positions; delete s.defaultPosition;
 		touch();
 	}
 	function addPosition(s: any) {
@@ -43,7 +37,7 @@
 	}
 </script>
 
-<p class="adm-hint">One card for each place a pilot can put load: a seat, a passenger or a baggage area. Pilots see the name. Leave the maximum empty if the manual gives none.</p>
+<p class="adm-hint">One card for each seat and each baggage area, named as pilots should see it. Give every seat its own card, also when seats share an arm, so pilots never have to add people together. Leave the maximum empty if the manual gives none.</p>
 
 {#each a.stations as s, i (s.id)}
 	<div class="adm-card">
@@ -56,16 +50,13 @@
 			</div>
 		</div>
 		<div class="adm-row">
-			<label class="adm-field">Name pilots see *<input class="adm" placeholder="e.g. Pilot" value={s.label} oninput={(e) => { s.label = e.currentTarget.value; touch(); }} /></label>
+			<label class="adm-field">Name *<input class="adm" placeholder="e.g. Pilot" value={s.label} oninput={(e) => { s.label = e.currentTarget.value; touch(); }} /></label>
 			{#if !s.positions}<Num label="Arm" aircraft={a} kind="arm" value={s.arm} onchange={(v) => { s.arm = v ?? 0; touch(); }} />{/if}
 			<Num label="Maximum load" optional aircraft={a} kind="mass" value={s.maxMass} onchange={(v) => { if (v === undefined) delete s.maxMass; else s.maxMass = v; touch(); }} />
 			<SourcePick aircraft={a} value={s.source} onchange={(id) => { s.source = id; touch(); }} />
 		</div>
-		<details class="adm-more" open={!!s.positions}>
-			<summary>More options</summary>
-			<label class="adm-check"><input type="checkbox" checked={!!s.positions} onchange={(e) => setPositions(s, e.currentTarget.checked)} /> The pilot chooses between positions with different arms, such as a sliding seat</label>
-		</details>
 		{#if s.positions}
+			<p class="adm-hint">This station came from a file with several positions. <button type="button" class="small" onclick={() => useOneArm(s)}>Use one arm instead</button></p>
 			<div class="adm-card sub">
 				{#each s.positions as p, j (p.id)}
 					<div class="adm-row items-end">
@@ -91,7 +82,7 @@
 			<div class="adm-tools"><button type="button" onclick={() => { a.combinedLimits.splice(i, 1); touch(); }} aria-label={`Delete ${l.label}`}>Delete</button></div>
 		</div>
 		<div class="adm-row">
-			<label class="adm-field">Name pilots see *<input class="adm" value={l.label} oninput={(e) => { l.label = e.currentTarget.value; touch(); }} /></label>
+			<label class="adm-field">Name *<input class="adm" value={l.label} oninput={(e) => { l.label = e.currentTarget.value; touch(); }} /></label>
 			<Num label="Maximum together" aircraft={a} kind="mass" value={l.maxMass} onchange={(v) => { l.maxMass = v ?? 0; touch(); }} />
 			<SourcePick aircraft={a} value={l.source} onchange={(id) => { l.source = id; touch(); }} />
 		</div>

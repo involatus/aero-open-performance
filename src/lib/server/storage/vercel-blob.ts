@@ -2,6 +2,14 @@
 import { BlobNotFoundError, BlobPreconditionFailedError, del, get, list, put } from '@vercel/blob';
 import { AlreadyExists, VersionConflict, type Storage } from './index.ts';
 
+/**
+ * Larger files come back compressed, with the same tag marked weak (W/"…"). Saving compares
+ * strong tags, so the mark is dropped, or every save after opening a larger draft is refused.
+ */
+export function strongEtag(etag: string): string {
+	return etag.replace(/^W\//, '');
+}
+
 export function vercelBlobStorage(): Storage {
 	return {
 		kind: 'vercel-blob',
@@ -11,7 +19,7 @@ export function vercelBlobStorage(): Storage {
 				const result = await get(path, { access: 'private', useCache: false });
 				if (!result || result.statusCode !== 200) return null;
 				const text = await new Response(result.stream).text();
-				return { data: JSON.parse(text) as T, version: result.blob.etag };
+				return { data: JSON.parse(text) as T, version: strongEtag(result.blob.etag) };
 			} catch (error) {
 				if (error instanceof BlobNotFoundError) return null;
 				throw error;
@@ -22,7 +30,7 @@ export function vercelBlobStorage(): Storage {
 			const common = { access: 'private', contentType: 'application/json', addRandomSuffix: false } as const;
 			try {
 				if (options.ifVersion === null) return (await put(path, body, { ...common, allowOverwrite: false })).etag;
-				if (options.ifVersion) return (await put(path, body, { ...common, ifMatch: options.ifVersion })).etag;
+				if (options.ifVersion) return (await put(path, body, { ...common, ifMatch: strongEtag(options.ifVersion) })).etag;
 				return (await put(path, body, { ...common, allowOverwrite: true })).etag;
 			} catch (error) {
 				if (error instanceof BlobPreconditionFailedError) throw new VersionConflict(path);

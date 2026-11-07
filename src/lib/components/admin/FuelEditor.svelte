@@ -61,7 +61,7 @@
 			</div>
 		</div>
 		<div class="adm-row">
-			<label class="adm-field">Name pilots see *<input class="adm" placeholder="e.g. Main tanks" value={t.label} oninput={(e) => { t.label = e.currentTarget.value; touch(); }} /></label>
+			<label class="adm-field">Name *<input class="adm" placeholder="e.g. Main tanks" value={t.label} oninput={(e) => { t.label = e.currentTarget.value; touch(); }} /></label>
 			<Num label="Usable fuel" aircraft={a} kind="volume" value={t.capacity} onchange={(v) => { t.capacity = v ?? 0; touch(); }} />
 			<Num label="Arm" aircraft={a} kind="arm" value={t.arm} onchange={(v) => { t.arm = v ?? 0; touch(); }} />
 			<Num label="Fuel density" aircraft={a} kind="density" value={t.density} hint={`AVGAS is usually ${avgas.text}.`} onchange={(v) => { t.density = v ?? 0; touch(); }} />
@@ -84,7 +84,7 @@
 				<div class="adm-tools"><button type="button" disabled={a.burnPlans.length < 2} onclick={() => { a.burnPlans.splice(i, 1); syncPlans(); touch(); }}>Delete</button></div>
 			</div>
 			<div class="adm-row">
-				<label class="adm-field">Name pilots see *<input class="adm" value={p.label} oninput={(e) => { p.label = e.currentTarget.value; touch(); }} /></label>
+				<label class="adm-field">Name *<input class="adm" value={p.label} oninput={(e) => { p.label = e.currentTarget.value; touch(); }} /></label>
 				<label class="adm-field">How<select class="adm" value={p.type} onchange={(e) => setType(p, e.currentTarget.value)}><option value="even">From all tanks evenly</option><option value="sequence">One tank after another</option></select></label>
 				<label class="adm-check"><input type="radio" name="default-burn" checked={a.defaultBurnPlan === p.id} onchange={() => { a.defaultBurnPlan = p.id; touch(); }} /> Preselected</label>
 			</div>

@@ -5,6 +5,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { downloadRelease, verifyInstalled } from '../data/release.ts';
 import { AdminError, checkDraft, deleteDraft, getDraft, latestIndex, listDrafts, listReleases, publish, publishedFile, restoreRelease, saveDraft, saveSettings } from './admin.ts';
 import { fileStorage } from './storage/file.ts';
+import { strongEtag } from './storage/vercel-blob.ts';
 import { AlreadyExists, VersionConflict, memoryStorage, type Storage } from './storage/index.ts';
 
 const raw = (name: string) => JSON.parse(readFileSync(`aircraft-examples/${name}.json`, 'utf8'));
@@ -166,5 +167,12 @@ describe('publishing', () => {
 		await deleteDraft(s, 'TEST-KF');
 		expect(await listDrafts(s)).toEqual([]);
 		expect(await publishedFile(s, 'releases/1/TEST-KF.json')).not.toBeNull();
+	});
+});
+
+describe('Vercel Blob versions', () => {
+	it('treats a compressed file\'s weak tag as the same version', () => {
+		expect(strongEtag('W/"d2ed81b4325cd35f970fadf74f2d8199"')).toBe('"d2ed81b4325cd35f970fadf74f2d8199"');
+		expect(strongEtag('"21bd2987"')).toBe('"21bd2987"');
 	});
 });

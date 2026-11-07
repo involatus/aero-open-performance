@@ -28,7 +28,7 @@
 			<div class="adm-tools"><button type="button" disabled={a.configurations.length < 2} onclick={() => { a.configurations.splice(i, 1); touch(); }} aria-label={`Delete ${c.label}`}>Delete</button></div>
 		</div>
 		<div class="adm-row">
-			<label class="adm-field">Name pilots see *<input class="adm" placeholder="e.g. Tricycle gear" value={c.label} oninput={(e) => { c.label = e.currentTarget.value; touch(); }} /></label>
+			<label class="adm-field">Name *<input class="adm" placeholder="e.g. Tricycle gear" value={c.label} oninput={(e) => { c.label = e.currentTarget.value; touch(); }} /></label>
 		</div>
 		<fieldset class="adm-card sub m-0">
 			<legend class="font-bold">Empty mass from the latest weighing</legend>

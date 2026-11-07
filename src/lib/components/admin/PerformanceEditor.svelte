@@ -76,7 +76,7 @@
 			</div>
 		</div>
 		<div class="adm-row">
-			<label class="adm-field">Name pilots choose *<input class="adm" placeholder="e.g. Dry grass" value={c.label} oninput={(e) => { c.label = e.currentTarget.value; touch(); }} /></label>
+			<label class="adm-field">Name *<input class="adm" placeholder="e.g. Dry grass" value={c.label} oninput={(e) => { c.label = e.currentTarget.value; touch(); }} /></label>
 			{#if c.kind === 'steps'}<label class="adm-field">Distances in<select class="adm" value={c.distanceUnit} onchange={(e) => { c.distanceUnit = e.currentTarget.value; touch(); }}><option value="m">metres</option><option value="ft">feet</option></select></label>{/if}
 		</div>
 		<label class="adm-check"><input type="checkbox" checked={c.kind === 'noData'} onchange={(e) => setKind(c, e.currentTarget.checked)} /> The manual has no data for this: pilots decide themselves</label>

@@ -128,13 +128,13 @@ test('a US manual is typed in lb and inches, pilots get kg and cm, and the envel
 
 	await tab('Load');
 	await page.getByRole('button', { name: 'Add station' }).click();
-	await page.getByLabel('Name pilots see').fill('Pilot');
+	await page.getByLabel('Name *', { exact: true }).fill('Pilot');
 	await page.getByRole('textbox', { name: 'Arm', exact: true }).fill('101');
 	await expect(page.getByText('Pilots see 256.54 cm')).toBeVisible();
 	await page.getByLabel('Source page').fill('6-3');
 	await page.getByLabel('Source page').blur();
 	await page.getByRole('button', { name: 'Add station' }).click();
-	await page.getByLabel('Name pilots see').nth(1).fill('Baggage');
+	await page.getByLabel('Name *', { exact: true }).nth(1).fill('Baggage');
 	await page.getByLabel('Maximum load').nth(1).fill('1,960');
 	await expect(page.getByText('a comma before three digits could mean either')).toBeVisible();
 	await page.getByLabel('Maximum load').nth(1).fill('250');
