@@ -36,7 +36,9 @@ sw.addEventListener('message', (event) => {
 sw.addEventListener('fetch', (event) => {
 	const url = new URL(event.request.url);
 	// Live answers such as weather and sending must never be replayed from a cache.
-	if (event.request.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/') || url.pathname.startsWith('/data/')) return;
+	// The admin is online only and has no update notice, so it always loads the deployed version.
+	const live = ['/api/', '/data/', '/admin'].some((p) => url.pathname.startsWith(p));
+	if (event.request.method !== 'GET' || url.origin !== location.origin || live) return;
 
 	event.respondWith(
 		(async () => {

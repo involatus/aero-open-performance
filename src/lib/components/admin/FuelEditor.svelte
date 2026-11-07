@@ -44,6 +44,8 @@
 		if (type === 'sequence') p.tanks = a.tanks.map((t: any) => t.id); else delete p.tanks;
 		touch();
 	}
+	// With one arm for all tanks, the order fuel is used can't move the CG, so there is nothing to choose.
+	let orderMatters = $derived(a.tanks.length > 1 && new Set(a.tanks.map((t: any) => t.arm)).size > 1);
 	const tankLabel = (id: string) => a.tanks.find((t: any) => t.id === id)?.label ?? id;
 </script>
 
@@ -69,7 +71,10 @@
 {/each}
 <div><button type="button" onclick={addTank}>Add tank</button></div>
 
-{#if a.tanks.length > 1}
+{#if a.tanks.length > 1 && !orderMatters}
+	<p class="adm-hint">All tanks have the same arm, so the order fuel is used doesn't change the CG.{a.burnPlans.length > 1 ? '' : ' Pilots aren\'t asked.'}</p>
+	{#if a.burnPlans.length > 1}<button type="button" class="small justify-self-start" onclick={() => { a.burnPlans = [{ id: 'even', label: 'Evenly', type: 'even' }]; a.defaultBurnPlan = 'even'; touch(); }}>Remove the burn plan choice for pilots</button>{/if}
+{:else if orderMatters}
 	<h2 class="mt-4">Burn Plans</h2>
 	<p class="adm-hint">How fuel is used during the flight, to work out landing mass and CG. Pilots choose one; the preselected one is ticked.</p>
 	{#each a.burnPlans as p, i (p.id)}

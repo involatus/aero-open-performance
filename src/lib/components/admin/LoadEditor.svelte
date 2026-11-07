@@ -61,7 +61,10 @@
 			<Num label="Maximum load" optional aircraft={a} kind="mass" value={s.maxMass} onchange={(v) => { if (v === undefined) delete s.maxMass; else s.maxMass = v; touch(); }} />
 			<SourcePick aircraft={a} value={s.source} onchange={(id) => { s.source = id; touch(); }} />
 		</div>
-		<label class="adm-check"><input type="checkbox" checked={!!s.positions} onchange={(e) => setPositions(s, e.currentTarget.checked)} /> This seat can be moved to positions with different arms</label>
+		<details class="adm-more" open={!!s.positions}>
+			<summary>More options</summary>
+			<label class="adm-check"><input type="checkbox" checked={!!s.positions} onchange={(e) => setPositions(s, e.currentTarget.checked)} /> The pilot chooses between positions with different arms, such as a sliding seat</label>
+		</details>
 		{#if s.positions}
 			<div class="adm-card sub">
 				{#each s.positions as p, j (p.id)}
