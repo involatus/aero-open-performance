@@ -1,5 +1,5 @@
 /** Open Calculations, saved on this device. Nothing here leaves the device. */
-import { del, get, set } from 'idb-keyval';
+import * as idb from 'idb-keyval';
 import { reconcileAfterInstall, type Calculation } from './calculation.ts';
 import { ReleaseError, downloadRelease, offersUpdate, parseIndex, shouldCheck, verifyInstalled, withdrawalReason, type InstalledData, type ReleaseIndex } from '../data/release.ts';
 import { isExpired, type Delivery, type StoredReport } from '../report/report.ts';
@@ -12,7 +12,17 @@ const BASE = '/data';
 const PUBLISHED = '/api/data';
 const pdfKey = (id: string) => `report-pdf:${id}`;
 
+/** Where the app keeps things on the device. IndexedDB in the browser, a Map in tests. */
+export type DeviceStore = { get<T>(key: string): Promise<T | undefined>; set(key: string, value: unknown): Promise<void>; del(key: string): Promise<void> };
+export type Device = { store: DeviceStore; fetch: typeof fetch; online: () => boolean; now: () => number };
+
+const browser = (): Device => ({ store: { get: idb.get, set: idb.set, del: idb.del }, fetch: (...a) => fetch(...a), online: () => navigator.onLine, now: () => Date.now() });
+
 export class AppState {
+	private device: Device;
+	constructor(device: Partial<Device> = {}) {
+		this.device = { ...browser(), ...device };
+	}
 	tabs = $state<Calculation[]>([]);
 	reports = $state<StoredReport[]>([]);
 	current = $state(0);
@@ -38,13 +48,13 @@ export class AppState {
 	}
 
 	private async saveMeta() {
-		await set(META, { lastCheck: this.lastCheck, seen: this.seen });
+		await this.device.store.set(META, { lastCheck: this.lastCheck, seen: this.seen });
 	}
 
 	private async getJson(file: string) {
 		// Data published through the admin GUI comes first, then any data bundled with this copy of the app.
 		for (const base of [PUBLISHED, BASE]) {
-			const response = await fetch(`${base}/${file}`, { cache: 'no-store', signal: AbortSignal.timeout(20000) });
+			const response = await this.device.fetch(`${base}/${file}`, { cache: 'no-store', signal: AbortSignal.timeout(20000) });
 			if (!response.ok) continue;
 			const data = await response.json();
 			if (data !== null) return data;
@@ -53,7 +63,7 @@ export class AppState {
 	}
 
 	private async loadData() {
-		const [stored, meta] = await Promise.all([get<InstalledData>(DATA), get<{ lastCheck: number | null; seen: ReleaseIndex | null }>(META)]);
+		const [stored, meta] = await Promise.all([this.device.store.get<InstalledData>(DATA), this.device.store.get<{ lastCheck: number | null; seen: ReleaseIndex | null }>(META)]);
 		this.lastCheck = meta?.lastCheck ?? null;
 		this.seen = meta?.seen ?? null;
 		if (!stored) return;
@@ -63,12 +73,12 @@ export class AppState {
 
 	/** Compares against the published index. Installs by itself only when this device has nothing yet. */
 	async check(force = false) {
-		if (this.checking || !navigator.onLine || !shouldCheck(this.lastCheck, Date.now(), force || !this.data)) return;
+		if (this.checking || !this.device.online() || !shouldCheck(this.lastCheck, this.device.now(), force || !this.data)) return;
 		this.checking = true;
 		this.updateError = null;
 		try {
 			const index = parseIndex(await this.getJson('index.json'));
-			this.lastCheck = Date.now();
+			this.lastCheck = this.device.now();
 			if (!this.data) await this.install(index);
 			else if (offersUpdate(this.data.index, index) || index.release === this.data.index.release) this.seen = index;
 			await this.saveMeta();
@@ -85,8 +95,8 @@ export class AppState {
 		this.updateError = null;
 		const hadData = !!this.data;
 		try {
-			const next = await downloadRelease(index, (file) => this.getJson(file), Date.now());
-			await set(DATA, next);
+			const next = await downloadRelease(index, (file) => this.getJson(file), this.device.now());
+			await this.device.store.set(DATA, next);
 			this.data = next;
 			this.dataProblem = null;
 			this.seen = index;
@@ -105,7 +115,7 @@ export class AppState {
 
 	/** Rechecks the stored copy, so a Report never uses damaged data. */
 	async dataStillValid() {
-		const stored = await get<InstalledData>(DATA);
+		const stored = await this.device.store.get<InstalledData>(DATA);
 		return verifyInstalled(stored);
 	}
 
@@ -116,7 +126,7 @@ export class AppState {
 			this.saveFailed = true;
 		}
 		try {
-			const saved = await get<{ tabs: Calculation[]; current: number }>(KEY);
+			const saved = await this.device.store.get<{ tabs: Calculation[]; current: number }>(KEY);
 			if (saved?.tabs?.length) {
 				this.tabs = saved.tabs;
 				this.current = Math.min(saved.current, saved.tabs.length - 1);
@@ -125,9 +135,9 @@ export class AppState {
 			this.saveFailed = true;
 		}
 		try {
-			const stored = (await get<StoredReport[]>(REPORTS)) ?? [];
-			const now = Date.now();
-			for (const report of stored) if (isExpired(report, now)) await del(pdfKey(report.id));
+			const stored = (await this.device.store.get<StoredReport[]>(REPORTS)) ?? [];
+			const now = this.device.now();
+			for (const report of stored) if (isExpired(report, now)) await this.device.store.del(pdfKey(report.id));
 			this.reports = stored.filter((report) => !isExpired(report, now));
 			if (this.reports.length !== stored.length) await this.saveReports();
 		} catch {
@@ -137,25 +147,25 @@ export class AppState {
 	}
 
 	private async saveReports() {
-		await set(REPORTS, $state.snapshot(this.reports));
+		await this.device.store.set(REPORTS, $state.snapshot(this.reports));
 	}
 
 	/** The PDF is written first, so a Report on the list always has its PDF. */
 	async addReport(report: StoredReport, pdf: Blob) {
-		await set(pdfKey(report.id), pdf);
+		await this.device.store.set(pdfKey(report.id), pdf);
 		this.reports.unshift(report);
 		try {
 			await this.saveReports();
 		} catch (error) {
 			// Leaves nothing behind, so "nothing was saved" stays true.
 			this.reports = this.reports.filter((r) => r.id !== report.id);
-			await del(pdfKey(report.id)).catch(() => {});
+			await this.device.store.del(pdfKey(report.id)).catch(() => {});
 			throw error;
 		}
 	}
 
 	pdf(id: string) {
-		return get<Blob>(pdfKey(id));
+		return this.device.store.get<Blob>(pdfKey(id));
 	}
 
 	async setDelivery(id: string, delivery: Delivery) {
@@ -168,12 +178,25 @@ export class AppState {
 	async deleteReport(id: string) {
 		this.reports = this.reports.filter((r) => r.id !== id);
 		await this.saveReports();
-		await del(pdfKey(id));
+		await this.device.store.del(pdfKey(id));
+	}
+
+	/** Opens a Calculation as a new tab and shows it. */
+	addTab(calc: Calculation) {
+		this.tabs.push(calc);
+		this.current = this.tabs.length - 1;
+	}
+
+	/** Closes a tab. The tab shown stays the same one where it still exists, otherwise the one before. */
+	closeTab(index: number) {
+		if (index < 0 || index >= this.tabs.length) return;
+		this.tabs.splice(index, 1);
+		if (this.current > index || this.current >= this.tabs.length) this.current = Math.max(0, this.current - 1);
 	}
 
 	async save() {
 		try {
-			await set(KEY, $state.snapshot({ tabs: this.tabs, current: this.current }));
+			await this.device.store.set(KEY, $state.snapshot({ tabs: this.tabs, current: this.current }));
 			this.saveFailed = false;
 		} catch {
 			this.saveFailed = true;

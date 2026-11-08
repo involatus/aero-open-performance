@@ -6,6 +6,8 @@
 	import Keypad from '#lib/components/Keypad.svelte';
 	import NumberField from '#lib/components/NumberField.svelte';
 	import { findAirfields, loadAirfields, type Airfield } from '#lib/airfield/airfields.ts';
+	import { lookUpWeather } from '#lib/weather/lookup.ts';
+	import type { WeatherQuery } from '#lib/weather/provider.ts';
 	import Segmented from '#lib/components/Segmented.svelte';
 	import CgChart from '#lib/components/CgChart.svelte';
 	import DistanceResult from '#lib/components/DistanceResult.svelte';
@@ -118,42 +120,26 @@
 		if (latestReport) preparePdf(latestReport.id);
 	});
 
-	const WEATHER_ERRORS: Record<string, string> = {
-		notConfigured: 'Weather isn\'t set up for this app. Enter the values from ATIS or the aircraft.',
-		unavailable: 'Weather is unavailable right now. Enter the values from ATIS or the aircraft.',
-		noStation: 'No report found. Try another station code, or enter the values from ATIS or the aircraft.',
-		badRequest: 'Enter a four-character station code, such as LSZH.',
-		forbidden: 'Weather is unavailable right now. Enter the values from ATIS or the aircraft.'
-	};
-
-	async function loadWeather(params: string) {
+	async function loadWeather(query: WeatherQuery) {
 		if (!calc || weatherBusy) return;
 		const target = calc;
-		weatherBusy = true;
-		weatherMessage = '';
+		weatherBusy = true; weatherMessage = '';
 		closePad();
-		try {
-			if (!navigator.onLine) throw new Error('offline');
-			const response = await fetch(`/api/metar?${params}`, { signal: AbortSignal.timeout(12000) });
-			const body = await response.json();
-			if (!response.ok) { weatherMessage = WEATHER_ERRORS[body.error] ?? WEATHER_ERRORS.unavailable; return; }
-			now = Date.now();
-			applyWeather(target, body, now);
-		} catch {
-			weatherMessage = navigator.onLine ? WEATHER_ERRORS.unavailable : 'No connection. Enter the values from ATIS or the aircraft.';
-		} finally {
-			weatherBusy = false;
-		}
+		const result = await lookUpWeather(query);
+		if (result.ok) { now = Date.now(); applyWeather(target, result.report, now); } else weatherMessage = result.message;
+		weatherBusy = false;
 	}
 	function getStationWeather() {
-		loadWeather(`station=${encodeURIComponent(calc?.values.station ?? '')}`);
+		loadWeather({ station: calc?.values.station ?? '' });
 	}
+	/** From the chosen airfield when there is one, so a field without a METAR gets its nearest station. */
 	function getNearestWeather() {
 		weatherMessage = '';
+		if (airfieldFound && calc?.airfield?.ident === airfieldFound.ident) { loadWeather({ lat: airfieldFound.lat, lon: airfieldFound.lon }); return; }
 		if (!navigator.geolocation) { weatherMessage = 'This device can\'t share its location. Enter a station code instead.'; return; }
 		weatherBusy = true;
 		navigator.geolocation.getCurrentPosition(
-			(p) => { weatherBusy = false; loadWeather(`lat=${p.coords.latitude}&lon=${p.coords.longitude}`); },
+			(p) => { weatherBusy = false; loadWeather({ lat: p.coords.latitude, lon: p.coords.longitude }); },
 			() => { weatherBusy = false; weatherMessage = 'Location isn\'t available. Enter a station code instead.'; },
 			{ timeout: 10000, maximumAge: 300000 }
 		);
@@ -234,30 +220,26 @@
 
 	function startWith(registration: string) {
 		const a = app.aircraft.find((x) => x.registration === registration)!;
-		app.tabs.push(newCalculation(a, makeId(), Date.now()));
-		app.current = app.tabs.length - 1;
+		app.addTab(newCalculation(a, makeId(), Date.now()));
 		choosing = false;
 		closePad();
 	}
 	function selectTab(i: number) { app.current = i; choosing = false; confirmDelete = false; closePad(); }
 	function addNextFlight() {
-		app.tabs.push(nextFlight(aircraft!, calc!, results!, makeId(), Date.now()));
-		app.current = app.tabs.length - 1;
+		app.addTab(nextFlight(aircraft!, calc!, results!, makeId(), Date.now()));
 		closePad();
 	}
 	let checkedNow = $state(false);
 	async function checkNow() { checkedNow = false; await app.check(true); checkedNow = true; }
 	function closeTab(i: number) {
-		app.tabs.splice(i, 1);
-		if (app.current >= i) app.current = Math.max(0, app.current - 1);
+		app.closeTab(i);
 		if (!app.tabs.length) choosing = true;
 		confirmDelete = false;
 		closePad();
 	}
 	function deleteTab() {
 		if (!confirmDelete) { confirmDelete = true; return; }
-		app.tabs.splice(app.current, 1);
-		app.current = Math.max(0, app.current - 1);
+		app.closeTab(app.current);
 		confirmDelete = false;
 		closePad();
 	}
