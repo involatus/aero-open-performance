@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { isUnusual, parse, type Calculation, type Field } from '#lib/app/calculation.ts';
+	import { valueSource } from '#lib/app/presentation.ts';
 
 	let { field, calc, active, onopen, onquick, onconfirm, onunit }: {
 		field: Field; calc: Calculation; active: boolean;
@@ -27,10 +28,10 @@
 	{#if field.hint}<div class="hint">{field.hint}</div>{/if}
 	<div class="chip">
 		{#if status === 'pre'}
-			<span class="amb">From {calc.sources[field.key]}{calc.changed[field.key] ? `, was ${calc.changed[field.key]}` : ''}</span>
+			<span class="amb">{valueSource(calc, field.key)}</span>
 			<button type="button" class="confirm" onclick={onconfirm}>Confirm</button>
 		{:else if status === 'ok'}
-			<span class="ok">Confirmed, from {calc.sources[field.key]}</span>
+			<span class="ok">{valueSource(calc, field.key)}</span>
 		{/if}
 		{#if unusual}<span class="bad">Unusual value. Expected {field.range[0]} to {field.range[1]} {field.unit}.</span>{/if}
 		{#if overCapacity}<span class="bad">Tank holds {field.capacity} {field.unit}.</span>{/if}

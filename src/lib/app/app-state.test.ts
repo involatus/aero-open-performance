@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { AppState, type DeviceStore } from './app-state.svelte.ts';
-import { newCalculation } from './calculation.ts';
+import { newCalculation, setByPilot, toInput } from './calculation.ts';
+import { calculate } from '../engine/index.ts';
 import type { StoredReport } from '../report/report.ts';
 
 /** The second adapter: device storage in memory, and published files from the repo's demo release. */
@@ -79,5 +80,27 @@ describe('app state on a device', () => {
 		app.closeTab(0);
 		expect(app.tabs).toEqual([]);
 		expect(app.current).toBe(0);
+	});
+	it('makes a Report and its PDF from the current data, and saves nothing on damaged data', async () => {
+		const store = memory();
+		const app = new AppState(device(store));
+		await app.load(); await app.check();
+		const a = app.aircraft.find((x) => x.registration === 'TEST-DR')!, c = newCalculation(a, 'calc', NOW);
+		setByPilot(c, `load:${a.stations[0].id}`, '80');
+		a.tanks.forEach((t) => setByPilot(c, `fuel:${t.id}`, '20'));
+		for (const [k, v] of [['time', '1'], ['flow', '20'], ['elev', '100'], ['rwy', '9'], ['qnh', '1013'], ['oat', '15'], ['wdir', '90'], ['wspd', '5']]) setByPilot(c, k, v);
+		c.values.place = 'LSXX'; c.values.name = 'A Pilot';
+		a.notes.forEach((n) => { c.notes[n.id] = true; });
+		const results = calculate(a, toInput(a, c));
+		const tools = { random: new Uint8Array([1, 2, 3, 4]), render: async () => new Blob(['%PDF']) };
+		const report = await app.createReport({ aircraft: a, calc: c, results, toolVersion: 'test' }, tools);
+		expect(report.label).toBe('TEST-DR LSXX, 2026-11-08 00:00 UTC');
+		expect(report.data.footer.dataRelease).toContain('Data Release');
+		expect(store.map.has(`report-pdf:${report.id}`)).toBe(true);
+		expect(app.reports.map((r) => r.id)).toEqual([report.id]);
+
+		(store.map.get('data-release-v1') as { aircraft: { revision: number }[] }).aircraft[0].revision += 1;
+		await expect(app.createReport({ aircraft: a, calc: c, results, toolVersion: 'test' }, { ...tools, random: new Uint8Array([9, 9, 9, 9]) })).rejects.toThrow('failed its check');
+		expect(app.reports).toHaveLength(1);
 	});
 });

@@ -3,12 +3,16 @@
  * so they can't drift apart. Calculations stay in the engine; this only turns them into text.
  */
 import type { Aircraft } from '../aircraft/schema.ts';
+import type { Calculation } from './calculation.ts';
 import type { Calculation as Results } from '../engine/index.ts';
 import type { Limit } from '../engine/mass-balance.ts';
 import type { PerformanceResult, Wind } from '../engine/performance.ts';
 
 export type DistanceText = { title: string; status: PerformanceResult['status']; headline: string; detail: string; warnings: string[] };
 export type Tone = 'ok' | 'warnb' | 'fail';
+
+/** "2026-11-08 09:02 UTC": times on Reports are always UTC, as in aviation. */
+export const utcText = (ms: number) => `${new Date(ms).toISOString().slice(0, 16).replace('T', ' ')} UTC`;
 
 export const massText = (a: Aircraft, x: number) => `${x.toFixed(a.display.massDecimals)} ${a.units.mass}`;
 export const armText = (a: Aircraft, x: number) => `${x.toFixed(a.display.armDecimals)} ${a.units.arm}`;
@@ -72,4 +76,12 @@ export function massBalanceRows(a: Aircraft, r: Results) {
 	const mass = (x: number) => x.toFixed(a.display.massDecimals), arm = (x: number) => x.toFixed(a.display.armDecimals), moment = (x: number) => x.toFixed(2);
 	const row = (x: { mass: number; arm: number; moment: number }) => ({ mass: mass(x.mass), arm: arm(x.arm), moment: moment(x.moment) });
 	return { rows: r.massBalance.rows.map((x) => ({ id: x.id, label: x.label, ...row(x) })), takeoff: row(r.massBalance.takeoff), landing: row(r.massBalance.landing) };
+}
+
+/** Where a value came from, worded the same in the field and on the Report. */
+export function valueSource(calc: Pick<Calculation, 'status' | 'sources' | 'changed'>, key: string): string {
+	const status = calc.status[key], from = calc.sources[key];
+	if (status === 'pre') return `From ${from}${calc.changed[key] ? `, was ${calc.changed[key]}` : ''}, not yet confirmed`;
+	if (status === 'ok') return `From ${from}, confirmed`;
+	return 'Entered by pilot';
 }

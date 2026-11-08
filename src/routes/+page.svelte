@@ -11,7 +11,7 @@
 	import Segmented from '#lib/components/Segmented.svelte';
 	import CgChart from '#lib/components/CgChart.svelte';
 	import DistanceResult from '#lib/components/DistanceResult.svelte';
-	import { altitudeText, armText, distanceText, limitBadge, massBalanceRows, massText, statusWord, windText, workingRows } from '#lib/app/presentation.ts';
+	import { altitudeText, armText, distanceText, limitBadge, massBalanceRows, massText, statusWord, utcText, windText, workingRows } from '#lib/app/presentation.ts';
 	import { AppState } from '#lib/app/app-state.svelte.ts';
 	import { describeChanges, isStale, STALE_DAYS } from '#lib/data/release.ts';
 	import {
@@ -20,9 +20,8 @@
 	} from '#lib/app/calculation.ts';
 	import { calculate } from '#lib/engine/index.ts';
 	import { limitText } from '#lib/engine/mass-balance.ts';
-	import { chartSvg } from '#lib/report/chart.ts';
 	import { renderPdf } from '#lib/report/pdf.ts';
-	import { RETENTION_DAYS, createReportData, deliveryLabel, fingerprint, newReportId, reportDocument, type StoredReport } from '#lib/report/report.ts';
+	import { RETENTION_DAYS, deliveryLabel, fingerprint, type StoredReport } from '#lib/report/report.ts';
 	import { version as toolVersion } from '../../package.json';
 
 	const app = new AppState();
@@ -159,20 +158,11 @@
 		creating = true;
 		reportError = '';
 		try {
-			if (!(await app.dataStillValid())) throw new Error('the aircraft data on this device failed its check');
-			const now = Date.now();
-			const id = newReportId(now, crypto.getRandomValues(new Uint8Array(4)));
-			const data = createReportData(aircraft, $state.snapshot(calc), results, {
-				id, now, preRelease: true, toolVersion: `${toolVersion}, build ${version}`,
-				dataRelease: `Data Release ${app.data!.index.release} (${app.data!.index.operator})`,
-				lastDataCheck: app.lastCheck ? `${new Date(app.lastCheck).toISOString().slice(0, 16).replace('T', ' ')} UTC` : 'unknown',
-				chartSvg: chartSvg(aircraft, results, calc.configuration)
-			});
-			const pdf = await renderPdf(reportDocument(data));
-			const date = new Date(now).toISOString().slice(0, 16).replace('T', ' ');
-			const report: StoredReport = { id, calculationId: calc.id, created: now, label: `${aircraft.registration} ${data.departure}, ${date} UTC`, delivery: 'notSent', fingerprint: fingerprint(aircraft, calc), data };
-			await app.addReport(report, pdf);
-			await preparePdf(id);
+			const report = await app.createReport(
+				{ aircraft, calc: $state.snapshot(calc), results, toolVersion: `${toolVersion}, build ${version}` },
+				{ random: crypto.getRandomValues(new Uint8Array(4)), render: renderPdf }
+			);
+			await preparePdf(report.id);
 		} catch (error) {
 			reportError = `The report could not be created: ${(error as Error).message}. Nothing was saved. Try again.`;
 		}
@@ -572,7 +562,7 @@
 						{/each}
 						</Collapsible.Content>
 					</Collapsible.Root>
-					<p class="muted">{aircraft.registration}, {aircraft.type}, revision {aircraft.revision}. Data Release {app.data?.index.release} from {app.data?.index.operator}{app.lastCheck ? `, checked ${new Date(app.lastCheck).toISOString().slice(0, 10)}` : ''}. App version {version}. <a href={resolve('/device-test')}>Device test</a></p>
+					<p class="muted">{aircraft.registration}, {aircraft.type}, revision {aircraft.revision}. Data Release {app.data?.index.release} from {app.data?.index.operator}{app.lastCheck ? `, checked ${utcText(app.lastCheck).slice(0, 10)}` : ''}. App version {version}. <a href={resolve('/device-test')}>Device test</a></p>
 					<button type="button" disabled={app.checking} onclick={() => app.check(true)}>{app.checking ? 'Checking' : 'Check for new data'}</button>
 				</section>
 			</div>

@@ -3,6 +3,7 @@ import * as idb from 'idb-keyval';
 import { reconcileAfterInstall, type Calculation } from './calculation.ts';
 import { ReleaseError, downloadRelease, offersUpdate, parseIndex, shouldCheck, verifyInstalled, withdrawalReason, type InstalledData, type ReleaseIndex } from '../data/release.ts';
 import { isExpired, type Delivery, type StoredReport } from '../report/report.ts';
+import { makeReport, type ReportSource, type ReportTools } from '../report/make-report.ts';
 
 const KEY = 'calculations-v1';
 const REPORTS = 'reports-v1';
@@ -148,6 +149,17 @@ export class AppState {
 
 	private async saveReports() {
 		await this.device.store.set(REPORTS, $state.snapshot(this.reports));
+	}
+
+	/**
+	 * Makes and saves a Report from the current data. It rechecks the stored data first, so a Report
+	 * never rests on damaged data, and saves nothing if any step fails.
+	 */
+	async createReport(source: Omit<ReportSource, 'data' | 'lastCheck'>, tools: Omit<ReportTools, 'now'>): Promise<StoredReport> {
+		if (!this.data || !(await this.dataStillValid())) throw new Error('the aircraft data on this device failed its check');
+		const { report, pdf } = await makeReport({ ...source, data: this.data, lastCheck: this.lastCheck }, { ...tools, now: this.device.now() });
+		await this.addReport(report, pdf);
+		return report;
 	}
 
 	/** The PDF is written first, so a Report on the list always has its PDF. */

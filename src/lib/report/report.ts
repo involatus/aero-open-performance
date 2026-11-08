@@ -8,7 +8,7 @@ import type { PerformanceResult } from '../engine/performance.ts';
 import type { DistanceText } from '../app/presentation.ts';
 import { limitText } from '../engine/mass-balance.ts';
 import { canReport, fieldsFor, isVariableWind, performanceOf, toInput, type Calculation, runwayHeading } from '../app/calculation.ts';
-import { altitudeText, distanceText, limitBadge, massBalanceRows, runwayText, windText, workingRows } from '../app/presentation.ts';
+import { altitudeText, distanceText, utcText, valueSource, limitBadge, massBalanceRows, runwayText, windText, workingRows } from '../app/presentation.ts';
 
 export type Delivery = 'notSent' | 'sent' | 'shared';
 export type ReportWorking = { title: string; rows: { step: string; total: string; groundRoll: string; source: string }[] };
@@ -87,20 +87,19 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 	const config = a.configurations.find((c) => c.id === calc.configuration)!;
 	const plan = a.burnPlans.find((p) => p.id === calc.burnPlan)!;
 	const allFields = fieldsFor(a, calc).flat();
-	const fieldSource = (key: string) => (calc.status[key] === 'ok' ? `From ${calc.sources[key]}, confirmed` : 'Entered by pilot');
 	const shown = (key: string) => {
 		const f = allFields.find((x) => x.key === key)!;
 		// A runway number alone can be misread, so the report also gives the heading it stands for.
 		const h = key === 'rwy' ? runwayHeading(calc.values.rwy) : null;
 		const value = h !== null ? runwayText(h) : `${calc.values[key] ?? ''} ${f.unit}`.trim();
-		return { label: f.label, value, source: fieldSource(key) };
+		return { label: f.label, value, source: valueSource(calc, key) };
 	};
 	const perf = performanceOf(a, calc.configuration);
 	const conditionLabel = (phase: 'takeoff' | 'landing', id: string) => perf?.[phase].find((c) => c.id === id)?.label ?? id;
 	const altitude = altitudeText(r), wind = windText(r.wind, isVariableWind(calc));
 	const data: ReportData = {
 		id: meta.id,
-		createdUtc: `${new Date(meta.now).toISOString().slice(0, 16).replace('T', ' ')} UTC`,
+		createdUtc: utcText(meta.now),
 		preRelease: meta.preRelease,
 		fictional: a.fictional === true,
 		aircraft: { registration: a.registration, type: a.type, revision: a.revision, configuration: config.label },

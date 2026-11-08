@@ -250,7 +250,7 @@ test('weather: prefills, needs confirming, and never overwrites what the pilot t
 	await page.locator('.keys button', { hasText: /Next field|Done/ }).click();
 	await expect(page.getByRole('button', { name: 'I checked these: confirm 3 weather values' })).toBeVisible();
 	await page.getByRole('button', { name: 'I checked these' }).click();
-	await expect(page.locator('#w-qnh')).toContainText('Confirmed, from METAR LSXX');
+	await expect(page.locator('#w-qnh')).toContainText('From METAR LSXX, confirmed');
 
 	await page.unroute('**/api/metar?*');
 	await page.route('**/api/metar?*', (route) => route.fulfill({ json: { ...METAR, raw: 'METAR LSXX 061320Z 26011KT 14/06 Q1008' } }));
@@ -317,13 +317,13 @@ test('new data: nothing changes until Install, then values need confirming again
 	await page.getByRole('button', { name: /^TEST-DR/ }).click();
 	await page.locator('.steps button', { hasText: '2. Fuel' }).click();
 	await page.getByRole('button', { name: 'Confirm' }).click();
-	await expect(page.locator('[id="w-flow"]')).toContainText('Confirmed');
+	await expect(page.locator('[id="w-flow"]')).toContainText(', confirmed');
 
 	const index = await realIndex(page);
 	await page.route('**/data/index.json', (route) => route.fulfill({ json: { ...index, release: 2, notes: 'Example update.' } }));
 	await page.getByRole('button', { name: 'Check for new data' }).click();
 	await expect(page.getByText('New data available: Release 2. Example update.')).toBeVisible();
-	await expect(page.locator('[id="w-flow"]')).toContainText('Confirmed');
+	await expect(page.locator('[id="w-flow"]')).toContainText(', confirmed');
 
 	await page.getByRole('button', { name: 'Install' }).click();
 	await expect(page.getByText('New data available')).toBeHidden();
