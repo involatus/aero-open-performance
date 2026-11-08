@@ -4,7 +4,7 @@ import fc from 'fast-check';
 import { validateAircraft } from '../aircraft/validate.ts';
 import type { Aircraft } from '../aircraft/schema.ts';
 import { calculate } from '../engine/index.ts';
-import { applyKey, applyQuick, applyWeather, canReport, changeConfiguration, confirmValue, confirmWeather, isOldCalculation, reportAgeMinutes, fieldsFor, newCalculation, nextFlight, parse, prefill, reconcileAfterInstall, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation } from './calculation.ts';
+import { applyKey, applyQuick, applyWeather, canReport, changeConfiguration, confirmValue, confirmWeather, isOldCalculation, reportAgeMinutes, fieldsFor, newCalculation, nextFlight, parse, prefill, reconcileAfterInstall, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation , runwayHeading } from './calculation.ts';
 
 const load = (name: string): Aircraft => {
 	const r = validateAircraft(JSON.parse(readFileSync(`aircraft-examples/${name}.json`, 'utf8')));
@@ -18,7 +18,7 @@ function ready(a: Aircraft): Calculation {
 	const set = (k: string, v: string) => setByPilot(c, k, v);
 	set(`load:${a.stations[0].id}`, '80');
 	a.tanks.forEach((t) => set(`fuel:${t.id}`, '20'));
-	set('time', '1'); set('flow', '20'); set('elev', '100'); set('hdg', '90'); set('qnh', '1013'); set('oat', '15'); set('wdir', '90'); set('wspd', '5');
+	set('time', '1'); set('flow', '20'); set('elev', '100'); set('rwy', '9'); set('qnh', '1013'); set('oat', '15'); set('wdir', '90'); set('wspd', '5');
 	c.values.place = 'LSXX'; c.values.name = 'A Pilot';
 	a.notes.forEach((n) => { c.notes[n.id] = true; });
 	return c;
@@ -118,7 +118,7 @@ describe('reporting gate', () => {
 		expect(toDoList(dr, c)).toEqual([]);
 		expect(canReport(dr, c, calculate(dr, toInput(dr, c)))).toBe(true);
 	});
-	it.each(['elev', 'qnh', 'oat', 'hdg', 'wdir', 'wspd', 'time', 'flow'])('requires %s', (key) => {
+	it.each(['elev', 'qnh', 'oat', 'rwy', 'wdir', 'wspd', 'time', 'flow'])('requires %s', (key) => {
 		const c = ready(dr);
 		c.values[key] = '';
 		expect(toDoList(dr, c).map((t) => t.key)).toContain(key);
@@ -166,7 +166,7 @@ describe('next flight', () => {
 		expect(n.sources['fuel:front']).toBe('previous flight');
 	});
 	it('clears everything specific to the place and flight', () => {
-		for (const k of ['elev', 'hdg', 'qnh', 'oat', 'wdir', 'wspd', 'time', 'place']) expect(n.values[k]).toBeUndefined();
+		for (const k of ['elev', 'rwy', 'qnh', 'oat', 'wdir', 'wspd', 'time', 'place']) expect(n.values[k]).toBeUndefined();
 		expect(Object.values(n.notes)).toEqual([]);
 	});
 	it('does not change the original', () => expect(c.values['fuel:front']).toBe('20'));
@@ -229,7 +229,7 @@ describe('weather prefill', () => {
 	});
 	it('applies variable wind as a tailwind, to confirm', () => {
 		const c = newCalculation(kf, 'x', NOW);
-		setByPilot(c, 'hdg', '240');
+		setByPilot(c, 'rwy', '24');
 		applyWeather(c, report('METAR LSXX 061320Z VRB04KT 12/06 Q1009'), at);
 		expect(c.values.wdir).toBe('VRB');
 		expect(c.status.wdir).toBe('pre');
@@ -242,7 +242,7 @@ describe('weather prefill', () => {
 	});
 	it('lengthens the distance exactly as a tailwind does', () => {
 		const c = ready(kf);
-		setByPilot(c, 'hdg', '10'); setByPilot(c, 'wspd', '4'); setByPilot(c, 'wdir', 'VRB');
+		setByPilot(c, 'rwy', '1'); setByPilot(c, 'wspd', '4'); setByPilot(c, 'wdir', 'VRB');
 		const variable = calculate(kf, toInput(kf, c)).takeoff.rawTotal;
 		setByPilot(c, 'wdir', '190');
 		expect(variable).toBeCloseTo(calculate(kf, toInput(kf, c)).takeoff.rawTotal!, 9);
@@ -251,9 +251,9 @@ describe('weather prefill', () => {
 	});
 	it('wraps round north, and waits for a heading', () => {
 		const c = ready(kf);
-		setByPilot(c, 'hdg', '270'); setByPilot(c, 'wdir', 'VRB');
+		setByPilot(c, 'rwy', '27'); setByPilot(c, 'wdir', 'VRB');
 		expect(toInput(kf, c).windDirection).toBe(90);
-		c.values.hdg = '';
+		c.values.rwy = '';
 		expect(toInput(kf, c).windDirection).toBeNull();
 	});
 	it('offers variable wind as a quick choice, and a typed number replaces it', () => {
@@ -303,5 +303,14 @@ describe('after installing new data', () => {
 		reconcileAfterInstall(dr, c, 2);
 		expect(() => calculate(dr, toInput(dr, c))).not.toThrow();
 		expect(c.configuration).toBe('standard');
+	});
+});
+
+describe('runway number', () => {
+	it('stands for its heading in tens of degrees', () => {
+		expect(runwayHeading('08')).toBe(80);
+		expect(runwayHeading('8')).toBe(80);
+		expect(runwayHeading('36')).toBe(360);
+		expect(runwayHeading('')).toBeNull();
 	});
 });

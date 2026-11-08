@@ -6,7 +6,7 @@ import type { Aircraft } from '../aircraft/schema.ts';
 import type { Calculation as Results } from '../engine/index.ts';
 import type { PerformanceResult } from '../engine/performance.ts';
 import { limitText } from '../engine/mass-balance.ts';
-import { canReport, fieldsFor, isVariableWind, toInput, type Calculation } from '../app/calculation.ts';
+import { canReport, fieldsFor, isVariableWind, toInput, type Calculation , runwayHeading } from '../app/calculation.ts';
 
 export type Delivery = 'notSent' | 'sent' | 'shared';
 export type ReportWorking = { title: string; rows: { step: string; total: string; groundRoll: string; source: string }[] };
@@ -109,7 +109,10 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 	const fieldSource = (key: string) => (calc.status[key] === 'ok' ? `From ${calc.sources[key]}, confirmed` : 'Entered by pilot');
 	const shown = (key: string) => {
 		const f = allFields.find((x) => x.key === key)!;
-		return { label: f.label, value: `${calc.values[key] ?? ''} ${f.unit}`.trim(), source: fieldSource(key) };
+		// A runway number alone can be misread, so the report also gives the heading it stands for.
+		const h = key === 'rwy' ? runwayHeading(calc.values.rwy) : null;
+		const value = h !== null ? `${String(h / 10).padStart(2, '0')}, heading ${String(h).padStart(3, '0')}°` : `${calc.values[key] ?? ''} ${f.unit}`.trim();
+		return { label: f.label, value, source: fieldSource(key) };
 	};
 	const perf = (config.performance && config.performance !== 'none' ? config.performance : a.performance);
 	const conditionLabel = (list: typeof perf.takeoff, id: string) => list.find((c) => c.id === id)?.label ?? id;
@@ -130,7 +133,7 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 			wind: !wind ? 'Not available' : isVariableWind(calc) ? `Variable, ${Math.abs(wind.headwind).toFixed(0)} kt applied as a tailwind` : `${Math.abs(wind.headwind).toFixed(0)} kt ${wind.headwind >= 0 ? 'head' : 'tail'}, crosswind ${wind.crosswind.toFixed(0)} kt`
 		},
 		conditions: [
-			...['elev', 'hdg', 'qnh', 'oat', 'wdir', 'wspd', 'time', 'flow'].map(shown),
+			...['elev', 'rwy', 'qnh', 'oat', 'wdir', 'wspd', 'time', 'flow'].map(shown),
 			...a.tanks.map((t) => shown(`fuel:${t.id}`)),
 			{ label: 'Takeoff condition', value: conditionLabel(perf.takeoff, calc.takeoffCondition), source: 'Chosen by pilot' },
 			{ label: 'Landing condition', value: conditionLabel(perf.landing, calc.landingCondition), source: 'Chosen by pilot' }

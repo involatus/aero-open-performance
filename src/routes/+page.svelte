@@ -371,14 +371,18 @@
 		{:else}
 
 		<div class="strip">
-			<div class="s">
-				{#if results.takeoff.status === 'ok'}<b>{results.takeoff.total ?? results.takeoff.groundRoll} {results.takeoff.unit}</b>{:else}<b class="none">{results.takeoff.status === 'noData' ? 'No data' : results.takeoff.status === 'noResult' ? 'No result' : 'Needs inputs'}</b>{/if}
-				<small>Takeoff</small>
-			</div>
-			<div class="s">
-				{#if results.landing.status === 'ok'}<b>{results.landing.total ?? results.landing.groundRoll} {results.landing.unit}</b>{:else}<b class="none">{results.landing.status === 'noData' ? 'No data' : results.landing.status === 'noResult' ? 'No result' : 'Needs inputs'}</b>{/if}
-				<small>Landing</small>
-			</div>
+			{#each [['Takeoff', results.takeoff], ['Landing', results.landing]] as const as [title, r] (title)}
+				<div class="s dist">
+					<small>{title}</small>
+					{#if r.status === 'ok'}
+						<div class="pair">
+							{#if r.groundRoll !== undefined}<span><b>{r.groundRoll} {r.unit}</b><small>Ground roll</small></span>{/if}
+							{#if r.total !== undefined}<span><b>{r.total} {r.unit}</b><small>{title === 'Takeoff' ? 'To 50 ft' : 'From 50 ft'}</small></span>{/if}
+						</div>
+					{:else}<b class="none">{r.status === 'noData' ? 'No data' : r.status === 'noResult' ? 'No result' : 'Needs inputs'}</b>{/if}
+				</div>
+			{/each}
+			<div class="s"><b>{results.atmosphere?.densityAltitudeFt != null ? `${Math.round(results.atmosphere.densityAltitudeFt).toLocaleString('en')} ft` : '–'}</b><small>Density altitude{results.atmosphere ? `, PA ${Math.round(results.atmosphere.pressureAltitudeFt).toLocaleString('en')} ft` : ''}</small></div>
 			<div class="s"><b class:bad={results.exceeded.includes('takeoffMass') || results.exceeded.includes('takeoffCg')}>{results.massBalance.takeoff.mass.toFixed(0)} {aircraft.units.mass}</b><small>Takeoff, CG {armText(results.massBalance.takeoff.arm)}</small></div>
 			<div class="s"><b class:bad={results.exceeded.includes('landingMass') || results.exceeded.includes('landingCg')}>{results.massBalance.landing.mass.toFixed(0)} {aircraft.units.mass}</b><small>Landing, CG {armText(results.massBalance.landing.arm)}</small></div>
 			{#if exceededLimits.length}
@@ -432,7 +436,7 @@
 					{#if calc.step < 3}
 						<div class="fields">
 							{#each fields[calc.step] as field (field.key)}
-								<NumberField {field} {calc} active={padKey === field.key} onopen={() => openPad(field.key)} onquick={(op) => quick(field, op)} onconfirm={() => confirmValue(calc!, field.key)} />
+								<NumberField {field} {calc} active={padKey === field.key} onopen={() => openPad(field.key)} onquick={(op) => quick(field, op)} onconfirm={() => confirmValue(calc!, field.key)} onunit={(u) => (calc!.elevationUnit = u as 'm' | 'ft')} />
 							{/each}
 						</div>
 					{/if}
@@ -446,7 +450,6 @@
 							<Segmented label="Burn plan" options={aircraft.burnPlans.map((p) => ({ id: p.id, label: p.label }))} value={calc.burnPlan} onchange={(id) => (calc!.burnPlan = id)} />
 						{/if}
 					{:else if calc.step === 2}
-						<Segmented label="Elevation unit" options={[{ id: 'm', label: 'Metres' }, { id: 'ft', label: 'Feet' }]} value={calc.elevationUnit} onchange={(id) => (calc!.elevationUnit = id as 'm' | 'ft')} />
 						{#if perf}
 							<Segmented label="Takeoff condition" options={perf.takeoff.map((c) => ({ id: c.id, label: c.label }))} value={calc.takeoffCondition} onchange={(id) => (calc!.takeoffCondition = id)} />
 							<Segmented label="Landing condition" options={perf.landing.map((c) => ({ id: c.id, label: c.label }))} value={calc.landingCondition} onchange={(id) => (calc!.landingCondition = id)} />
@@ -563,5 +566,5 @@
 </main>
 
 {#if padField && calc}
-	<Keypad field={padField} value={calc.values[padField.key] ?? ''} last={fields[calc.step].at(-1)?.key === padField.key} onkey={press} />
+	<Keypad field={padField} value={calc.values[padField.key] ?? ''} last={fields[calc.step].at(-1)?.key === padField.key} onkey={press} onclose={closePad} />
 {/if}

@@ -47,7 +47,7 @@ test('full flow: confirm, block on a limit, next flight, and keep it after a rel
 	await page.locator('.keys button', { hasText: 'Next field' }).click();
 
 	await page.locator('.steps button', { hasText: '3. Conditions' }).click();
-	for (const [id, value] of [['elev', '500'], ['hdg', '90'], ['qnh', '1013'], ['oat', '15'], ['wdir', '90'], ['wspd', '5']]) await type(page, id, value);
+	for (const [id, value] of [['elev', '500'], ['rwy', '9'], ['qnh', '1013'], ['oat', '15'], ['wdir', '90'], ['wspd', '5']]) await type(page, id, value);
 	await page.locator('.keys button', { hasText: 'Done' }).click();
 
 	await page.locator('.steps button', { hasText: '4. Send' }).click();
@@ -133,7 +133,7 @@ test('report: created, shared, permanent, and stale after a change', async ({ pa
 	await type(page, 'time', '1');
 	await page.locator('.keys button', { hasText: 'Next field' }).click();
 	await page.locator('.steps button', { hasText: '3. Conditions' }).click();
-	for (const [id, value] of [['elev', '500'], ['hdg', '90'], ['qnh', '1013'], ['oat', '15'], ['wdir', '90'], ['wspd', '5']]) await type(page, id, value);
+	for (const [id, value] of [['elev', '500'], ['rwy', '9'], ['qnh', '1013'], ['oat', '15'], ['wdir', '90'], ['wspd', '5']]) await type(page, id, value);
 	await page.locator('.keys button', { hasText: 'Done' }).click();
 	await page.locator('.steps button', { hasText: '4. Send' }).click();
 	await expect(page.getByRole('button', { name: 'Create report' })).toBeDisabled();
@@ -188,7 +188,7 @@ test('report can be created with no connection', async ({ page, context }) => {
 	await type(page, 'flow', '0');
 	await page.locator('.keys button', { hasText: 'Done' }).click();
 	await page.locator('.steps button', { hasText: '3. Conditions' }).click();
-	for (const [id, value] of [['elev', '0'], ['hdg', '0'], ['qnh', '1013'], ['oat', '15'], ['wdir', '0'], ['wspd', '0']]) await type(page, id, value);
+	for (const [id, value] of [['elev', '0'], ['rwy', '36'], ['qnh', '1013'], ['oat', '15'], ['wdir', '0'], ['wspd', '0']]) await type(page, id, value);
 	await page.locator('.keys button', { hasText: 'Done' }).click();
 	await page.locator('.steps button', { hasText: '4. Send' }).click();
 	await page.locator('#f-place').fill('LSXX');

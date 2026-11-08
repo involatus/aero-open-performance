@@ -38,6 +38,10 @@ export type Field = {
 	quick: string[];
 	capacity?: number;
 	required: boolean;
+	/** Units the pilot can switch between, right in the field. */
+	units?: string[];
+	/** A short explanation under the value, such as the heading a runway number stands for. */
+	hint?: string;
 };
 export type ToDo = { key: string; label: string; step: number };
 
@@ -61,8 +65,18 @@ export function performanceOf(a: Aircraft, configurationId: string): Performance
 
 function massStep(unit: string) { return unit === 'lb' ? '10' : '5'; }
 
+/** A runway's number is its heading in tens of degrees: runway 08 means 080°. */
+export function runwayHeading(text: string | undefined): number | null {
+	const n = parse(text);
+	return n === null ? null : n * 10;
+}
+function runwayHint(text: string | undefined) {
+	const h = runwayHeading(text);
+	return h === null ? 'Runway number, such as 08 for 080°' : `Runway ${String(h / 10).padStart(2, '0')}, heading ${String(h).padStart(3, '0')}°`;
+}
+
 /** The numeric fields of each step, built from the aircraft file. */
-export function fieldsFor(a: Aircraft, calc: Pick<Calculation, 'elevationUnit'>): Field[][] {
+export function fieldsFor(a: Aircraft, calc: Pick<Calculation, 'elevationUnit'> & { values?: Calculation['values'] }): Field[][] {
 	const mass = a.units.mass, step = massStep(mass), maxMass = a.massLimits.maxTakeoff.value;
 	const load: Field[] = a.stations.map((s) => ({
 		key: `load:${s.id}`, label: s.label, unit: mass, decimals: true, negative: false,
@@ -79,8 +93,8 @@ export function fieldsFor(a: Aircraft, calc: Pick<Calculation, 'elevationUnit'>)
 	);
 	const elevMax = calc.elevationUnit === 'm' ? 6000 : 20000;
 	const conditions: Field[] = [
-		{ key: 'elev', label: 'Elevation', unit: calc.elevationUnit, decimals: false, negative: true, range: [-500, elevMax], quick: [], required: true },
-		{ key: 'hdg', label: 'Runway heading', unit: '°', decimals: false, negative: false, range: [0, 360], quick: [], required: true },
+		{ key: 'elev', label: 'Elevation', unit: calc.elevationUnit, units: ['m', 'ft'], decimals: false, negative: true, range: [-500, elevMax], quick: [], required: true },
+		{ key: 'rwy', label: 'Runway', unit: '', decimals: false, negative: false, range: [1, 36], quick: [], required: true, hint: runwayHint(calc.values?.rwy) },
 		{ key: 'qnh', label: 'QNH', unit: 'hPa', decimals: false, negative: false, range: [900, 1100], quick: [], required: true },
 		{ key: 'oat', label: 'OAT', unit: '°C', decimals: true, negative: true, range: [-60, 60], quick: [], required: true },
 		{ key: 'wdir', label: 'Wind from', unit: '°', decimals: false, negative: false, range: [0, 360], quick: [VARIABLE_WIND], required: true },
@@ -191,7 +205,8 @@ export function toInput(a: Aircraft, calc: Calculation): CalculationInput {
 	});
 	a.tanks.forEach((t) => { fuel[t.id] = Math.max(0, parse(calc.values[`fuel:${t.id}`]) ?? 0); });
 	const elevation = parse(calc.values.elev), qnh = parse(calc.values.qnh), speed = parse(calc.values.wspd);
-	const heading = parse(calc.values.hdg);
+	// Older saved calculations still have a heading instead of a runway number.
+	const heading = calc.values.rwy !== undefined && calc.values.rwy !== '' ? runwayHeading(calc.values.rwy) : parse(calc.values.hdg);
 	// Blowing from straight behind is how the engine sees a tailwind.
 	const direction = isVariableWind(calc) ? (heading === null ? null : (heading + 180) % 360) : parse(calc.values.wdir);
 	return {

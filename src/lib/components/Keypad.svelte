@@ -1,13 +1,14 @@
 <script lang="ts">
 	import type { Field } from '#lib/app/calculation.ts';
 
-	let { field, value, last, onkey }: { field: Field; value: string; last: boolean; onkey: (key: string) => void } = $props();
+	let { field, value, last, onkey, onclose }: { field: Field; value: string; last: boolean; onkey: (key: string) => void; onclose: () => void } = $props();
 </script>
 
 <div class="pad" role="group" aria-label={`Keypad for ${field.label}`}>
 	<div class="padhead">
 		<span>{field.label}: {value || '–'} {field.unit}</span>
 		<small>{field.range[0]} to {field.range[1]} {field.unit}</small>
+		<button type="button" class="pad-close" aria-label="Close keypad" onclick={onclose}>×</button>
 	</div>
 	<div class="keys">
 		{#each ['7', '8', '9'] as k (k)}<button type="button" onclick={() => onkey(k)}>{k}</button>{/each}

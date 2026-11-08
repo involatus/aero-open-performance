@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { isUnusual, parse, type Calculation, type Field } from '#lib/app/calculation.ts';
 
-	let { field, calc, active, onopen, onquick, onconfirm }: {
+	let { field, calc, active, onopen, onquick, onconfirm, onunit }: {
 		field: Field; calc: Calculation; active: boolean;
-		onopen: () => void; onquick: (op: string) => void; onconfirm: () => void;
+		onopen: () => void; onquick: (op: string) => void; onconfirm: () => void; onunit?: (unit: string) => void;
 	} = $props();
 
 	let text = $derived(calc.values[field.key] ?? '');
@@ -18,8 +18,13 @@
 	<div class="inp" class:active>
 		<!-- readonly with inputmode none: iPadOS has no number-only keyboard, so the in-app keypad does the typing. -->
 		<input id={`f-${field.key}`} readonly inputmode="none" autocomplete="off" value={text} onclick={onopen} onfocus={onopen} />
-		<span>{field.unit}</span>
+		{#if field.units && onunit}
+			<span class="unit-switch" role="group" aria-label={`${field.label} unit`}>
+				{#each field.units as u (u)}<button type="button" tabindex="-1" aria-pressed={u === field.unit} class:on={u === field.unit} onclick={() => onunit(u)}>{u}</button>{/each}
+			</span>
+		{:else}<span>{field.unit}</span>{/if}
 	</div>
+	{#if field.hint}<div class="hint">{field.hint}</div>{/if}
 	<div class="chip">
 		{#if status === 'pre'}
 			<span class="amb">From {calc.sources[field.key]}{calc.changed[field.key] ? `, was ${calc.changed[field.key]}` : ''}</span>

@@ -151,8 +151,15 @@ test('a US manual is typed in lb and inches, pilots get kg and cm, and the envel
 	await page.getByRole('button', { name: 'Make these four corners' }).click();
 	await expect(page.getByRole('img', { name: 'CG envelope preview with 4 points' })).toBeVisible();
 
+	await tab('Performance');
+	await page.getByRole('button', { name: 'Add takeoff condition' }).click();
+	await page.getByLabel('Add a step').selectOption('preset:wet-grass');
+
 	await tab('JSON');
 	const json = JSON.parse(await page.getByLabel('Aircraft file as JSON').inputValue());
+	const factor = json.performance.takeoff[0].steps[1];
+	expect(factor).toMatchObject({ type: 'factor', value: 1.3, applies: ['total', 'groundRoll'] });
+	expect(json.sources[factor.source]).toEqual({ document: 'UK CAA Safety Sense Leaflet 12: Strip Flying', date: 'May 2024', page: '15' });
 	expect(json.units).toEqual({ mass: 'kg', arm: 'cm', volume: 'L' });
 	expect(json.manualUnits).toEqual({ mass: 'lb', arm: 'in', volume: 'USgal' });
 	expect(json.stations.map((s: any) => [s.id, s.label, s.arm, s.maxMass])).toEqual([['station-1', 'Pilot', 256.54, undefined], ['station-2', 'Baggage', 0, 113.3980925]]);

@@ -18,7 +18,7 @@ function ready(a: Aircraft): Calculation {
 	const inPounds = a.units.mass === 'lb';
 	setByPilot(c, `load:${a.stations[0].id}`, inPounds ? '170' : '80');
 	a.tanks.forEach((t) => setByPilot(c, `fuel:${t.id}`, inPounds ? '30' : '20'));
-	for (const [k, v] of [['time', '1'], ['flow', '20'], ['elev', '100'], ['hdg', '90'], ['qnh', '1013'], ['oat', '15'], ['wdir', '90'], ['wspd', '5']]) setByPilot(c, k, v);
+	for (const [k, v] of [['time', '1'], ['flow', '20'], ['elev', '100'], ['rwy', '9'], ['qnh', '1013'], ['oat', '15'], ['wdir', '90'], ['wspd', '5']]) setByPilot(c, k, v);
 	c.values.place = 'LSXX'; c.values.name = 'A Pilot';
 	a.notes.forEach((n) => { c.notes[n.id] = true; });
 	return c;

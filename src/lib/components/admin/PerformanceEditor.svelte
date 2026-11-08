@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { defaultSource, makeId, move } from '#lib/admin/editing.ts';
+	import { defaultSource, makeId, move, sourceFor } from '#lib/admin/editing.ts';
 	import Num from './Num.svelte';
 	import SourcePick from './SourcePick.svelte';
 
@@ -20,6 +20,24 @@
 	];
 	const OUTPUTS: [string, string][] = [['total', 'Total distance'], ['groundRoll', 'Ground roll']];
 	const BEYOND: [string, string][] = [['none', 'No result'], ['nearest', 'Use the maximum'], ['nearestWarn', 'Use the maximum, with a warning']];
+	// Published factors for when the manual gives none. Each is added as an ordinary factor step with its source,
+	// so it is aircraft data the admin chose, never a value built into the code.
+	const CAA = { document: 'UK CAA Safety Sense Leaflet 12: Strip Flying', date: 'May 2024' }, CAA_PAGE = '15';
+	const EASA = { document: 'EASA Sunny Swift 42: Take-off and landing performance', date: 'January 2026' }, EASA_PAGE = '1';
+	const PRESETS: { id: string; label: string; takeoff: number | null; landing: number | null; doc: typeof CAA; page: string }[] = [
+		{ id: 'dry-grass', label: 'Dry grass up to 20 cm, firm soil (UK CAA)', takeoff: 1.2, landing: 1.15, doc: CAA, page: CAA_PAGE },
+		{ id: 'wet-grass', label: 'Wet grass up to 20 cm, firm soil (UK CAA)', takeoff: 1.3, landing: 1.35, doc: CAA, page: CAA_PAGE },
+		{ id: 'wet-grass-easa', label: 'Wet grass landing (EASA)', takeoff: null, landing: 1.6, doc: EASA, page: EASA_PAGE },
+		{ id: 'wet-paved', label: 'Wet paved runway (UK CAA)', takeoff: null, landing: 1.15, doc: CAA, page: CAA_PAGE },
+		{ id: 'soft-ground', label: 'Soft ground or snow, 25% or more (UK CAA)', takeoff: 1.25, landing: 1.25, doc: CAA, page: CAA_PAGE },
+		{ id: 'safety', label: 'Safety factor for unfactored manual data (UK CAA)', takeoff: 1.33, landing: 1.43, doc: CAA, page: CAA_PAGE }
+	];
+	let presets = $derived(PRESETS.filter((p) => p[phase] !== null));
+	function addPreset(c: any, id: string) {
+		const p = PRESETS.find((x) => x.id === id)!, value = p[phase]!;
+		c.steps.push({ type: 'factor', value, applies: ['total', 'groundRoll'], reason: `${p.label}: ${value.toFixed(2)}`, source: sourceFor(a.sources, p.doc, p.page) });
+		touch();
+	}
 	const typeName = (t: string) => STEP_TYPES.find((s) => s[0] === t)?.[1] ?? t;
 
 	function newStep(type: string): any {
@@ -62,7 +80,7 @@
 	<button type="button" class:primary={phase === 'takeoff'} aria-pressed={phase === 'takeoff'} onclick={() => (phase = 'takeoff')}>Takeoff ({a.performance.takeoff.length})</button>
 	<button type="button" class:primary={phase === 'landing'} aria-pressed={phase === 'landing'} onclick={() => (phase = 'landing')}>Landing ({a.performance.landing.length})</button>
 </div>
-<p class="adm-hint">Each condition is one choice pilots make, such as "Paved" or "Dry grass". Its steps run from top to bottom, in the order the manual applies them.{tables.length ? '' : ' Add the tables first, under Tables.'}</p>
+<p class="adm-hint">Each condition is one choice pilots make, such as "Paved" or "Dry grass". Its steps run from top to bottom, in the order the manual applies them. If the manual has no figure for a surface, copy a condition and add a published factor from "Add a step".{tables.length ? '' : ' Add the tables first, under Tables.'}</p>
 
 {#each list as c, i (c.id)}
 	<div class="adm-card">
@@ -140,9 +158,10 @@
 				</div>
 			{/each}
 			<label class="adm-field">Add a step
-				<select class="adm" value="" onchange={(e) => { if (e.currentTarget.value) { c.steps.push(newStep(e.currentTarget.value)); touch(); } e.currentTarget.value = ''; }}>
+				<select class="adm" value="" onchange={(e) => { const v = e.currentTarget.value; if (v.startsWith('preset:')) addPreset(c, v.slice(7)); else if (v) { c.steps.push(newStep(v)); touch(); } e.currentTarget.value = ''; }}>
 					<option value="">Choose what the manual does next</option>
-					{#each STEP_TYPES as [v, l, d] (v)}<option value={v}>{l}: {d}</option>{/each}
+					<optgroup label="From the manual">{#each STEP_TYPES as [v, l, d] (v)}<option value={v}>{l}: {d}</option>{/each}</optgroup>
+					<optgroup label={`Only if the manual gives no figure: published ${phase} factors`}>{#each presets as p (p.id)}<option value={`preset:${p.id}`}>{p.label}: × {p[phase]!.toFixed(2)}</option>{/each}</optgroup>
 				</select>
 			</label>
 			<label class="adm-field">Only if the manual gives one distance for a fixed situation: which situation<span class="adm-hint">Pilots are then warned that the distance isn't corrected for their conditions. Leave empty when a table covers them.</span><input class="adm" placeholder="e.g. sea level, 15 °C" value={c.assumes?.text ?? ''} oninput={(e) => { const t = e.currentTarget.value; if (t.trim()) c.assumes = { text: t, inputs: c.assumes?.inputs ?? [] }; else delete c.assumes; touch(); }} /></label>

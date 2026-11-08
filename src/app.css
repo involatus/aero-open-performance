@@ -65,7 +65,13 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outlin
 main.flow { max-width: 1200px; gap: 12px; padding-block-end: calc(32px + env(safe-area-inset-bottom, 0px)); }
 main.flow.keypad { padding-block-end: 430px; }
 .choose { text-align: left; }
-.strip { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; gap: 4px 14px; align-items: center; padding: 8px 12px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12); }
+.strip { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; display: grid; grid-template-columns: repeat(2, minmax(0, 1.4fr)) repeat(3, minmax(0, 1fr)) auto; gap: 4px 14px; align-items: center; padding: 8px 12px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12); }
+.strip .dist .pair { display: flex; gap: 14px; } .strip .dist .pair span { display: grid; }
+.strip .dist > small { font-weight: 700; color: var(--ink); }
+.fld .hint { font-size: 14px; color: var(--muted); margin-top: 2px; }
+.unit-switch { display: inline-flex; gap: 2px; } .unit-switch button { min-height: 36px; min-width: 40px; padding: 0 8px; font-size: 15px; }
+.unit-switch button.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.pad-close { min-height: 40px; min-width: 44px; padding: 0 10px; font-size: 22px; line-height: 1; margin-left: auto; }
 .strip b { display: block; font-size: 25px; line-height: 1.1; } .strip b.bad { color: var(--bad); } .strip b.none { color: var(--amber); font-size: 17px; }
 .strip small { display: block; font-size: 13px; color: var(--muted); }
 .status { min-height: 48px; font-weight: 700; font-size: 15px; padding: 6px 10px; } .status.ok { background: var(--good-bg); color: var(--good); border-color: var(--good); } .status.todo { background: var(--amber-bg); color: var(--amber); border-color: var(--amber-line); } .status.bad { background: var(--bad-bg); color: var(--bad); border-color: var(--bad); }
