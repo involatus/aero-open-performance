@@ -1,14 +1,16 @@
 <script lang="ts">
+	import type { Aircraft } from '#lib/aircraft/schema.ts';
 	import { documents, makeId, usedSources } from '#lib/admin/editing.ts';
 
-	let { a, touch }: { a: any; touch: () => void } = $props();
+	let { a, touch }: { a: Aircraft; touch: () => void } = $props();
 
 	let docs = $derived(documents(a.sources));
 	let used = $derived(usedSources(a));
 
 	/** Changes a document everywhere it is used, including every page entry. */
-	function edit(doc: any, key: 'document' | 'revision' | 'date', value: string) {
-		for (const s of Object.values(a.sources) as any[]) {
+	type Doc = ReturnType<typeof documents>[number];
+	function edit(doc: Doc, key: 'document' | 'revision' | 'date', value: string) {
+		for (const s of Object.values(a.sources)) {
 			if (s.document === doc.source.document && (s.revision ?? '') === (doc.source.revision ?? '') && (s.date ?? '') === (doc.source.date ?? '')) {
 				if (value.trim() || key === 'document') s[key] = value; else delete s[key];
 			}
@@ -20,9 +22,9 @@
 		a.sources[makeId(name, Object.keys(a.sources), 'source')] = { document: docs.some((d) => d.source.document === name) ? `${name} (2)` : name };
 		touch();
 	}
-	const inUse = (doc: any) => Object.entries(a.sources).some(([id, s]: any) => used.has(id) && s.document === doc.source.document && (s.revision ?? '') === (doc.source.revision ?? ''));
-	function remove(doc: any) {
-		for (const [id, s] of Object.entries(a.sources) as any[]) if (s.document === doc.source.document && (s.revision ?? '') === (doc.source.revision ?? '')) delete a.sources[id];
+	const inUse = (doc: Doc) => Object.entries(a.sources).some(([id, s]) => used.has(id) && s.document === doc.source.document && (s.revision ?? '') === (doc.source.revision ?? ''));
+	function remove(doc: Doc) {
+		for (const [id, s] of Object.entries(a.sources)) if (s.document === doc.source.document && (s.revision ?? '') === (doc.source.revision ?? '')) delete a.sources[id];
 		touch();
 	}
 </script>

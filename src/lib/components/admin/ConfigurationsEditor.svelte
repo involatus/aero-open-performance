@@ -1,21 +1,23 @@
 <script lang="ts">
+	import type { Aircraft } from '#lib/aircraft/schema.ts';
 	import { defaultSource, makeId } from '#lib/admin/editing.ts';
 	import Num from './Num.svelte';
 	import SourcePick from './SourcePick.svelte';
 
-	let { a, touch }: { a: any; touch: () => void } = $props();
+	let { a, touch }: { a: Aircraft; touch: () => void } = $props();
 
-	const armOf = (w: any) => (w.mass > 0 ? w.moment / w.mass : undefined);
-	function setMass(w: any, mass: number | undefined) {
+	type Weighing = Aircraft['configurations'][number]['weighing'];
+	const armOf = (w: Weighing) => (w.mass > 0 ? w.moment / w.mass : undefined);
+	function setMass(w: Weighing, mass: number | undefined) {
 		const arm = armOf(w);
 		w.mass = mass ?? 0;
 		if (arm !== undefined) w.moment = w.mass * arm;
 		touch();
 	}
-	function setArm(w: any, arm: number | undefined) { w.moment = w.mass * (arm ?? 0); touch(); }
+	function setArm(w: Weighing, arm: number | undefined) { w.moment = w.mass * (arm ?? 0); touch(); }
 	function add() {
 		const label = a.configurations.length ? `Configuration ${a.configurations.length + 1}` : 'Standard';
-		a.configurations.push({ id: makeId(label, a.configurations.map((c: any) => c.id)), label, weighing: { mass: 0, moment: 0, date: '', source: defaultSource(a) } });
+		a.configurations.push({ id: makeId(label, a.configurations.map((c) => c.id)), label, weighing: { mass: 0, moment: 0, date: '', source: defaultSource(a) } });
 		touch();
 	}
 </script>

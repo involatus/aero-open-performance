@@ -1,8 +1,9 @@
 <script lang="ts">
+	import type { Aircraft } from '#lib/aircraft/schema.ts';
 	import { convertAircraft, type Units } from '#lib/admin/editing.ts';
 	import Num from './Num.svelte';
 
-	let { a, touch }: { a: any; touch: () => void } = $props();
+	let { a, touch }: { a: Aircraft; touch: () => void } = $props();
 
 	const MASS = [['kg', 'kg'], ['lb', 'lb']], ARM = [['m', 'm'], ['cm', 'cm'], ['in', 'in']], VOLUME = [['L', 'litres'], ['USgal', 'US gallons']];
 	const PRESETS: Record<string, Units> = { 'Metric (kg, m, L)': { mass: 'kg', arm: 'm', volume: 'L' }, 'Metric (kg, cm, L)': { mass: 'kg', arm: 'cm', volume: 'L' }, 'US (lb, in, US gal)': { mass: 'lb', arm: 'in', volume: 'USgal' } };

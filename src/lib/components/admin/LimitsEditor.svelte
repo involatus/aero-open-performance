@@ -1,16 +1,18 @@
 <script lang="ts">
-	import { defaultSource, move } from '#lib/admin/editing.ts';
+	import type { Aircraft } from '#lib/aircraft/schema.ts';
+	import { defaultSource, editablePoints, move } from '#lib/admin/editing.ts';
 	import EnvelopePreview from './EnvelopePreview.svelte';
 	import Num from './Num.svelte';
 	import SourcePick from './SourcePick.svelte';
 
-	let { a, touch }: { a: any; touch: () => void } = $props();
+	let { a, touch }: { a: Aircraft; touch: () => void } = $props();
 
-	let usesMac = $derived(a.envelope.points.some((p: any) => typeof p.percentMac === 'number'));
+	let points = $derived(editablePoints(a.envelope));
+	let usesMac = $derived(points.some((p) => typeof p.percentMac === 'number'));
 	let box = $state<{ fwd?: number; aft?: number; low?: number; high?: number }>({});
 
 	function setMacMode(on: boolean) {
-		a.envelope.points = a.envelope.points.map((p: any) => (on ? { mass: p.mass, percentMac: 0 } : { mass: p.mass, arm: 0 }));
+		a.envelope.points = points.map((p) => (on ? { mass: p.mass, percentMac: 0 } : { mass: p.mass, arm: 0 }));
 		if (on && !a.mac) a.mac = { leadingEdgeArm: 0, length: 0, source: defaultSource(a) };
 		touch();
 	}
@@ -51,9 +53,9 @@
 	<label class="adm-check"><input type="checkbox" checked={usesMac} onchange={(e) => setMacMode(e.currentTarget.checked)} /> The manual gives the limits in % MAC</label>
 	{#if usesMac && a.mac}
 		<div class="adm-row">
-			<Num label="Leading edge of MAC, arm" aircraft={a} kind="arm" value={a.mac.leadingEdgeArm} onchange={(v) => { a.mac.leadingEdgeArm = v ?? 0; touch(); }} />
-			<Num label="MAC length" aircraft={a} kind="arm" value={a.mac.length} onchange={(v) => { a.mac.length = v ?? 0; touch(); }} />
-			<SourcePick aircraft={a} value={a.mac.source} onchange={(id) => { a.mac.source = id; touch(); }} />
+			<Num label="Leading edge of MAC, arm" aircraft={a} kind="arm" value={a.mac.leadingEdgeArm} onchange={(v) => { a.mac!.leadingEdgeArm = v ?? 0; touch(); }} />
+			<Num label="MAC length" aircraft={a} kind="arm" value={a.mac.length} onchange={(v) => { a.mac!.length = v ?? 0; touch(); }} />
+			<SourcePick aircraft={a} value={a.mac.source} onchange={(id) => { a.mac!.source = id; touch(); }} />
 		</div>
 	{/if}
 	<div class="grid gap-3 lg:grid-cols-2">
@@ -69,7 +71,7 @@
 				</div>
 				<button type="button" class="small justify-self-start" disabled={[box.fwd, box.aft, box.low, box.high].some((v) => v === undefined)} onclick={fillBox}>Make these four corners</button>
 			</details>
-			{#each a.envelope.points as p, i (i)}
+			{#each points as p, i (i)}
 				<div class="adm-card sub">
 					<div class="adm-card-head"><strong>Point {i + 1}</strong>
 						<div class="adm-tools">
@@ -97,6 +99,6 @@
 	<p class="adm-hint">Optional. Shown to pilots as a reminder; it doesn't block anything.</p>
 	<div class="adm-row">
 		<Num label="Crosswind" optional unit="kt" value={a.crosswind?.value} onchange={(v) => { if (v === undefined) delete a.crosswind; else a.crosswind = { value: v, source: a.crosswind?.source ?? defaultSource(a) }; touch(); }} />
-		{#if a.crosswind}<SourcePick aircraft={a} value={a.crosswind.source} onchange={(id) => { a.crosswind.source = id; touch(); }} />{/if}
+		{#if a.crosswind}<SourcePick aircraft={a} value={a.crosswind.source} onchange={(id) => { a.crosswind!.source = id; touch(); }} />{/if}
 	</div>
 </div>

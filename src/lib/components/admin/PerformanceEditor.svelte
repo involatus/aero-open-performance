@@ -1,12 +1,17 @@
 <script lang="ts">
+	import type { Aircraft, Condition, Step } from '#lib/aircraft/schema.ts';
 	import { defaultSource, makeId, move, sourceFor } from '#lib/admin/editing.ts';
 	import Num from './Num.svelte';
+
+	type StepsCondition = Extract<Condition, { kind: 'steps' }>;
+	type Output = 'total' | 'groundRoll';
+	type WindRule = NonNullable<Extract<Step, { type: 'wind' }>['headwind']>;
 	import SourcePick from './SourcePick.svelte';
 
-	let { a, touch }: { a: any; touch: () => void } = $props();
+	let { a, touch }: { a: Aircraft; touch: () => void } = $props();
 
 	let phase = $state<'takeoff' | 'landing'>('takeoff');
-	let list = $derived(a.performance[phase] as any[]);
+	let list = $derived(a.performance[phase]);
 	let tables = $derived(Object.keys(a.tables ?? {}));
 
 	const STEP_TYPES: [string, string, string][] = [
@@ -18,8 +23,8 @@
 		['ratio', 'Derive one distance from the other', 'Such as ground roll as a share of the total distance.'],
 		['fixed', 'Fixed distance', 'A distance that doesn\'t depend on the conditions.']
 	];
-	const OUTPUTS: [string, string][] = [['total', 'Total distance'], ['groundRoll', 'Ground roll']];
-	const BEYOND: [string, string][] = [['none', 'No result'], ['nearest', 'Use the maximum'], ['nearestWarn', 'Use the maximum, with a warning']];
+	const OUTPUTS: [Output, string][] = [['total', 'Total distance'], ['groundRoll', 'Ground roll']];
+	const BEYOND: [WindRule['above'], string][] = [['none', 'No result'], ['nearest', 'Use the maximum'], ['nearestWarn', 'Use the maximum, with a warning']];
 	// Published factors for when the manual gives none. Each is added as an ordinary factor step with its source,
 	// so it is aircraft data the admin chose, never a value built into the code.
 	const CAA = { document: 'UK CAA Safety Sense Leaflet 12: Strip Flying', date: 'May 2024' }, CAA_PAGE = '15';
@@ -33,43 +38,45 @@
 		{ id: 'safety', label: 'Safety factor for unfactored manual data (UK CAA)', takeoff: 1.33, landing: 1.43, doc: CAA, page: CAA_PAGE }
 	];
 	let presets = $derived(PRESETS.filter((p) => p[phase] !== null));
-	function addPreset(c: any, id: string) {
+	function addPreset(c: StepsCondition, id: string) {
 		const p = PRESETS.find((x) => x.id === id)!, value = p[phase]!;
 		c.steps.push({ type: 'factor', value, applies: ['total', 'groundRoll'], reason: `${p.label}: ${value.toFixed(2)}`, source: sourceFor(a.sources, p.doc, p.page) });
 		touch();
 	}
 	const typeName = (t: string) => STEP_TYPES.find((s) => s[0] === t)?.[1] ?? t;
 
-	function newStep(type: string): any {
-		const source = defaultSource(a), applies = ['total', 'groundRoll'];
-		const rule = (percent: number, perKnots: number) => ({ mode: 'proportional', percent, perKnots, above: 'none' });
+	function newStep(type: string): Step {
+		const source = defaultSource(a), applies: Output[] = ['total', 'groundRoll'];
+		const rule = (percent: number, perKnots: number): WindRule => ({ mode: 'proportional', percent, perKnots, above: 'none' });
 		switch (type) {
-			case 'lookup': return { type, table: tables[0] ?? '' };
-			case 'wind': return { type, headwind: rule(1, 1), tailwind: rule(10, 2), applies, source };
-			case 'surface': return { type, percent: 15, carryToTotal: true, source };
-			case 'factor': return { type, value: 1.1, applies, reason: '', source };
-			case 'massCorrection': return { type, referenceMass: a.massLimits.maxTakeoff.value || 1, exponent: 2, applies, source };
-			case 'ratio': return { type, from: 'total', into: 'groundRoll', value: 0.5, source };
+			case 'lookup': return { type: 'lookup', table: tables[0] ?? '' };
+			case 'wind': return { type: 'wind', headwind: rule(1, 1), tailwind: rule(10, 2), applies, source };
+			case 'surface': return { type: 'surface', percent: 15, carryToTotal: true, source };
+			case 'factor': return { type: 'factor', value: 1.1, applies, reason: '', source };
+			case 'massCorrection': return { type: 'massCorrection', referenceMass: a.massLimits.maxTakeoff.value || 1, exponent: 2, applies, source };
+			case 'ratio': return { type: 'ratio', from: 'total', into: 'groundRoll', value: 0.5, source };
 			default: return { type: 'fixed', total: 0, source };
 		}
 	}
-	function addCondition(copyOf?: any) {
+	function addCondition(copyOf?: Condition) {
 		const label = copyOf ? `${copyOf.label} (copy)` : list.length ? `Condition ${list.length + 1}` : 'Paved runway';
 		const id = makeId(label, list.map((c) => c.id));
 		list.push(copyOf ? { ...structuredClone($state.snapshot(copyOf)), id, label } : { kind: 'steps', id, label, distanceUnit: 'm', steps: [newStep('lookup')] });
 		touch();
 	}
-	function setKind(c: any, noData: boolean) {
-		if (noData) { for (const k of Object.keys(c)) if (!['id', 'label'].includes(k)) delete c[k]; c.kind = 'noData'; }
+	function setKind(c: Condition, noData: boolean) {
+		// Switching kind replaces the condition's fields, keeping only its id and label.
+		const loose = c as Record<string, unknown>;
+		if (noData) { for (const k of Object.keys(loose)) if (!['id', 'label'].includes(k)) delete loose[k]; loose.kind = 'noData'; }
 		else Object.assign(c, { kind: 'steps', distanceUnit: 'm', steps: [newStep('lookup')] });
 		touch();
 	}
-	function toggleApplies(s: any, out: string, on: boolean) {
+	function toggleApplies(s: { applies: Output[] }, out: Output, on: boolean) {
 		const next = OUTPUTS.map(([k]) => k).filter((k) => (k === out ? on : s.applies.includes(k)));
 		if (next.length) s.applies = next;
 		touch();
 	}
-	function setRule(s: any, side: 'headwind' | 'tailwind', on: boolean) {
+	function setRule(s: Extract<Step, { type: 'wind' }>, side: 'headwind' | 'tailwind', on: boolean) {
 		if (on) s[side] = side === 'headwind' ? { mode: 'proportional', percent: 1, perKnots: 1, above: 'none' } : { mode: 'proportional', percent: 10, perKnots: 2, above: 'none' };
 		else delete s[side];
 		touch();
@@ -95,7 +102,7 @@
 		</div>
 		<div class="adm-row">
 			<label class="adm-field">Name *<input class="adm" placeholder="e.g. Dry grass" value={c.label} oninput={(e) => { c.label = e.currentTarget.value; touch(); }} /></label>
-			{#if c.kind === 'steps'}<label class="adm-field">Distances in<select class="adm" value={c.distanceUnit} onchange={(e) => { c.distanceUnit = e.currentTarget.value; touch(); }}><option value="m">metres</option><option value="ft">feet</option></select></label>{/if}
+			{#if c.kind === 'steps'}<label class="adm-field">Distances in<select class="adm" value={c.distanceUnit} onchange={(e) => { c.distanceUnit = e.currentTarget.value as 'm' | 'ft'; touch(); }}><option value="m">metres</option><option value="ft">feet</option></select></label>{/if}
 		</div>
 		<label class="adm-check"><input type="checkbox" checked={c.kind === 'noData'} onchange={(e) => setKind(c, e.currentTarget.checked)} /> The manual has no data for this: pilots decide themselves</label>
 		{#if c.kind === 'steps'}
@@ -115,12 +122,13 @@
 						{#each [['headwind', 'Headwind', 'less'], ['tailwind', 'Tailwind', 'more']] as const as [side, title, word] (side)}
 							<label class="adm-check"><input type="checkbox" checked={!!s[side]} onchange={(e) => setRule(s, side, e.currentTarget.checked)} /> {title} correction</label>
 							{#if s[side]}
+								{@const rule = s[side]!}
 								<div class="adm-row">
-									<Num label={`Percent ${word}`} unit="%" value={s[side].percent} onchange={(v) => { s[side].percent = v ?? 0; touch(); }} />
-									<Num label="For every" unit="kt" value={s[side].perKnots} onchange={(v) => { s[side].perKnots = v ?? 0; touch(); }} />
-									<label class="adm-field">Part steps, such as 3 kt for every 2 kt<select class="adm" value={s[side].mode} onchange={(e) => { s[side].mode = e.currentTarget.value; touch(); }}><option value="proportional">Pro rata</option><option value="stepped">Whole steps only</option></select></label>
-									<Num label="Up to" optional unit="kt" value={s[side].maxKnots} onchange={(v) => { if (v === undefined) delete s[side].maxKnots; else s[side].maxKnots = v; touch(); }} />
-									{#if s[side].maxKnots !== undefined}<label class="adm-field">Above that<select class="adm" value={s[side].above} onchange={(e) => { s[side].above = e.currentTarget.value; touch(); }}>{#each BEYOND as [v, l] (v)}<option value={v}>{l}</option>{/each}</select></label>{/if}
+									<Num label={`Percent ${word}`} unit="%" value={rule.percent} onchange={(v) => { rule.percent = v ?? 0; touch(); }} />
+									<Num label="For every" unit="kt" value={rule.perKnots} onchange={(v) => { rule.perKnots = v ?? 0; touch(); }} />
+									<label class="adm-field">Part steps, such as 3 kt for every 2 kt<select class="adm" value={rule.mode} onchange={(e) => { rule.mode = e.currentTarget.value as WindRule['mode']; touch(); }}><option value="proportional">Pro rata</option><option value="stepped">Whole steps only</option></select></label>
+									<Num label="Up to" optional unit="kt" value={rule.maxKnots} onchange={(v) => { if (v === undefined) delete rule.maxKnots; else rule.maxKnots = v; touch(); }} />
+									{#if rule.maxKnots !== undefined}<label class="adm-field">Above that<select class="adm" value={rule.above} onchange={(e) => { rule.above = e.currentTarget.value as WindRule['above']; touch(); }}>{#each BEYOND as [v, l] (v)}<option value={v}>{l}</option>{/each}</select></label>{/if}
 								</div>
 							{/if}
 						{/each}
@@ -141,8 +149,8 @@
 						</div>
 					{:else if s.type === 'ratio'}
 						<div class="adm-row">
-							<label class="adm-field">From<select class="adm" value={s.from} onchange={(e) => { s.from = e.currentTarget.value; touch(); }}>{#each OUTPUTS as [v, l] (v)}<option value={v}>{l}</option>{/each}</select></label>
-							<label class="adm-field">Sets<select class="adm" value={s.into} onchange={(e) => { s.into = e.currentTarget.value; touch(); }}>{#each OUTPUTS as [v, l] (v)}<option value={v}>{l}</option>{/each}</select></label>
+							<label class="adm-field">From<select class="adm" value={s.from} onchange={(e) => { s.from = e.currentTarget.value as Output; touch(); }}>{#each OUTPUTS as [v, l] (v)}<option value={v}>{l}</option>{/each}</select></label>
+							<label class="adm-field">Sets<select class="adm" value={s.into} onchange={(e) => { s.into = e.currentTarget.value as Output; touch(); }}>{#each OUTPUTS as [v, l] (v)}<option value={v}>{l}</option>{/each}</select></label>
 							<Num label="Multiplied by" value={s.value} onchange={(v) => { s.value = v ?? 0; touch(); }} />
 						</div>
 					{:else if s.type === 'fixed'}
@@ -151,7 +159,7 @@
 							<Num label="Ground roll" optional unit={c.distanceUnit} value={s.groundRoll} onchange={(v) => { if (v === undefined) delete s.groundRoll; else s.groundRoll = v; touch(); }} />
 						</div>
 					{/if}
-					{#if s.applies}
+					{#if 'applies' in s}
 						<div class="flex flex-wrap gap-x-4"><span class="adm-field">Applies to</span>{#each OUTPUTS as [k, l] (k)}<label class="adm-check"><input type="checkbox" checked={s.applies.includes(k)} onchange={(e) => toggleApplies(s, k, e.currentTarget.checked)} /> {l}</label>{/each}</div>
 					{/if}
 					{#if s.type !== 'lookup'}<SourcePick aircraft={a} value={s.source} onchange={(id) => { s.source = id; touch(); }} />{/if}

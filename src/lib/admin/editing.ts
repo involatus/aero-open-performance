@@ -2,6 +2,7 @@
  * Rules for the admin editors, independent of any screen: units as printed in the manual,
  * typed numbers, generated short names and sources picked by document and page.
  */
+import type { Aircraft } from '#lib/aircraft/schema.ts';
 import { KG_PER_LB } from '#lib/engine/units.ts';
 
 export type Units = { mass: 'kg' | 'lb'; arm: 'm' | 'cm' | 'in'; volume: 'L' | 'USgal' };
@@ -110,39 +111,49 @@ export function pruneSources(a: { sources: Sources }) {
 }
 
 /** Stored values by kind, so changing the units pilots see converts everything already entered. */
-export function convertAircraft(a: any, to: Units) {
+export function convertAircraft(a: Aircraft, to: Units) {
 	const from: Units = a.units;
 	const f = (kind: Kind) => (x: number) => tidy(x * factor(kind, from, to));
 	const mass = f('mass'), arm = f('arm'), volume = f('volume'), density = f('density'), moment = f('moment');
-	const each = <T>(list: T[] | undefined, fn: (x: T) => void) => list?.forEach(fn);
-	const point = (p: any) => { p.mass = mass(p.mass); if (p.arm !== undefined) p.arm = arm(p.arm); };
-	const limits = (l: any) => { if (!l) return; l.maxTakeoff.value = mass(l.maxTakeoff.value); l.maxLanding.value = mass(l.maxLanding.value); };
-	each(a.stations, (s: any) => {
+	const points = (envelope: Aircraft['envelope'] | undefined) => envelope?.points.forEach((p) => {
+		p.mass = mass(p.mass);
+		if ('arm' in p) p.arm = arm(p.arm);
+	});
+	const limits = (l: Aircraft['massLimits'] | undefined) => {
+		if (!l) return;
+		l.maxTakeoff.value = mass(l.maxTakeoff.value);
+		l.maxLanding.value = mass(l.maxLanding.value);
+	};
+	const steps = (p: Aircraft['configurations'][number]['performance']) => {
+		if (!p || p === 'none') return;
+		for (const c of [...p.takeoff, ...p.landing]) if (c.kind === 'steps') for (const s of c.steps) if (s.type === 'massCorrection') s.referenceMass = mass(s.referenceMass);
+	};
+	for (const s of a.stations) {
 		if (s.arm !== undefined) s.arm = arm(s.arm);
 		if (s.maxMass !== undefined) s.maxMass = mass(s.maxMass);
-		each(s.positions, (p: any) => { p.arm = arm(p.arm); });
-	});
-	each(a.tanks, (t: any) => { t.arm = arm(t.arm); t.capacity = volume(t.capacity); t.density = density(t.density); });
-	each(a.combinedLimits, (l: any) => { l.maxMass = mass(l.maxMass); });
+		s.positions?.forEach((p) => { p.arm = arm(p.arm); });
+	}
+	for (const t of a.tanks) { t.arm = arm(t.arm); t.capacity = volume(t.capacity); t.density = density(t.density); }
+	for (const l of a.combinedLimits) l.maxMass = mass(l.maxMass);
 	limits(a.massLimits);
-	each(a.envelope?.points, point);
+	points(a.envelope);
 	if (a.mac) { a.mac.leadingEdgeArm = arm(a.mac.leadingEdgeArm); a.mac.length = arm(a.mac.length); }
 	if (a.fuelFlow) a.fuelFlow.value = volume(a.fuelFlow.value);
-	each(a.configurations, (c: any) => {
-		c.weighing.mass = mass(c.weighing.mass); c.weighing.moment = moment(c.weighing.moment);
-		limits(c.massLimits);
-		each(c.envelope?.points, point);
-	});
-	const steps = (p: any) => p && p !== 'none' && [...p.takeoff, ...p.landing].forEach((c: any) => each(c.steps, (s: any) => { if (s.type === 'massCorrection') s.referenceMass = mass(s.referenceMass); }));
 	steps(a.performance);
-	each(a.configurations, (c: any) => steps(c.performance));
-	each(a.handCases, (h: any) => {
-		for (const l of Object.values(h.input.loads) as any[]) l.mass = mass(l.mass);
+	for (const c of a.configurations) {
+		c.weighing.mass = mass(c.weighing.mass);
+		c.weighing.moment = moment(c.weighing.moment);
+		limits(c.massLimits);
+		points(c.envelope);
+		steps(c.performance);
+	}
+	for (const h of a.handCases) {
+		for (const l of Object.values(h.input.loads)) l.mass = mass(l.mass);
 		for (const k of Object.keys(h.input.fuel)) h.input.fuel[k] = volume(h.input.fuel[k]);
 		h.input.fuelFlow = volume(h.input.fuelFlow);
 		for (const k of ['takeoffMass', 'landingMass'] as const) if (h.expected[k] !== undefined) h.expected[k] = mass(h.expected[k]);
 		for (const k of ['takeoffArm', 'landingArm'] as const) if (h.expected[k] !== undefined) h.expected[k] = arm(h.expected[k]);
-	});
+	}
 	a.units = { ...to };
 }
 
@@ -163,3 +174,7 @@ export function defaultSource(a: { sources: Sources }): string {
 export function draftId(registration: string): string {
 	return registration.trim().replace(/[^A-Za-z0-9._-]/g, '-');
 }
+
+/** A CG Envelope point while it is being edited: by arm or by % MAC, with the other left out. */
+export type EnvelopePointDraft = { mass: number; arm?: number; percentMac?: number };
+export const editablePoints = (envelope: { points: unknown[] }) => envelope.points as EnvelopePointDraft[];

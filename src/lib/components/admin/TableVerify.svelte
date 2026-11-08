@@ -1,12 +1,13 @@
 <script lang="ts">
+	import type { Aircraft, Table } from '#lib/aircraft/schema.ts';
 	import { getCell } from '#lib/admin/table-grid.ts';
 	import { tableCheckState, tableFingerprint } from '#lib/data/table-check.ts';
 
 	// The table drawn the way manuals print it, so a person can compare it with the page row by row.
-	let { a, id, table, by, touch }: { a: any; id: string; table: any; by: string; touch: () => void } = $props();
+	let { a, id, table, by, touch }: { a: Aircraft; id: string; table: Table; by: string; touch: () => void } = $props();
 
 	const OUTPUT_LABELS: Record<string, string> = { groundRoll: 'Ground roll', total: 'Total distance' };
-	let outputs = $derived(Object.keys(table.outputs));
+	let outputs = $derived(Object.keys(table.outputs) as ('total' | 'groundRoll')[]);
 	let axes = $derived(table.axes as { name: string; unit: string; values: number[] }[]);
 	// The last axis becomes column groups, the one before it rows, and any others separate blocks.
 	let colAxis = $derived(axes[axes.length - 1]);
@@ -21,7 +22,7 @@
 	let check = $derived(tableCheckState(table));
 	let blanks = $derived(blocks.some((b) => outputs.some((o) => (rowAxis ? rowAxis.values.map((_, r) => r) : [0]).some((r) => colAxis.values.some((_, c) => getCell(table.outputs[o], [...b, ...(rowAxis ? [r] : []), c]) === null)))));
 
-	const cell = (o: string, b: number[], r: number, c: number) => getCell(table.outputs[o], [...b, ...(rowAxis ? [r] : []), c]);
+	const cell = (o: 'total' | 'groundRoll', b: number[], r: number, c: number) => getCell(table.outputs[o], [...b, ...(rowAxis ? [r] : []), c]);
 	function record() {
 		table.checked = { by, date: new Date().toISOString().slice(0, 10), fingerprint: tableFingerprint($state.snapshot(table)) };
 		touch();

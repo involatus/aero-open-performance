@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, untrack } from 'svelte';
+	import { onMount, untrack, type Component } from 'svelte';
 	import { resolve } from '$app/paths';
 	import AircraftEditor from '#lib/components/admin/AircraftEditor.svelte';
 	import SourcesEditor from '#lib/components/admin/SourcesEditor.svelte';
@@ -13,14 +13,14 @@
 	import CaseInputs from '#lib/components/admin/CaseInputs.svelte';
 	import CaseEditor from '#lib/components/admin/CaseEditor.svelte';
 	import { blankInput, newHandCase } from '#lib/admin/hand-cases.ts';
-	import { draftId, makeId } from '#lib/admin/editing.ts';
+	import { defaultSource, draftId, makeId } from '#lib/admin/editing.ts';
 	import type { AdminStatus, Overview } from '#lib/server/admin-requests.ts';
 	import { NEW_AIRCRAFT, copyForNewAircraft, emptyCells } from '#lib/admin/table-grid.ts';
 	import TableVerify from '#lib/components/admin/TableVerify.svelte';
 	import { tableCheckState } from '#lib/data/table-check.ts';
 	import { publishChecks } from '#lib/data/publish-checks.ts';
 	import { validateAircraft } from '#lib/aircraft/validate.ts';
-	import type { Aircraft, CalculationInput, HandCase } from '#lib/aircraft/schema.ts';
+	import type { Aircraft, CalculationInput, HandCase , Axis } from '#lib/aircraft/schema.ts';
 	import { calculate, runHandCases } from '#lib/engine/index.ts';
 
 	type Status = AdminStatus;
@@ -31,7 +31,8 @@
 	let problems = $state<string[]>([]);
 	let working = $state(false);
 
-	let editing = $state<{ id: string; aircraft: any; version: string | null } | null>(null);
+	// A draft has the shape of an aircraft file, even while values are still missing or invalid.
+	let editing = $state<{ id: string; aircraft: Aircraft; version: string | null } | null>(null);
 	let dirty = $state(false);
 	let tab = $state('Aircraft');
 	let newName = $state('');
@@ -52,7 +53,7 @@
 
 	// In the order a manual is usually entered.
 	const TABS = ['Aircraft', 'Documents', 'Weighing', 'Load', 'Fuel', 'Limits', 'Tables', 'Performance', 'Notes', 'Test cases', 'Compare tables', 'Try it', 'Check', 'JSON'];
-	const EDITORS: Record<string, { title: string; component: any }> = {
+	const EDITORS: Record<string, { title: string; component: Component<{ a: Aircraft; touch: () => void }> }> = {
 		Aircraft: { title: 'Aircraft', component: AircraftEditor },
 		Documents: { title: 'Documents', component: SourcesEditor },
 		Weighing: { title: 'Weighing and Configurations', component: ConfigurationsEditor },
@@ -116,7 +117,7 @@
 	}
 
 	function open(id: string, aircraft: unknown, version: string | null) {
-		editing = { id, aircraft: structuredClone(aircraft), version };
+		editing = { id, aircraft: structuredClone(aircraft) as Aircraft, version };
 		dirty = false; tab = 'Aircraft'; checked = null; testInput = null; currentTable = ''; secondTable = '';
 	}
 	const openDraft = (id: string) => run(async () => { const d = await api('getDraft', { id }); open(id, d.data.aircraft, d.version); });
@@ -192,8 +193,8 @@
 		const name = tableName.trim();
 		if (!name) { message = 'Name the table first, such as "takeoff".'; return; }
 		const id = makeId(name, Object.keys(editing!.aircraft.tables), 'table');
-		const axes = [{ name: 'Altitude', input: 'pressureAltitude', unit: 'ft', values: [0, 2000], below: 'none', above: 'none' }, { name: 'Temperature', input: 'temperature', unit: 'C', values: [0, 20], below: 'none', above: 'none' }];
-		editing!.aircraft.tables[id] = { axes, outputs: { total: emptyCells([2, 2]) }, source: Object.keys(editing!.aircraft.sources ?? {})[0] ?? '' };
+		const axes: Axis[] = [{ name: 'Altitude', input: 'pressureAltitude', unit: 'ft', values: [0, 2000], below: 'none', above: 'none' }, { name: 'Temperature', input: 'temperature', unit: 'C', values: [0, 20], below: 'none', above: 'none' }];
+		editing!.aircraft.tables[id] = { axes, outputs: { total: emptyCells([2, 2]) }, source: defaultSource(editing!.aircraft) };
 		currentTable = id; tableName = ''; touch();
 	}
 	function removeTable(id: string) { delete editing!.aircraft.tables[id]; currentTable = ''; touch(); }

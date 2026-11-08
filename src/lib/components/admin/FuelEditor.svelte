@@ -1,9 +1,10 @@
 <script lang="ts">
+	import type { Aircraft } from '#lib/aircraft/schema.ts';
 	import { defaultSource, entryUnits, factor, makeId, move } from '#lib/admin/editing.ts';
 	import Num from './Num.svelte';
 	import SourcePick from './SourcePick.svelte';
 
-	let { a, touch }: { a: any; touch: () => void } = $props();
+	let { a, touch }: { a: Aircraft; touch: () => void } = $props();
 
 	// Typical fuel densities, so nobody has to work them out. The manual's own figure still wins.
 	const AVGAS_KG_PER_L = 0.72, AVGAS_LB_PER_USGAL = 6;
@@ -16,37 +17,37 @@
 	function addTank() {
 		const label = a.tanks.length ? `Tank ${a.tanks.length + 1}` : 'Main tanks';
 		const density = a.tanks[0]?.density ?? Number((avgas.typed * factor('density', entryUnits(a), a.units)).toPrecision(12));
-		a.tanks.push({ id: makeId(label, a.tanks.map((t: any) => t.id)), label, arm: 0, capacity: 0, density, source: defaultSource(a) });
+		a.tanks.push({ id: makeId(label, a.tanks.map((t) => t.id)), label, arm: 0, capacity: 0, density, source: defaultSource(a) });
 		syncPlans();
 		touch();
 	}
 	function removeTank(i: number) {
 		const id = a.tanks[i].id;
 		a.tanks.splice(i, 1);
-		for (const p of a.burnPlans) if (p.type === 'sequence') p.tanks = p.tanks.filter((t: string) => t !== id);
+		for (const p of a.burnPlans) if (p.type === 'sequence') p.tanks = p.tanks.filter((t) => t !== id);
 		syncPlans();
 		touch();
 	}
 	/** One tank needs no choice. Several tanks get an "evenly" plan to start with. */
 	function syncPlans() {
 		if (!a.burnPlans.length || a.tanks.length <= 1) a.burnPlans = [{ id: 'even', label: 'Evenly', type: 'even' }];
-		for (const p of a.burnPlans) if (p.type === 'sequence') p.tanks = p.tanks.filter((t: string) => a.tanks.some((x: any) => x.id === t));
-		if (!a.burnPlans.some((p: any) => p.id === a.defaultBurnPlan)) a.defaultBurnPlan = a.burnPlans[0].id;
+		for (const p of a.burnPlans) if (p.type === 'sequence') p.tanks = p.tanks.filter((t) => a.tanks.some((x) => x.id === t));
+		if (!a.burnPlans.some((p) => p.id === a.defaultBurnPlan)) a.defaultBurnPlan = a.burnPlans[0].id;
 	}
 	function addPlan() {
 		const label = 'One tank after another';
-		const id = makeId(label, a.burnPlans.map((p: any) => p.id));
-		a.burnPlans.push({ id, label, type: 'sequence', tanks: a.tanks.map((t: any) => t.id) });
+		const id = makeId(label, a.burnPlans.map((p) => p.id));
+		a.burnPlans.push({ id, label, type: 'sequence', tanks: a.tanks.map((t) => t.id) });
 		touch();
 	}
-	function setType(p: any, type: string) {
+	function setType(p: { type: string; tanks?: string[] }, type: string) {
 		p.type = type;
-		if (type === 'sequence') p.tanks = a.tanks.map((t: any) => t.id); else delete p.tanks;
+		if (type === 'sequence') p.tanks = a.tanks.map((t) => t.id); else delete p.tanks;
 		touch();
 	}
 	// With one arm for all tanks, the order fuel is used can't move the CG, so there is nothing to choose.
-	let orderMatters = $derived(a.tanks.length > 1 && new Set(a.tanks.map((t: any) => t.arm)).size > 1);
-	const tankLabel = (id: string) => a.tanks.find((t: any) => t.id === id)?.label ?? id;
+	let orderMatters = $derived(a.tanks.length > 1 && new Set(a.tanks.map((t) => t.arm)).size > 1);
+	const tankLabel = (id: string) => a.tanks.find((t) => t.id === id)?.label ?? id;
 </script>
 
 <p class="adm-hint">One card per tank or group of tanks the pilot fills separately. Use usable fuel.</p>
@@ -105,6 +106,6 @@
 	<p class="adm-hint">Prefilled for pilots, who can change it. Leave empty to make pilots type it every time.</p>
 	<div class="adm-row">
 		<Num label="Typical fuel flow" optional aircraft={a} kind="volume" unit={`${entryUnits(a).volume}/h`} value={a.fuelFlow?.value} onchange={(v) => { if (v === undefined) delete a.fuelFlow; else a.fuelFlow = { value: v, source: a.fuelFlow?.source ?? defaultSource(a) }; touch(); }} />
-		{#if a.fuelFlow}<SourcePick aircraft={a} value={a.fuelFlow.source} onchange={(id) => { a.fuelFlow.source = id; touch(); }} />{/if}
+		{#if a.fuelFlow}<SourcePick aircraft={a} value={a.fuelFlow.source} onchange={(id) => { a.fuelFlow!.source = id; touch(); }} />{/if}
 	</div>
 </div>

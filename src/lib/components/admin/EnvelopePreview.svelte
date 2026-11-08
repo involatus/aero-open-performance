@@ -1,20 +1,21 @@
 <script lang="ts">
-	import { entryUnits, shown } from '#lib/admin/editing.ts';
+	import { editablePoints, entryUnits, shown, type EnvelopePointDraft } from '#lib/admin/editing.ts';
+	import type { Aircraft } from '#lib/aircraft/schema.ts';
 
 	// The CG Envelope as the admin types it, in the manual's units, redrawn on every change.
-	let { a, envelope }: { a: any; envelope: { points: any[] } } = $props();
+	let { a, envelope }: { a: Aircraft; envelope: Aircraft['envelope'] } = $props();
 
 	const W = 640, H = 360, L = 56, R = 16, T = 14, B = 40;
 	let u = $derived(entryUnits(a));
-	let toArm = $derived((p: any): number | null => {
+	let toArm = $derived((p: EnvelopePointDraft): number | null => {
 		if (typeof p.arm === 'number') return shown(a, 'arm', p.arm);
 		if (typeof p.percentMac === 'number' && a.mac) return shown(a, 'arm', a.mac.leadingEdgeArm + (p.percentMac / 100) * a.mac.length);
 		return null;
 	});
-	let pts = $derived(envelope.points.map((p) => ({ arm: toArm(p), mass: typeof p.mass === 'number' ? shown(a, 'mass', p.mass) : null })).filter((p): p is { arm: number; mass: number } => p.arm !== null && p.mass !== null && p.mass > 0));
-	let empties = $derived((a.configurations ?? []).filter((c: any) => c.weighing?.mass > 0).map((c: any) => ({ label: c.label, mass: shown(a, 'mass', c.weighing.mass), arm: shown(a, 'arm', c.weighing.moment / c.weighing.mass) })));
-	let maxLanding = $derived(a.massLimits?.maxLanding?.value > 0 ? shown(a, 'mass', a.massLimits.maxLanding.value) : null);
-	let maxTakeoff = $derived(a.massLimits?.maxTakeoff?.value > 0 ? shown(a, 'mass', a.massLimits.maxTakeoff.value) : null);
+	let pts = $derived(editablePoints(envelope).map((p) => ({ arm: toArm(p), mass: typeof p.mass === 'number' ? shown(a, 'mass', p.mass) : null })).filter((p): p is { arm: number; mass: number } => p.arm !== null && p.mass !== null && p.mass > 0));
+	let empties = $derived(a.configurations.filter((c) => c.weighing.mass > 0).map((c) => ({ label: c.label, mass: shown(a, 'mass', c.weighing.mass), arm: shown(a, 'arm', c.weighing.moment / c.weighing.mass) })));
+	let maxLanding = $derived(a.massLimits.maxLanding.value > 0 ? shown(a, 'mass', a.massLimits.maxLanding.value) : null);
+	let maxTakeoff = $derived(a.massLimits.maxTakeoff.value > 0 ? shown(a, 'mass', a.massLimits.maxTakeoff.value) : null);
 
 	function nice(lo: number, hi: number, n: number) {
 		const span = hi - lo || 1, raw = span / n, mag = 10 ** Math.floor(Math.log10(raw));
@@ -36,7 +37,7 @@
 	/** Edges that cross each other mean the points are not in order around the shape. */
 	let crossing = $derived.by(() => {
 		const n = pts.length;
-		const cross = (p: any, q: any, r: any) => (q.arm - p.arm) * (r.mass - p.mass) - (q.mass - p.mass) * (r.arm - p.arm);
+		const cross = (p: { arm: number; mass: number }, q: { arm: number; mass: number }, r: { arm: number; mass: number }) => (q.arm - p.arm) * (r.mass - p.mass) - (q.mass - p.mass) * (r.arm - p.arm);
 		for (let i = 0; i < n; i++) for (let j = i + 2; j < n; j++) {
 			if (i === 0 && j === n - 1) continue;
 			const [p1, p2, q1, q2] = [pts[i], pts[(i + 1) % n], pts[j], pts[(j + 1) % n]];

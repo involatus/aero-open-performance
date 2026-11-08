@@ -1,13 +1,14 @@
 <script lang="ts">
+	import type { Aircraft } from '#lib/aircraft/schema.ts';
 	import { defaultSource, makeId, move } from '#lib/admin/editing.ts';
 	import Num from './Num.svelte';
 	import SourcePick from './SourcePick.svelte';
 
-	let { a, touch }: { a: any; touch: () => void } = $props();
+	let { a, touch }: { a: Aircraft; touch: () => void } = $props();
 
 	function addStation() {
 		const label = `Station ${a.stations.length + 1}`;
-		a.stations.push({ id: makeId(label, a.stations.map((s: any) => s.id)), label, arm: 0, source: defaultSource(a) });
+		a.stations.push({ id: makeId(label, a.stations.map((s) => s.id)), label, arm: 0, source: defaultSource(a) });
 		touch();
 	}
 	function removeStation(i: number) {
@@ -16,22 +17,24 @@
 		for (const l of a.combinedLimits) l.stations = l.stations.filter((s: string) => s !== id);
 		touch();
 	}
-	function useOneArm(s: any) {
+	type Station = Aircraft['stations'][number];
+	function useOneArm(s: Station) {
 		s.arm = s.positions?.[0]?.arm ?? 0;
 		delete s.positions; delete s.defaultPosition;
 		touch();
 	}
-	function addPosition(s: any) {
+	function addPosition(s: Station) {
+		if (!s.positions) return;
 		const label = `Position ${s.positions.length + 1}`;
-		s.positions.push({ id: makeId(label, s.positions.map((p: any) => p.id)), label, arm: 0 });
+		s.positions.push({ id: makeId(label, s.positions.map((p) => p.id)), label, arm: 0 });
 		touch();
 	}
 	function addCombined() {
 		const label = 'Baggage together';
-		a.combinedLimits.push({ id: makeId(label, a.combinedLimits.map((l: any) => l.id)), label, stations: [], maxMass: 0, source: defaultSource(a) });
+		a.combinedLimits.push({ id: makeId(label, a.combinedLimits.map((l) => l.id)), label, stations: [], maxMass: 0, source: defaultSource(a) });
 		touch();
 	}
-	function toggleMember(l: any, id: string, on: boolean) {
+	function toggleMember(l: Aircraft['combinedLimits'][number], id: string, on: boolean) {
 		l.stations = on ? [...l.stations, id] : l.stations.filter((s: string) => s !== id);
 		touch();
 	}
@@ -63,7 +66,7 @@
 						<label class="adm-field">Position name *<input class="adm" value={p.label} oninput={(e) => { p.label = e.currentTarget.value; touch(); }} /></label>
 						<Num label="Arm" aircraft={a} kind="arm" value={p.arm} onchange={(v) => { p.arm = v ?? 0; touch(); }} />
 						<label class="adm-check"><input type="radio" name={`default-${s.id}`} checked={s.defaultPosition === p.id} onchange={() => { s.defaultPosition = p.id; touch(); }} /> Preselected</label>
-						<div class="adm-tools"><button type="button" disabled={s.positions.length < 2} onclick={() => { s.positions.splice(j, 1); if (s.defaultPosition === p.id) s.defaultPosition = s.positions[0].id; touch(); }}>Delete position</button></div>
+						<div class="adm-tools"><button type="button" disabled={s.positions!.length < 2} onclick={() => { s.positions!.splice(j, 1); if (s.defaultPosition === p.id) s.defaultPosition = s.positions![0].id; touch(); }}>Delete position</button></div>
 					</div>
 				{/each}
 				<div><button type="button" class="small" onclick={() => addPosition(s)}>Add position</button></div>

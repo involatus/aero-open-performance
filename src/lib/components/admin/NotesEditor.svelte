@@ -1,11 +1,12 @@
 <script lang="ts">
+	import type { Aircraft } from '#lib/aircraft/schema.ts';
 	import { defaultSource, makeId, move } from '#lib/admin/editing.ts';
 	import SourcePick from './SourcePick.svelte';
 
-	let { a, touch }: { a: any; touch: () => void } = $props();
+	let { a, touch }: { a: Aircraft; touch: () => void } = $props();
 
 	function add() {
-		a.notes.push({ id: makeId('note', a.notes.map((n: any) => n.id)), text: '', source: defaultSource(a) });
+		a.notes.push({ id: makeId('note', a.notes.map((n) => n.id)), text: '', source: defaultSource(a) });
 		touch();
 	}
 </script>

@@ -12,7 +12,7 @@
 		const doc = docs[index];
 		if (!doc) return;
 		onchange(sourceFor(aircraft.sources, doc.source, page));
-		pruneSources(aircraft as any);
+		pruneSources(aircraft);
 	}
 </script>
 
