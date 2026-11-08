@@ -13,7 +13,8 @@
 	import CaseInputs from '#lib/components/admin/CaseInputs.svelte';
 	import CaseEditor from '#lib/components/admin/CaseEditor.svelte';
 	import { blankInput, newHandCase } from '#lib/admin/hand-cases.ts';
-	import { makeId } from '#lib/admin/editing.ts';
+	import { draftId, makeId } from '#lib/admin/editing.ts';
+	import type { AdminStatus, Overview } from '#lib/server/admin-requests.ts';
 	import { NEW_AIRCRAFT, copyForNewAircraft, emptyCells } from '#lib/admin/table-grid.ts';
 	import TableVerify from '#lib/components/admin/TableVerify.svelte';
 	import { tableCheckState } from '#lib/data/table-check.ts';
@@ -22,8 +23,7 @@
 	import type { Aircraft, CalculationInput, HandCase } from '#lib/aircraft/schema.ts';
 	import { calculate, runHandCases } from '#lib/engine/index.ts';
 
-	type Status = { configured: boolean; signedIn: boolean; name: string | null; storage: string | null };
-	type Overview = { drafts: { id: string; registration: string; type: string; revision: number | null; updatedBy: string; updatedAt: string }[]; settings: { operator: string }; index: { release: number; aircraft: { registration: string; withdrawn?: { reason: string } }[] } | null; releases: { release: number; publishedBy: string; published: string; notes: string | null; changes: { registration: string; text: string }[] }[]; version: string; updateAvailable: string | null };
+	type Status = AdminStatus;
 
 	let status = $state<Status | null>(null);
 	let overview = $state<Overview | null>(null);
@@ -114,7 +114,6 @@
 		await api('signOut');
 		location.reload();
 	}
-	const safeId = (reg: string) => reg.trim().replace(/[^A-Za-z0-9._-]/g, '-');
 
 	function open(id: string, aircraft: unknown, version: string | null) {
 		editing = { id, aircraft: structuredClone(aircraft), version };
@@ -126,7 +125,7 @@
 		if (!reg) throw new Error('Enter a registration first.');
 		let aircraft: unknown = NEW_AIRCRAFT(reg);
 		if (copyFrom) aircraft = copyForNewAircraft((await api('getDraft', { id: copyFrom })).data.aircraft, reg);
-		const id = safeId(reg), saved = await api('saveDraft', { id, aircraft });
+		const id = draftId(reg), saved = await api('saveDraft', { id, aircraft });
 		newName = ''; copyFrom = '';
 		await refresh();
 		open(id, aircraft, saved.version);
@@ -138,7 +137,7 @@
 			let aircraft: { registration?: string };
 			try { aircraft = JSON.parse(await file.text()); } catch { throw new Error('That file isn\'t valid JSON.'); }
 			if (!aircraft?.registration) throw new Error('That file has no registration.');
-			await api('saveDraft', { id: safeId(aircraft.registration), aircraft });
+			await api('saveDraft', { id: draftId(aircraft.registration), aircraft });
 			await refresh();
 			message = `Imported ${aircraft.registration} as a draft.`;
 		});

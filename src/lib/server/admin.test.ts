@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { downloadRelease, verifyInstalled } from '../data/release.ts';
-import { AdminError, checkDraft, deleteDraft, getDraft, latestIndex, listDrafts, listReleases, publish, publishedFile, restoreRelease, saveDraft, saveSettings } from './admin.ts';
+import { AdminError, deleteDraft, getDraft, latestIndex, listDrafts, listReleases, publish, publishedFile, restoreRelease, saveDraft, saveSettings } from './admin.ts';
 import { fileStorage } from './storage/file.ts';
 import { strongEtag } from './storage/vercel-blob.ts';
 import { tableFingerprint } from '../data/table-check.ts';
@@ -56,7 +56,6 @@ describe('drafts', () => {
 	it('keeps an unfinished draft', async () => {
 		await saveDraft(s, 'NEW', { aircraft: { registration: 'HB-XXX' } }, ADMIN, NOW);
 		expect((await getDraft(s, 'NEW')).data.aircraft).toEqual({ registration: 'HB-XXX' });
-		expect(checkDraft({ registration: 'HB-XXX' }).ok).toBe(false);
 	});
 	it('stops two people overwriting each other', async () => {
 		const { version } = await saveDraft(s, 'A', { aircraft: {} }, ADMIN, NOW);

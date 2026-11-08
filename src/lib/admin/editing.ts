@@ -158,3 +158,8 @@ export function move<T>(list: T[], index: number, by: -1 | 1) {
 export function defaultSource(a: { sources: Sources }): string {
 	return documents(a.sources)[0]?.id ?? Object.keys(a.sources)[0] ?? '';
 }
+
+/** The draft's id for a registration, used by the admin screen and by restoring a release. */
+export function draftId(registration: string): string {
+	return registration.trim().replace(/[^A-Za-z0-9._-]/g, '-');
+}

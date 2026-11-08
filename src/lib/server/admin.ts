@@ -1,8 +1,9 @@
 /** What the admin GUI can do. Separate from the framework, so every rule can be tested. */
+import { draftId } from '../admin/editing.ts';
 import { formatIsReadable } from '../aircraft/validate.ts';
 import { buildRelease, nextReleaseNumber, type DraftInput } from '../data/build-release.ts';
-import { publishChecks, unusualValues } from '../data/publish-checks.ts';
-import { parseIndex, type ReleaseIndex } from '../data/release.ts';
+import { unusualValues } from '../data/publish-checks.ts';
+import { parseIndex, type Change, type ReleaseIndex } from '../data/release.ts';
 import { validateAircraft } from '../aircraft/validate.ts';
 import { AlreadyExists, VersionConflict, type Storage } from './storage/index.ts';
 
@@ -69,12 +70,6 @@ export async function deleteDraft(s: Storage, id: string) {
 	await s.remove(draftPath(id));
 }
 
-/** The same checks as publishing, for showing what is still missing. */
-export function checkDraft(aircraft: unknown) {
-	const { problems, unusual } = publishChecks(aircraft);
-	return { problems, unusual, ok: problems.length === 0 };
-}
-
 export { unusualValues, validateAircraft };
 
 /**
@@ -112,7 +107,7 @@ export async function publish(s: Storage, request: { notes?: string; withdraw?: 
 export async function listReleases(s: Storage) {
 	const out = [];
 	for (const path of await s.list('history/')) {
-		const stored = await s.get<{ release: number; publishedBy: string; published: string; changes: unknown[]; notes: string | null }>(path);
+		const stored = await s.get<{ release: number; publishedBy: string; published: string; changes: Change[]; notes: string | null }>(path);
 		if (stored) out.push(stored.data);
 	}
 	return out.sort((a, b) => b.release - a.release);
@@ -123,7 +118,7 @@ export async function restoreRelease(s: Storage, release: number, registration: 
 	const name = `${encodeURIComponent(registration)}.json`;
 	const stored = await s.get(`published/releases/${Number(release)}/${name}`);
 	if (!stored) throw new AdminError(404, 'That release does not hold this aircraft.');
-	const id = registration.replace(/[^A-Za-z0-9._-]/g, '-');
+	const id = draftId(registration);
 	const current = await s.get<Draft>(draftPath(id));
 	return saveDraft(s, id, { aircraft: stored.data, version: current?.version ?? null }, admin, now);
 }
