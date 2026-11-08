@@ -5,7 +5,8 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import fc from 'fast-check';
 import { canonicalize, sha256 } from './canonical.ts';
-import { coverageProblems, publishChecks, secondEntryDifferences, unusualValues } from './publish-checks.ts';
+import { coverageProblems, publishChecks, unusualValues } from './publish-checks.ts';
+import { tableCheckProblems, tableCheckState, tableFingerprint } from './table-check.ts';
 import { ReleaseError, describeChanges, downloadRelease, isStale, parseIndex, shouldCheck, verifyAircraft, verifyInstalled, withdrawalReason, type ReleaseIndex } from './release.ts';
 import { validateAircraft } from '../aircraft/validate.ts';
 import type { Aircraft } from '../aircraft/schema.ts';
@@ -148,11 +149,23 @@ describe('publish checks', () => {
 		expect(publishChecks(d).problems.join()).not.toContain('Unusual value not acknowledged');
 	});
 	it('reports no unusual values on tidy tables', () => { for (const n of NAMES) expect(unusualValues(aircraft(n))).toEqual([]); });
-	it('names the exact cell that differs in the second entry', () => {
-		const a = aircraft('test-dr-style'), b = structuredClone(a);
-		expect(secondEntryDifferences(a, b)).toEqual([]);
-		(b.tables.hard.outputs.total as number[][])[1][2] = 531;
-		expect(secondEntryDifferences(a, b)).toEqual(['Table hard total[1][2]: 530 and 531']);
+	it('needs every table of a real aircraft compared with the manual, and unchanged since', () => {
+		const a = aircraft('test-dr-style');
+		expect(tableCheckProblems(a)).toEqual([]);
+		a.fictional = false;
+		expect(tableCheckProblems(a).join()).toContain('Table hard: not yet compared');
+		for (const t of Object.values(a.tables)) t.checked = { by: 'Anna', date: '2026-11-08', fingerprint: tableFingerprint(t) };
+		expect(tableCheckProblems(a)).toEqual([]);
+		(a.tables.hard.outputs.total as number[][])[1][2] = 531;
+		expect(tableCheckState(a.tables.hard)).toEqual({ status: 'changed', by: 'Anna', date: '2026-11-08' });
+		expect(tableCheckProblems(a)).toEqual([expect.stringContaining('Table hard: changed after Anna compared it')]);
+	});
+	it('fingerprints values and units, not formatting or axis names', () => {
+		const t = aircraft('test-dr-style').tables.hard, f = tableFingerprint(t);
+		expect(f).toMatch(/^[0-9a-f]{16}$/);
+		expect(tableFingerprint(JSON.parse(JSON.stringify(t)))).toBe(f);
+		expect(tableFingerprint({ ...t, axes: t.axes.map((x) => ({ ...x, name: 'Renamed' })) })).toBe(f);
+		expect(tableFingerprint({ ...t, axes: t.axes.map((x, i) => (i === 0 ? { ...x, unit: x.unit === 'ft' ? 'm' : 'ft' } : x)) })).not.toBe(f);
 	});
 });
 
@@ -160,7 +173,7 @@ describe('command-line tool', () => {
 	const work = mkdtempSync(join(tmpdir(), 'data-cli-'));
 	afterAll(() => rmSync(work, { recursive: true, force: true }));
 	const run = (...args: string[]) => spawnSync('node', ['--no-warnings', 'tools/data/cli.ts', ...args], { encoding: 'utf8' });
-	const source = join(work, 'source'), out = join(work, 'out'), second = join(work, 'second');
+	const source = join(work, 'source'), out = join(work, 'out');
 	const publish = (release: number, ...more: string[]) => run('publish', '--source', source, '--out', out, '--release', String(release), '--operator', 'Test', ...more);
 	cpSync('aircraft-examples', source, { recursive: true });
 
@@ -203,17 +216,12 @@ describe('command-line tool', () => {
 		expect(readdirSync(join(out, 'releases')).sort()).toEqual(['1', '2']);
 		cpSync('aircraft-examples/test-dr-style.json', join(source, 'test-dr-style.json'));
 	});
-	it('requires a matching second entry for real aircraft', () => {
+	it('requires every table of a real aircraft to be compared with the manual', () => {
 		const d = raw('test-dr-style');
 		d.fictional = false;
 		writeFileSync(join(source, 'test-dr-style.json'), JSON.stringify(d));
-		expect(publish(3).stderr).toContain('entered twice');
-		const typo = structuredClone(d);
-		typo.tables.hard.outputs.total[1][2] = 531;
-		cpSync('aircraft-examples', second, { recursive: true });
-		writeFileSync(join(second, 'test-dr-style.json'), JSON.stringify(typo));
-		const differs = publish(3, '--second-entry', second);
-		expect(differs.status).toBe(1);
-		expect(differs.stderr).toContain('total[1][2]: 530 and 531');
+		const r = publish(3);
+		expect(r.status).toBe(1);
+		expect(r.stderr).toContain('not yet compared with the manual');
 	});
 });

@@ -2,6 +2,7 @@
 import type { Aircraft, Axis, Condition, Performance, Table } from '../aircraft/schema.ts';
 import { calculate, runHandCases } from '../engine/index.ts';
 import { validateAircraft } from '../aircraft/validate.ts';
+import { tableCheckProblems } from './table-check.ts';
 
 export type CheckResult = { problems: string[]; unusual: string[] };
 
@@ -91,24 +92,6 @@ function checkAcross(table: Table, cells: unknown, output: string, id: string, o
 	loop(0, []);
 }
 
-/** Tables entered a second time must match the first exactly. Differences name the cell to check in the manual. */
-export function secondEntryDifferences(first: Aircraft, second: Aircraft): string[] {
-	const out: string[] = [];
-	const diff = (a: unknown, b: unknown, path: string) => {
-		if (Array.isArray(a) && Array.isArray(b)) {
-			if (a.length !== b.length) out.push(`${path}: different lengths`);
-			a.forEach((x, i) => diff(x, b[i], `${path}[${i}]`));
-		} else if (a !== b) out.push(`${path}: ${JSON.stringify(a)} and ${JSON.stringify(b)}`);
-	};
-	for (const [id, table] of Object.entries(first.tables)) {
-		const other = second.tables[id];
-		if (!other) { out.push(`Table ${id} is missing from the second entry`); continue; }
-		table.axes.forEach((axis, i) => diff(axis.values, other.axes[i]?.values, `Table ${id} axis ${axis.name}`));
-		for (const output of ['total', 'groundRoll'] as const) diff(table.outputs[output], other.outputs[output], `Table ${id} ${output}`);
-	}
-	return out;
-}
-
 export function publishChecks(data: unknown): CheckResult & { aircraft: Aircraft | null } {
 	const v = validateAircraft(data);
 	if (!v.ok) return { problems: v.problems, unusual: [], aircraft: null };
@@ -116,6 +99,7 @@ export function publishChecks(data: unknown): CheckResult & { aircraft: Aircraft
 	try {
 		runHandCases(a).forEach((f) => problems.push(`Case ${f.caseId}, ${f.field}: expected ${String(f.expected)}, got ${String(f.actual)}`));
 		problems.push(...coverageProblems(a));
+		problems.push(...tableCheckProblems(a));
 	} catch (error) {
 		problems.push(`Could not run the hand-calculated cases: ${(error as Error).message}`);
 	}

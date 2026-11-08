@@ -9,7 +9,7 @@ import { parseIndex, type ReleaseIndex } from '../../src/lib/data/release.ts';
 const USAGE = `Usage:
   data check <file.json>...
   data publish --source <dir> --out <dir> --release <n> --operator <name> [--notes <text>]
-               [--second-entry <dir>] [--withdraw <registration=reason>]...`;
+               [--withdraw <registration=reason>]...`;
 
 const read = (path: string) => JSON.parse(readFileSync(path, 'utf8'));
 const jsonFiles = (dir: string) => readdirSync(dir).filter((f) => f.endsWith('.json')).sort();
@@ -26,7 +26,7 @@ function check(paths: string[]): boolean {
 	return ok;
 }
 
-async function publish(o: { source: string; out: string; release: number; operator: string; notes?: string; secondEntry?: string; withdraw: string[] }): Promise<boolean> {
+async function publish(o: { source: string; out: string; release: number; operator: string; notes?: string; withdraw: string[] }): Promise<boolean> {
 	const indexPath = join(o.out, 'index.json');
 	const previous: ReleaseIndex | null = existsSync(indexPath) ? parseIndex(read(indexPath)) : null;
 	if (existsSync(join(o.out, 'releases', String(o.release)))) { console.error(`releases/${o.release} already exists. Releases are permanent.`); return false; }
@@ -35,10 +35,7 @@ async function publish(o: { source: string; out: string; release: number; operat
 		if (i < 1 || i === w.length - 1) throw new Error(`Use --withdraw REG=reason, not "${w}"`);
 		return [w.slice(0, i), w.slice(i + 1)];
 	}));
-	const drafts = jsonFiles(o.source).map((file) => {
-		const second = o.secondEntry && join(o.secondEntry, file);
-		return { name: file, data: read(join(o.source, file)), secondEntry: second && existsSync(second) ? read(second) : undefined };
-	});
+	const drafts = jsonFiles(o.source).map((file) => ({ name: file, data: read(join(o.source, file)) }));
 	const built = await buildRelease({ drafts, previous, release: o.release, operator: o.operator, notes: o.notes, withdraw, now: Date.now() });
 	if (!built.ok) {
 		built.problems.forEach((p) => console.error(`  - ${p}`));
@@ -59,9 +56,9 @@ const [command, ...rest] = process.argv.slice(2);
 let success = false;
 if (command === 'check' && rest.length) success = check(rest);
 else if (command === 'publish') {
-	const { values } = parseArgs({ args: rest, options: { source: { type: 'string' }, out: { type: 'string' }, release: { type: 'string' }, operator: { type: 'string' }, notes: { type: 'string' }, 'second-entry': { type: 'string' }, withdraw: { type: 'string', multiple: true } } });
+	const { values } = parseArgs({ args: rest, options: { source: { type: 'string' }, out: { type: 'string' }, release: { type: 'string' }, operator: { type: 'string' }, notes: { type: 'string' }, withdraw: { type: 'string', multiple: true } } });
 	const release = Number(values.release);
 	if (!values.source || !values.out || !values.operator || !Number.isInteger(release) || release < 1) console.error(USAGE);
-	else success = await publish({ source: values.source, out: values.out, release, operator: values.operator, notes: values.notes, secondEntry: values['second-entry'], withdraw: values.withdraw ?? [] });
+	else success = await publish({ source: values.source, out: values.out, release, operator: values.operator, notes: values.notes, withdraw: values.withdraw ?? [] });
 } else console.error(USAGE);
 process.exit(success ? 0 : 1);

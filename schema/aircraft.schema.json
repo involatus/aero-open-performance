@@ -626,6 +626,29 @@
 					"source": {
 						"type": "string",
 						"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+					},
+					"checked": {
+						"type": "object",
+						"properties": {
+							"by": {
+								"type": "string",
+								"minLength": 1
+							},
+							"date": {
+								"type": "string",
+								"minLength": 1
+							},
+							"fingerprint": {
+								"type": "string",
+								"pattern": "^[0-9a-f]{16}$"
+							}
+						},
+						"required": [
+							"by",
+							"date",
+							"fingerprint"
+						],
+						"additionalProperties": false
 					}
 				},
 				"required": [

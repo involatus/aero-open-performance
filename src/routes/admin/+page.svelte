@@ -12,7 +12,9 @@
 	import TableEditor from '#lib/components/admin/TableEditor.svelte';
 	import CaseInputs from '#lib/components/admin/CaseInputs.svelte';
 	import { entryUnits, limitLabel, makeId, shown, stored } from '#lib/admin/editing.ts';
-	import { NEW_AIRCRAFT, copyForNewAircraft, emptyCells, secondEntryFor } from '#lib/admin/table-grid.ts';
+	import { NEW_AIRCRAFT, copyForNewAircraft, emptyCells } from '#lib/admin/table-grid.ts';
+	import TableVerify from '#lib/components/admin/TableVerify.svelte';
+	import { tableCheckState } from '#lib/data/table-check.ts';
 	import { publishChecks } from '#lib/data/publish-checks.ts';
 	import { validateAircraft } from '#lib/aircraft/validate.ts';
 	import type { Aircraft, CalculationInput, HandCase } from '#lib/aircraft/schema.ts';
@@ -27,7 +29,7 @@
 	let problems = $state<string[]>([]);
 	let working = $state(false);
 
-	let editing = $state<{ id: string; aircraft: any; secondEntry: any; version: string | null } | null>(null);
+	let editing = $state<{ id: string; aircraft: any; version: string | null } | null>(null);
 	let dirty = $state(false);
 	let tab = $state('Aircraft');
 	let newName = $state('');
@@ -47,7 +49,7 @@
 	let jsonError = $state('');
 
 	// In the order a manual is usually entered.
-	const TABS = ['Aircraft', 'Documents', 'Weighing', 'Load', 'Fuel', 'Limits', 'Tables', 'Performance', 'Notes', 'Test cases', 'Second entry', 'Try it', 'Check', 'JSON'];
+	const TABS = ['Aircraft', 'Documents', 'Weighing', 'Load', 'Fuel', 'Limits', 'Tables', 'Performance', 'Notes', 'Test cases', 'Compare tables', 'Try it', 'Check', 'JSON'];
 	const EDITORS: Record<string, { title: string; component: any }> = {
 		Aircraft: { title: 'Aircraft', component: AircraftEditor },
 		Documents: { title: 'Documents', component: SourcesEditor },
@@ -112,11 +114,11 @@
 	}
 	const safeId = (reg: string) => reg.trim().replace(/[^A-Za-z0-9._-]/g, '-');
 
-	function open(id: string, aircraft: unknown, secondEntry: unknown, version: string | null) {
-		editing = { id, aircraft: structuredClone(aircraft), secondEntry: secondEntry ? structuredClone(secondEntry) : null, version };
+	function open(id: string, aircraft: unknown, version: string | null) {
+		editing = { id, aircraft: structuredClone(aircraft), version };
 		dirty = false; tab = 'Aircraft'; checked = null; testInput = null; currentTable = ''; secondTable = '';
 	}
-	const openDraft = (id: string) => run(async () => { const d = await api('getDraft', { id }); open(id, d.data.aircraft, d.data.secondEntry, d.version); });
+	const openDraft = (id: string) => run(async () => { const d = await api('getDraft', { id }); open(id, d.data.aircraft, d.version); });
 	const createAircraft = () => run(async () => {
 		const reg = newName.trim();
 		if (!reg) throw new Error('Enter a registration first.');
@@ -125,7 +127,7 @@
 		const id = safeId(reg), saved = await api('saveDraft', { id, aircraft });
 		newName = ''; copyFrom = '';
 		await refresh();
-		open(id, aircraft, null, saved.version);
+		open(id, aircraft, saved.version);
 	});
 	async function importFile(event: Event) {
 		const file = (event.target as HTMLInputElement).files?.[0];
@@ -142,7 +144,7 @@
 	}
 	const save = () => run(async () => {
 		const e = editing!;
-		const saved = await api('saveDraft', { id: e.id, aircraft: $state.snapshot(e.aircraft), secondEntry: $state.snapshot(e.secondEntry), version: e.version });
+		const saved = await api('saveDraft', { id: e.id, aircraft: $state.snapshot(e.aircraft), version: e.version });
 		e.version = saved.version;
 		dirty = false;
 		message = 'Saved.';
@@ -195,9 +197,6 @@
 	}
 	function removeTable(id: string) { delete editing!.aircraft.tables[id]; currentTable = ''; touch(); }
 	$effect(() => {
-		if (tab === 'Second entry' && editing) untrack(() => {
-			editing!.secondEntry = secondEntryFor($state.snapshot(editing!.aircraft), $state.snapshot(editing!.secondEntry));
-		});
 		if (tab === 'JSON' && editing) untrack(() => { jsonText = JSON.stringify($state.snapshot(editing!.aircraft), null, 2); jsonError = ''; });
 		if (tab === 'Check' && editing) untrack(() => { checked = publishChecks($state.snapshot(editing!.aircraft)); });
 		if (tab === 'Try it' && parsed && !testInput) untrack(() => { testInput = blankInput(parsed!); });
@@ -298,13 +297,13 @@
 					{#key currentTable}<TableEditor id={currentTable} table={editing.aircraft.tables[currentTable]} onchange={touch} />{/key}
 					<button type="button" onclick={() => removeTable(currentTable)}>Delete this table</button>
 				{/if}
-			{:else if tab === 'Second entry'}
-				<h2>Second entry</h2>
-				{#if isFictional}<p>Fictional aircraft don't need a second entry.</p>{/if}
-				<p>Type every table again from the manual, without looking at the first entry. Ideally a second person does this. Publishing is blocked until every cell matches.</p>
-				<div class="flex flex-wrap gap-1">{#each tableIds as id (id)}<button type="button" class:primary={secondTable === id} onclick={() => (secondTable = id)}>{id}</button>{/each}</div>
-				{#if secondTable && editing.secondEntry?.tables?.[secondTable]}
-					{#key secondTable}<TableEditor id={`second-${secondTable}`} table={editing.secondEntry.tables[secondTable]} compareWith={editing.aircraft.tables[secondTable]} secondEntry onchange={touch} />{/key}
+			{:else if tab === 'Compare tables'}
+				<h2>Compare tables with the manual</h2>
+				{#if isFictional}<p>Fictional aircraft don't need this.</p>{/if}
+				<p>Every table of a real aircraft must be compared with the manual by a person before it can be published. Changing a table afterwards means comparing it again.</p>
+				<div class="flex flex-wrap gap-1">{#each tableIds as id (id)}{@const s = tableCheckState(editing.aircraft.tables[id])}<button type="button" class:primary={secondTable === id} onclick={() => (secondTable = id)}>{s.status === 'checked' ? '✓ ' : ''}{id}</button>{/each}</div>
+				{#if secondTable && editing.aircraft.tables[secondTable]}
+					{#key secondTable}<TableVerify a={editing.aircraft} id={secondTable} table={editing.aircraft.tables[secondTable]} by={status?.name ?? ''} {touch} />{/key}
 				{/if}
 			{:else if tab === 'Test cases'}
 				<h2>Hand-calculated cases</h2>
@@ -369,7 +368,7 @@
 					{#if checked.problems.length}
 						<p class="font-bold text-bad" role="status">{checked.problems.length} still to fix.</p>
 						<ul class="m-0 list-disc pl-5">{#each checked.problems as p (p)}<li>{p}</li>{/each}</ul>
-					{:else}<p class="font-bold text-good" role="status">This aircraft passes every check.{isFictional ? '' : ' Publishing also needs a matching second entry.'}</p>{/if}
+					{:else}<p class="font-bold text-good" role="status">This aircraft passes every check.{isFictional ? '' : ''}</p>{/if}
 					{#if checked.unusual.length}
 						<h3 class="m-0 font-bold">Unusual values</h3>
 						<p class="muted">Compare each with the manual, and tick it only if the manual really says this.</p>

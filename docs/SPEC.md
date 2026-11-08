@@ -128,9 +128,9 @@ Optional, online and mainly for a laptop, while still working on an iPad. It cov
 
 - **Storage:** file storage behind a small layer. Drafts are one file per aircraft, and releases are permanent files. A database comes later only if Operators need separate accounts.
 - **Login:** one admin password per copy, in the host's settings, plus the admin's typed name, which is recorded on drafts and releases. Sessions last 8 hours in a signed cookie. Changing the password signs everyone out.
-- **Tables:** native input tables with paste from Excel, then a second pass with first values hidden, highlighting any differences. No OCR at first.
+- **Tables:** native input tables with paste from Excel. A person then compares each table, drawn in the manual's layout, with the printed page and confirms it. No OCR at first.
 - **Steps:** forms build each result's ordered steps, with a live test panel. An aircraft can be copied as an independent start; its tables and sources must then be entered and checked again.
-- **Publish:** disabled until required values and sources are present, all out-of-range choices are set, every table has been entered twice and matches, every unusual value has been acknowledged, and every hand-calculated case passes. No override.
+- **Publish:** disabled until required values and sources are present, all out-of-range choices are set, every table of a real aircraft has been compared with the manual and is unchanged since, every unusual value has been acknowledged, and every hand-calculated case passes. No override.
 - **Security updates:** copies don't update themselves. The admin area shows an "update available" notice, with documented update steps and Dependabot recommended.
 
 ## Verification

@@ -24,7 +24,7 @@ One strict JSON file describes one registered aircraft. Unknown fields are error
 | `burnPlans`, `defaultBurnPlan` | Burn Plans and the preselected one |
 | `fuelFlow`, `crosswind` | Optional `{ value, source }`. Fuel flow is volume per hour, and crosswind is in knots |
 | `notes` | Manual rules for the pilot to confirm: `id`, `text`, `source` |
-| `tables` | Named tables |
+| `tables` | Named tables. Each has `axes`, `outputs`, `source` and, once a person compared it with the manual, `checked` |
 | `performance` | `takeoff` and `landing`, each a list of conditions |
 | `configurations` | At least one Configuration |
 | `handCases` | Hand-calculated cases |
@@ -202,7 +202,7 @@ Use the command-line tool to check and publish hand-written files:
 
 ```sh
 npm run data -- check my-aircraft/*.json
-npm run data -- publish --source my-aircraft --out static/data --release 2 --operator "My club" --notes "New weighing" --second-entry second-entry
+npm run data -- publish --source my-aircraft --out static/data --release 2 --operator "My club" --notes "New weighing"
 ```
 
 To withdraw an aircraft, add `--withdraw "HB-XXX=Reason"` and leave its file in the source folder.
@@ -216,7 +216,7 @@ Publishing fails, with no override, unless every file passes all of these:
 - Each selectable takeoff and landing condition with a table has a case exactly on a table value and one between values. Others have at least one case.
 - At least two cases check CG, and at least one exceeds a limit.
 - Any distance that shrinks as altitude, temperature or mass rises is listed in `acknowledgedUnusualValues`, using the checker's exact wording, after being compared with the manual.
-- A non-fictional aircraft has a matching file in `--second-entry`, with its tables entered separately. Any difference names the cell to check.
+- In a non-fictional aircraft, every table has `checked` (`by`, `date`, `fingerprint`): a person compared it with the manual. The fingerprint is FNV-1a 64-bit, as 16 hex digits, of the canonical JSON of `{ axes: [{ unit, values }], outputs }`. A table changed afterwards fails, and the message gives its current fingerprint. The admin area fills this in.
 
 ## Hand-calculated cases
 

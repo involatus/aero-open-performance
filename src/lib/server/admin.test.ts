@@ -6,6 +6,7 @@ import { downloadRelease, verifyInstalled } from '../data/release.ts';
 import { AdminError, checkDraft, deleteDraft, getDraft, latestIndex, listDrafts, listReleases, publish, publishedFile, restoreRelease, saveDraft, saveSettings } from './admin.ts';
 import { fileStorage } from './storage/file.ts';
 import { strongEtag } from './storage/vercel-blob.ts';
+import { tableFingerprint } from '../data/table-check.ts';
 import { AlreadyExists, VersionConflict, memoryStorage, type Storage } from './storage/index.ts';
 
 const raw = (name: string) => JSON.parse(readFileSync(`aircraft-examples/${name}.json`, 'utf8'));
@@ -107,19 +108,15 @@ describe('publishing', () => {
 		expect(r.ok).toBe(false);
 		await expect(saveSettings(empty, { operator: ' ' })).rejects.toThrow('Operator');
 	});
-	it('real aircraft need a matching second entry', async () => {
+	it('real aircraft need every table compared with the manual', async () => {
 		const real = raw('test-kitfox-style'); real.fictional = false;
 		const { version } = await getDraft(s, 'TEST-KF');
 		const saved = await saveDraft(s, 'TEST-KF', { aircraft: real, version }, ADMIN, NOW);
 		const none = await publish(s, {}, ADMIN, NOW);
-		expect(none.ok).toBe(false);
-		if (!none.ok) expect(none.problems.join()).toContain('entered twice');
-		const typo = structuredClone(real); typo.tables.takeoff.outputs.total[0][0] += 1;
-		const second = await saveDraft(s, 'TEST-KF', { aircraft: real, secondEntry: typo, version: saved.version }, ADMIN, NOW);
-		const differs = await publish(s, {}, ADMIN, NOW);
-		if (!differs.ok) expect(differs.problems.join()).toContain('total[0][0]');
+		if (!none.ok) expect(none.problems.join()).toContain('not yet compared with the manual');
 		else throw new Error('should not publish');
-		await saveDraft(s, 'TEST-KF', { aircraft: real, secondEntry: structuredClone(real), version: second.version }, ADMIN, NOW);
+		for (const table of Object.values(real.tables) as any[]) table.checked = { by: ADMIN, date: '2026-11-08', fingerprint: tableFingerprint(table) };
+		await saveDraft(s, 'TEST-KF', { aircraft: real, version: saved.version }, ADMIN, NOW);
 		expect((await publish(s, {}, ADMIN, NOW)).ok).toBe(true);
 	});
 	it('numbers releases upward and never overwrites one', async () => {

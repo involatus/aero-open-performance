@@ -1,11 +1,9 @@
 <script lang="ts">
-	import { countBlank, differingCells, emptyCells, getCell, isMultiCell, parseCell, parsePaste, reshape, setCell } from '#lib/admin/table-grid.ts';
+	import { countBlank, emptyCells, getCell, isMultiCell, parseCell, parsePaste, reshape, setCell } from '#lib/admin/table-grid.ts';
 
 	type Axis = { name: string; input: string; unit: string; values: number[]; below: string; above: string };
 	type Table = { axes: Axis[]; outputs: Record<string, unknown>; source: string };
-	let { id, table, compareWith = null, secondEntry = false, onchange }: {
-		id: string; table: Table; compareWith?: Table | null; secondEntry?: boolean; onchange: () => void;
-	} = $props();
+	let { id, table, onchange }: { id: string; table: Table; onchange: () => void } = $props();
 
 	const OUTPUT_LABELS: Record<string, string> = { total: 'Total distance', groundRoll: 'Ground roll' };
 	const INPUTS = [['pressureAltitude', 'Pressure altitude'], ['densityAltitude', 'Density altitude'], ['elevation', 'Elevation'], ['temperature', 'Temperature'], ['mass', 'Mass']];
@@ -14,7 +12,6 @@
 	let output = $state('total');
 	let slice = $state<number[]>([]);
 	let invalid = $state<Record<string, string>>({});
-	let showDifferences = $state(false);
 
 	let outputs = $derived(Object.keys(table.outputs));
 	let active = $derived(outputs.includes(output) ? output : outputs[0]);
@@ -27,7 +24,6 @@
 	let rows = $derived(rowAxis ? rowAxis.values.map((_, i) => i) : [0]);
 	let cols = $derived(colAxis ? colAxis.values.map((_, i) => i) : []);
 	let cells = $derived(table.outputs[active]);
-	let differences = $derived(compareWith ? new Set(differingCells(compareWith.outputs[active], cells).map((p) => p.join(','))) : new Set<string>());
 	let blanks = $derived(countBlank(cells));
 
 	const pathOf = (r: number, c: number) => (rowAxis ? [...prefix, r, c] : [c]);
@@ -42,7 +38,6 @@
 	}
 	function enter(r: number, c: number, text: string) {
 		const parsed = parseCell(text), key = keyOf(r, c);
-		showDifferences = false;
 		if (!parsed.valid) { invalid[key] = text; return; }
 		delete invalid[key];
 		setCell(cells, pathOf(r, c), parsed.value);
@@ -87,7 +82,6 @@
 </script>
 
 <div class="grid gap-3">
-	{#if !secondEntry}
 		<div class="grid gap-2">
 			{#each table.axes as axis, i (i)}
 				<div class="grid grid-cols-2 gap-2 rounded-[5px] border border-line p-2 md:grid-cols-6">
@@ -107,7 +101,6 @@
 				<label class="flex items-center gap-2">Source <input class="adm" bind:value={table.source} oninput={onchange} /></label>
 			</div>
 		</div>
-	{/if}
 
 	{#if outputs.length > 1}
 		<div class="flex flex-wrap gap-1">{#each outputs as name (name)}<button type="button" class:primary={name === active} onclick={() => (output = name)}>{OUTPUT_LABELS[name]}</button>{/each}</div>
@@ -130,9 +123,8 @@
 						<th>{rowAxis ? rowAxis.values[r] : OUTPUT_LABELS[active]}</th>
 						{#each cols as c (c)}
 							{@const bad = keyOf(r, c) in invalid}
-							{@const differs = showDifferences && blanks === 0 && differences.has(pathOf(r, c).join(','))}
 							<td class="p-0.5">
-								<input id={cellId(r, c)} class="adm-cell" class:adm-bad={bad || differs} inputmode="decimal" autocomplete="off" value={shown(r, c)} aria-invalid={bad || differs} aria-label={`${rowAxis ? `${rowAxis.name} ${rowAxis.values[r]}, ` : ''}${colAxis.name} ${colAxis.values[c]}`} onchange={(e) => enter(r, c, e.currentTarget.value)} onpaste={(e) => paste(e, r, c)} onkeydown={(e) => keydown(e, r, c)} />
+								<input id={cellId(r, c)} class="adm-cell" class:adm-bad={bad} inputmode="decimal" autocomplete="off" value={shown(r, c)} aria-invalid={bad} aria-label={`${rowAxis ? `${rowAxis.name} ${rowAxis.values[r]}, ` : ''}${colAxis.name} ${colAxis.values[c]}`} onchange={(e) => enter(r, c, e.currentTarget.value)} onpaste={(e) => paste(e, r, c)} onkeydown={(e) => keydown(e, r, c)} />
 							</td>
 						{/each}
 					</tr>
@@ -142,14 +134,4 @@
 	</div>
 	<p class="muted">{Object.keys(invalid).length ? 'Red cells aren\'t numbers, so they weren\'t saved. ' : ''}{blanks ? `${blanks} cells still empty. ` : ''}You can paste a block from Excel into any cell. Enter moves down.</p>
 
-	{#if secondEntry && compareWith}
-		<div class="flex flex-wrap items-center gap-2">
-			<button type="button" onclick={() => (showDifferences = true)}>Compare with the first entry</button>
-			{#if showDifferences}
-				{#if blanks}<span class="font-bold text-amber" role="status">Finish this table first: {blanks} cell{blanks > 1 ? 's' : ''} still empty.</span>
-				{:else if differences.size}<span class="font-bold text-bad" role="alert">{differences.size} cell{differences.size > 1 ? 's differ' : ' differs'} in this view. Check {differences.size > 1 ? 'them' : 'it'} against the manual.</span>
-				{:else}<span class="font-bold text-good" role="status">This table matches the first entry.</span>{/if}
-			{/if}
-		</div>
-	{/if}
 </div>

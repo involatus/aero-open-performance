@@ -6,7 +6,7 @@ import { parseIndex, type ReleaseIndex } from '../data/release.ts';
 import { validateAircraft } from '../aircraft/validate.ts';
 import { AlreadyExists, VersionConflict, type Storage } from './storage/index.ts';
 
-export type Draft = { aircraft: unknown; secondEntry: unknown | null; updatedBy: string; updatedAt: string };
+export type Draft = { aircraft: unknown; updatedBy: string; updatedAt: string };
 export type Settings = { operator: string };
 export class AdminError extends Error {
 	constructor(public status: number, message: string) { super(message); }
@@ -53,9 +53,9 @@ export async function getDraft(s: Storage, id: string) {
 }
 
 /** A second person's save can't silently replace a first: `version` must still match. */
-export async function saveDraft(s: Storage, id: string, body: { aircraft: unknown; secondEntry?: unknown | null; version?: string | null }, admin: string, now: number) {
+export async function saveDraft(s: Storage, id: string, body: { aircraft: unknown; version?: string | null }, admin: string, now: number) {
 	if (body?.aircraft === undefined) throw new AdminError(400, 'The draft has no aircraft.');
-	const draft: Draft = { aircraft: body.aircraft, secondEntry: body.secondEntry ?? null, updatedBy: admin, updatedAt: new Date(now).toISOString() };
+	const draft: Draft = { aircraft: body.aircraft, updatedBy: admin, updatedAt: new Date(now).toISOString() };
 	try {
 		return { version: await s.put(draftPath(id), draft, { ifVersion: body.version === undefined ? null : body.version }) };
 	} catch (error) {
@@ -93,7 +93,7 @@ export async function publish(s: Storage, request: { notes?: string; withdraw?: 
 		const name = path.slice('drafts/'.length, -'.json'.length);
 		// Only the chosen drafts are checked and published. Without a choice, all of them are.
 		if (Array.isArray(request?.include) && !request.include.includes(name)) continue;
-		if (stored) drafts.push({ name, data: stored.data.aircraft, secondEntry: stored.data.secondEntry ?? undefined });
+		if (stored) drafts.push({ name, data: stored.data.aircraft });
 	}
 	const release = nextReleaseNumber(previousIndex);
 	const built = await buildRelease({ drafts, previous: previousIndex, release, operator: settings.operator, notes: request?.notes, withdraw: request?.withdraw, carryOver: true, now });
@@ -125,7 +125,7 @@ export async function restoreRelease(s: Storage, release: number, registration: 
 	if (!stored) throw new AdminError(404, 'That release does not hold this aircraft.');
 	const id = registration.replace(/[^A-Za-z0-9._-]/g, '-');
 	const current = await s.get<Draft>(draftPath(id));
-	return saveDraft(s, id, { aircraft: stored.data, secondEntry: current?.data.secondEntry ?? null, version: current?.version ?? null }, admin, now);
+	return saveDraft(s, id, { aircraft: stored.data, version: current?.version ?? null }, admin, now);
 }
 
 /** Public read for pilots' devices. Only the published folder is reachable. */

@@ -2,9 +2,9 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
 import { validateAircraft } from '../aircraft/validate.ts';
-import { publishChecks, secondEntryDifferences } from '../data/publish-checks.ts';
+import { publishChecks } from '../data/publish-checks.ts';
 import { isNewer, availableUpdate } from '../server/updates.ts';
-import { NEW_AIRCRAFT, copyForNewAircraft, countBlank, differingCells, emptyCells, getCell, isMultiCell, parseCell, parsePaste, reshape, secondEntryFor, setCell } from './table-grid.ts';
+import { NEW_AIRCRAFT, copyForNewAircraft, countBlank, differingCells, emptyCells, getCell, isMultiCell, parseCell, parsePaste, reshape, setCell } from './table-grid.ts';
 
 const raw = (n: string) => JSON.parse(readFileSync(`aircraft-examples/${n}.json`, 'utf8'));
 
@@ -66,30 +66,6 @@ describe('copying an aircraft', () => {
 		expect(source.stations[0].label).toBe('Pilot');
 		expect(source.tables.hard.outputs.total[0][0]).toBe(400);
 		expect(publishChecks(copy).aircraft).toBeNull();
-	});
-});
-
-describe('second entry', () => {
-	const first = raw('test-kitfox-style');
-	it('starts blank, so the first entry is never shown or copied', () => {
-		const second = secondEntryFor(first, null);
-		expect(countBlank(second.tables.takeoff.outputs.total)).toBe(9);
-		expect(JSON.stringify(second.tables)).not.toContain('430');
-	});
-	it('keeps what was typed when reopened', () => {
-		const second = secondEntryFor(first, null);
-		second.tables.takeoff.outputs.total[0][0] = 400;
-		expect(secondEntryFor(first, second).tables.takeoff.outputs.total[0][0]).toBe(400);
-	});
-	it('passes the publish rule only when every cell matches', () => {
-		const second = secondEntryFor(first, null);
-		second.tables.takeoff.outputs = structuredClone(first.tables.takeoff.outputs);
-		const a = validateAircraft(first), b = validateAircraft(second);
-		if (!a.ok || !b.ok) throw new Error('invalid');
-		expect(secondEntryDifferences(a.aircraft, b.aircraft)).toEqual([]);
-		b.aircraft.tables.takeoff.outputs.total = structuredClone(b.aircraft.tables.takeoff.outputs.total);
-		(b.aircraft.tables.takeoff.outputs.total as number[][])[1][1] += 1;
-		expect(secondEntryDifferences(a.aircraft, b.aircraft)).toHaveLength(1);
 	});
 });
 

@@ -71,7 +71,7 @@ test('forms, tables and JSON all edit the same draft, and saving survives a relo
 	await page.getByLabel('New registration').fill('HB-NEW');
 	await page.getByRole('button', { name: 'Add aircraft' }).click();
 	await expect(page.getByRole('heading', { name: 'HB-NEW' })).toBeVisible();
-	for (const tab of ['Aircraft', 'Documents', 'Weighing', 'Load', 'Fuel', 'Limits', 'Tables', 'Performance', 'Notes', 'Test cases', 'Second entry', 'Try it', 'Check', 'JSON']) {
+	for (const tab of ['Aircraft', 'Documents', 'Weighing', 'Load', 'Fuel', 'Limits', 'Tables', 'Performance', 'Notes', 'Test cases', 'Compare tables', 'Try it', 'Check', 'JSON']) {
 		await page.getByRole('navigation').getByRole('button', { name: tab, exact: true }).click();
 		await expect(page.locator('section h2').first()).toBeVisible();
 	}
@@ -211,7 +211,7 @@ test('publishing is blocked until the checks pass, then pilots get the data', as
 	await pilot.close();
 });
 
-test('a real aircraft needs a blind second entry, and a typo is pointed out', async ({ page }) => {
+test('a real aircraft needs every table compared with the manual, and a later change undoes it', async ({ page }) => {
 	const real = structuredClone(example);
 	real.registration = 'TEST-REAL';
 	delete real.fictional;
@@ -220,26 +220,25 @@ test('a real aircraft needs a blind second entry, and a typo is pointed out', as
 	await expect(page.getByText('Imported TEST-REAL')).toBeVisible();
 	await page.getByRole('checkbox', { name: /^TEST-REAL/ }).check();
 	await page.getByRole('button', { name: 'Publish new release' }).click();
-	await expect(page.locator('main > ul')).toContainText('entered twice');
+	await expect(page.locator('main > ul')).toContainText('not yet compared with the manual');
 
 	await page.locator('div', { hasText: /^TEST-REAL/ }).getByRole('button', { name: 'Edit' }).last().click();
-	await page.getByRole('navigation').getByRole('button', { name: 'Second entry', exact: true }).click();
+	const tab = (name: string) => page.getByRole('navigation').getByRole('button', { name, exact: true }).click();
+	await tab('Compare tables');
 	await page.getByRole('button', { name: 'takeoff', exact: true }).click();
-	const cell = (alt: number, t: number) => page.getByRole('textbox', { name: `Altitude ${alt}, Temperature ${t}` });
-	await expect(cell(0, 0)).toHaveValue('');
-	await page.getByRole('button', { name: 'Compare with the first entry' }).click();
-	await expect(page.getByText('Finish this table first: 9 cells still empty')).toBeVisible();
-
 	const t = real.tables.takeoff;
-	for (const [i, alt] of t.axes[0].values.entries()) for (const [j, temp] of t.axes[1].values.entries()) await cell(alt, temp).fill(String(t.outputs.total[i][j] + (i === 0 && j === 0 ? 1 : 0)));
-	await cell(0, 0).blur();
-	await page.getByRole('button', { name: 'Compare with the first entry' }).click();
-	await expect(page.getByRole('alert')).toContainText('1 cell differs');
-	await expect(cell(0, 0)).toHaveAttribute('aria-invalid', 'true');
-	await cell(0, 0).fill(String(t.outputs.total[0][0]));
-	await cell(0, 0).blur();
-	await page.getByRole('button', { name: 'Compare with the first entry' }).click();
-	await expect(page.getByText('This table matches the first entry')).toBeVisible();
+	await expect(page.getByRole('table', { name: 'Table takeoff' })).toContainText(String(t.outputs.total[0][0]));
+	await page.getByRole('button', { name: /^Every value matches the manual/ }).click();
+	await expect(page.getByText(/Compared with the manual by Test Admin/)).toBeVisible();
+
+	await tab('Tables');
+	await page.getByRole('button', { name: 'takeoff', exact: true }).click();
+	const first = page.getByRole('textbox', { name: `Altitude ${t.axes[0].values[0]}, Temperature ${t.axes[1].values[0]}` });
+	await first.fill(String(t.outputs.total[0][0] + 1));
+	await first.blur();
+	await tab('Compare tables');
+	await page.getByRole('button', { name: 'takeoff', exact: true }).click();
+	await expect(page.getByRole('alert')).toContainText('Changed after Test Admin compared it');
 });
 
 for (const name of ['test-dr-style', 'test-sr22-style', 'test-glastar-style', 'test-kitfox-style']) {

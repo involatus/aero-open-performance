@@ -24,7 +24,7 @@ Then open `/admin`, enter your name and the password, and sign in. Your name is 
 
 1. Add an aircraft, then fill in each section, entering tables exactly as printed in the manual.
 2. Add hand-calculated cases, worked out by a person.
-3. For a real aircraft, type every table again under **Second entry**, ideally by a second person.
+3. For a real aircraft, open **Compare tables**, compare every table with the printed manual, and confirm it. Ideally someone who didn't enter it does this. Your name and the date are recorded, and changing a table afterwards means comparing it again.
 4. Open **Check**, and fix anything listed.
 5. Back on the list, tick the aircraft to publish, then choose **Publish new release**. Only the ticked aircraft are checked, so an unfinished draft of another aircraft doesn't hold you up.
 

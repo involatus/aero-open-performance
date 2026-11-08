@@ -4,10 +4,10 @@
  */
 import { FORMAT_VERSION } from '../aircraft/schema.ts';
 import { sha256 } from './canonical.ts';
-import { publishChecks, secondEntryDifferences } from './publish-checks.ts';
+import { publishChecks } from './publish-checks.ts';
 import { describeChanges, parseIndex, type Change, type ReleaseEntry, type ReleaseIndex } from './release.ts';
 
-export type DraftInput = { name: string; data: unknown; secondEntry?: unknown };
+export type DraftInput = { name: string; data: unknown };
 export type ReleaseRequest = {
 	drafts: DraftInput[];
 	previous: ReleaseIndex | null;
@@ -45,14 +45,6 @@ export async function buildRelease(r: ReleaseRequest): Promise<BuiltRelease> {
 		if (seen.has(a.registration)) problems.push(`${draft.name}: ${a.registration} appears twice`);
 		seen.add(a.registration);
 		if (withdraw[a.registration]) continue;
-		if (!a.fictional) {
-			if (draft.secondEntry === undefined) problems.push(`${draft.name}: real aircraft need their tables entered twice`);
-			else {
-				const other = publishChecks(draft.secondEntry).aircraft;
-				if (!other) problems.push(`${draft.name}: the second entry is not a valid aircraft file`);
-				else secondEntryDifferences(a, other).forEach((d) => problems.push(`${draft.name}: second entry differs. ${d}`));
-			}
-		}
 		const name = `${encodeURIComponent(a.registration)}.json`;
 		entries.push({ registration: a.registration, type: a.type, revision: a.revision, file: `${dir}/${name}`, sha256: await sha256(draft.data) });
 		files.push({ path: `${dir}/${name}`, data: draft.data });

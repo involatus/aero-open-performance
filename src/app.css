@@ -112,6 +112,15 @@ section > .adm-card + .adm-card, section > .adm-card + div { margin-top: 8px; }
 .adm-error { color: var(--bad); font-size: 14px; font-weight: 600; margin: 0; }
 .adm-check { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; min-height: 40px; } .adm-check input { width: 22px; height: 22px; }
 .adm-source { grid-column: 1 / -1; max-width: 34rem; }
+.adm-verify { border-collapse: collapse; font: 600 17px ui-monospace, Menlo, monospace; }
+.adm-verify th, .adm-verify td { border: 1px solid var(--line); padding: 6px 10px; text-align: right; }
+.adm-verify thead th { font: 700 14px system-ui, sans-serif; text-align: center; background: var(--bg); }
+.adm-verify th.sub { font-weight: 600; color: var(--muted); }
+.adm-verify .grp { border-left: 3px solid var(--ink); }
+.adm-verify tbody tr:nth-child(even) { background: var(--bg); }
+.adm-verify tbody tr.ok { background: var(--good-bg); }
+.adm-verify td.missing { background: var(--bad-bg); color: var(--bad); }
+.adm-verify td.tick { text-align: center; } .adm-verify td.tick input { width: 26px; height: 26px; }
 .adm-preview { align-self: start; position: sticky; top: 8px;  background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
 .adm-preview svg { width: 100%; height: auto; font-size: 12px; fill: var(--muted); }
 .banner.update { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }

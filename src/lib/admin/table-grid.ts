@@ -58,7 +58,7 @@ export function differingCells(a: unknown, b: unknown, path: number[] = []): num
 	return (a ?? null) === (b ?? null) ? [] : [path];
 }
 
-type AircraftLike = { registration?: string; revision?: number; handCases?: unknown[]; tables?: Record<string, { axes: Array<{ values: number[] }>; outputs: Record<string, unknown> }>; fictional?: boolean; acknowledgedUnusualValues?: unknown };
+type AircraftLike = { registration?: string; revision?: number; handCases?: unknown[]; tables?: Record<string, { axes: Array<{ values: number[] }>; outputs: Record<string, unknown>; checked?: unknown }>; fictional?: boolean; acknowledgedUnusualValues?: unknown };
 
 /** An independent copy for a new aircraft: tables and test cases must be entered and checked again. */
 export function copyForNewAircraft<T extends AircraftLike>(source: T, registration: string): T {
@@ -75,23 +75,8 @@ export function copyForNewAircraft<T extends AircraftLike>(source: T, registrati
 function blankTables(a: AircraftLike) {
 	for (const table of Object.values(a.tables ?? {})) {
 		for (const name of Object.keys(table.outputs)) table.outputs[name] = emptyCells(table.axes.map((x) => x.values.length));
+		delete table.checked;
 	}
-}
-
-/**
- * The file for the second entry: the same aircraft with its own table cells.
- * Cells already typed stay, as long as the table still has the same shape.
- */
-export function secondEntryFor<T extends AircraftLike>(aircraft: T, previous: AircraftLike | null): T {
-	const second = structuredClone(aircraft);
-	blankTables(second);
-	for (const [id, table] of Object.entries(second.tables ?? {})) {
-		for (const name of Object.keys(table.outputs)) {
-			const before = previous?.tables?.[id]?.outputs?.[name];
-			if (before !== undefined) table.outputs[name] = reshape(before, table.axes.map((x) => x.values.length));
-		}
-	}
-	return second;
 }
 
 export const NEW_AIRCRAFT = (registration: string) => ({

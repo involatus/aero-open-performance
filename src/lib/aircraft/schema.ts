@@ -73,7 +73,9 @@ const Cells: v.GenericSchema<unknown> = v.array(v.union([Num, v.lazy(() => Cells
 const Table = v.strictObject({
 	axes: v.pipe(v.array(Axis), v.minLength(1)),
 	outputs: v.strictObject({ total: v.optional(Cells), groundRoll: v.optional(Cells) }),
-	source: SourceRef
+	source: SourceRef,
+	// A person compared the table with the manual, row by row. See src/lib/data/table-check.ts.
+	checked: v.optional(v.strictObject({ by: Text, date: Text, fingerprint: v.pipe(v.string(), v.regex(/^[0-9a-f]{16}$/)) }))
 });
 
 const Applies = v.pipe(v.array(Output), v.minLength(1));
