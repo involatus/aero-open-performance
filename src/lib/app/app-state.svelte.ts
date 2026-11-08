@@ -1,7 +1,7 @@
 /** Open Calculations, saved on this device. Nothing here leaves the device. */
 import { del, get, set } from 'idb-keyval';
 import { reconcileAfterInstall, type Calculation } from './calculation.ts';
-import { ReleaseError, downloadRelease, parseIndex, shouldCheck, verifyInstalled, withdrawalReason, type InstalledData, type ReleaseIndex } from '../data/release.ts';
+import { ReleaseError, downloadRelease, offersUpdate, parseIndex, shouldCheck, verifyInstalled, withdrawalReason, type InstalledData, type ReleaseIndex } from '../data/release.ts';
 import { isExpired, type Delivery, type StoredReport } from '../report/report.ts';
 
 const KEY = 'calculations-v1';
@@ -31,7 +31,7 @@ export class AppState {
 		return this.data?.aircraft ?? [];
 	}
 	get pending(): ReleaseIndex | null {
-		return this.seen && this.data && this.seen.release > this.data.index.release ? this.seen : null;
+		return this.seen && this.data && offersUpdate(this.data.index, this.seen) ? this.seen : null;
 	}
 	withdrawn(registration: string) {
 		return withdrawalReason(this.data?.index ?? null, this.seen, registration);
@@ -70,7 +70,7 @@ export class AppState {
 			const index = parseIndex(await this.getJson('index.json'));
 			this.lastCheck = Date.now();
 			if (!this.data) await this.install(index);
-			else if (index.release >= this.data.index.release) this.seen = index;
+			else if (offersUpdate(this.data.index, index) || index.release === this.data.index.release) this.seen = index;
 			await this.saveMeta();
 		} catch (error) {
 			this.updateError = (error as Error).message;

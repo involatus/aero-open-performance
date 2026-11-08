@@ -124,6 +124,8 @@ section > .adm-card + .adm-card, section > .adm-card + div { margin-top: 8px; }
 .adm-preview { align-self: start; position: sticky; top: 8px;  background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
 .adm-preview svg { width: 100%; height: auto; font-size: 12px; fill: var(--muted); }
 .banner.update { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+button.tab-close { min-height: 52px; min-width: 44px; padding: 0 10px; border-radius: 0 5px 5px 0; font-size: 22px; line-height: 1; }
+button.tab-close.active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .fld-label { font-size: 15px; font-weight: 600; }
 .metar { display: grid; gap: 6px; } .metar .raw { font: 500 14px ui-monospace, Menlo, monospace; overflow-wrap: anywhere; } .flag { color: var(--amber); font-weight: 600; font-size: 15px; } button.wide { width: 100%; min-height: 52px; }
 .banner { padding: 10px 12px; border-radius: 5px; font-weight: 700; } .banner.notsent { background: var(--bad-bg); color: var(--bad); } .banner.unk { background: var(--amber-bg); color: var(--amber); } .banner.sent { background: var(--good-bg); color: var(--good); }

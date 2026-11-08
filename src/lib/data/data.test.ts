@@ -7,7 +7,7 @@ import fc from 'fast-check';
 import { canonicalize, sha256 } from './canonical.ts';
 import { coverageProblems, publishChecks, unusualValues } from './publish-checks.ts';
 import { tableCheckProblems, tableCheckState, tableFingerprint } from './table-check.ts';
-import { ReleaseError, describeChanges, downloadRelease, isStale, parseIndex, shouldCheck, verifyAircraft, verifyInstalled, withdrawalReason, type ReleaseIndex } from './release.ts';
+import { ReleaseError, describeChanges, downloadRelease, isStale, offersUpdate, parseIndex, shouldCheck, verifyAircraft, verifyInstalled, withdrawalReason, type ReleaseIndex } from './release.ts';
 import { validateAircraft } from '../aircraft/validate.ts';
 import type { Aircraft } from '../aircraft/schema.ts';
 
@@ -38,6 +38,21 @@ describe('checksums', () => {
 			const safe = JSON.parse(JSON.stringify(value));
 			expect(canonicalize(JSON.parse(canonicalize(safe)))).toBe(canonicalize(safe));
 		}));
+	});
+});
+
+describe('offering new data', () => {
+	const index = (operator: string, release: number, published = '2026-11-06T10:00:00.000Z') => ({ formatVersion: '0.1.0', operator, release, published, aircraft: [] }) as unknown as ReleaseIndex;
+	it('offers a higher release from the same Operator, never a lower one', () => {
+		expect(offersUpdate(index('Club', 1), index('Club', 2))).toBe(true);
+		expect(offersUpdate(index('Club', 2), index('Club', 1))).toBe(false);
+		expect(offersUpdate(index('Club', 1), index('Club', 1))).toBe(false);
+	});
+	it('offers published data that replaces the built-in demo, even with the same number', () => {
+		expect(offersUpdate(index('Demo data', 1), index('GlaStar Flyers', 1))).toBe(true);
+	});
+	it('offers the same number published again, such as after starting over', () => {
+		expect(offersUpdate(index('Club', 1), index('Club', 1, '2026-11-08T09:02:56.305Z'))).toBe(true);
 	});
 });
 

@@ -222,6 +222,15 @@
 		app.current = app.tabs.length - 1;
 		closePad();
 	}
+	let checkedNow = $state(false);
+	async function checkNow() { checkedNow = false; await app.check(true); checkedNow = true; }
+	function closeTab(i: number) {
+		app.tabs.splice(i, 1);
+		if (app.current >= i) app.current = Math.max(0, app.current - 1);
+		if (!app.tabs.length) choosing = true;
+		confirmDelete = false;
+		closePad();
+	}
 	function deleteTab() {
 		if (!confirmDelete) { confirmDelete = true; return; }
 		app.tabs.splice(app.current, 1);
@@ -328,13 +337,21 @@
 			{/each}
 			{#if app.tabs.length}<button type="button" onclick={() => (choosing = false)}>Cancel</button>{/if}
 		</section>
+		<section>
+			<p class="m-0">Aircraft data: Release {app.data?.index.release} from {app.data?.index.operator}.{app.lastCheck ? ` Last checked ${new Date(app.lastCheck).toLocaleString()}.` : ''}</p>
+			{#if !app.pending && checkedNow && !app.checking && !app.updateError}<p class="m-0 font-semibold text-good" role="status">This is the latest data.</p>{/if}
+			<button type="button" disabled={app.checking || app.installing} onclick={checkNow}>{app.checking ? 'Checking' : 'Check for new data'}</button>
+		</section>
 		<p class="muted">Version {version}. <a href={resolve('/device-test')}>Device test</a>. <a href={resolve('/admin')}>Admin</a></p>
 	{:else if calc}
 		<Tabs.Root value={calc.id} onValueChange={(id) => selectTab(app.tabs.findIndex((t) => t.id === id))} class="grid gap-3">
 		<div class="flex gap-1.5 overflow-x-auto">
 			<Tabs.List aria-label="Calculations" class="flex flex-none gap-1.5">
 				{#each app.tabs as tab, i (tab.id)}
-					<Tabs.Trigger value={tab.id} class="min-h-[52px] max-w-[260px] flex-none truncate rounded-[5px] border border-line bg-panel px-3.5 font-semibold text-ink data-[state=active]:border-ink data-[state=active]:bg-ink data-[state=active]:text-bg">{labels[i]}</Tabs.Trigger>
+					<div class="flex flex-none">
+						<Tabs.Trigger value={tab.id} class="min-h-[52px] max-w-[260px] flex-none truncate rounded-l-[5px] border border-r-0 border-line bg-panel pl-3.5 pr-2 font-semibold text-ink data-[state=active]:border-ink data-[state=active]:bg-ink data-[state=active]:text-bg">{labels[i]}</Tabs.Trigger>
+						<button type="button" class="tab-close" class:active={i === app.current} aria-label={`Close ${labels[i]}`} onclick={() => closeTab(i)}>×</button>
+					</div>
 				{/each}
 			</Tabs.List>
 			<button type="button" class="flex-none" disabled={!aircraft} onclick={addNextFlight}>+ Next flight</button>

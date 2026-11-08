@@ -388,7 +388,7 @@
 	{:else if overview}
 		<div class="flex flex-wrap items-center justify-between gap-2">
 			<h1>Admin</h1>
-			<div class="flex flex-wrap items-center gap-2"><span class="muted">{status.name}</span><button type="button" onclick={signOut}>Sign out</button><a href={resolve('/')}>Back to the app</a></div>
+			<div class="flex flex-wrap items-center gap-2"><span class="muted">{status.name}</span><button type="button" disabled={working} onclick={() => run(async () => { await refresh(); message = 'Reloaded.'; })}>Reload</button><button type="button" onclick={signOut}>Sign out</button><a href={resolve('/')}>Back to the app</a></div>
 		</div>
 		{#if overview.updateAvailable}<div class="banner unk" role="status">Version {overview.updateAvailable} of the app is available, and this copy is on {overview.version}. Updates can include security fixes. Your copy doesn't update itself: see <code>docs/ADMIN.md</code>.</div>{/if}
 		<section>

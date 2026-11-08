@@ -76,6 +76,16 @@ export async function verifyInstalled(data: InstalledData | undefined | null): P
 	}
 }
 
+/**
+ * Whether a published index should be offered to a device that has `installed`. A higher number from the
+ * same Operator, or any release from another source, such as published data replacing the built-in demo.
+ */
+export function offersUpdate(installed: ReleaseIndex, published: ReleaseIndex): boolean {
+	if (published.operator !== installed.operator) return true;
+	if (published.release !== installed.release) return published.release > installed.release;
+	return published.published !== installed.published;
+}
+
 export function shouldCheck(lastCheck: number | null, now: number, force = false): boolean {
 	return force || lastCheck === null || now - lastCheck >= CHECK_INTERVAL_MS;
 }

@@ -81,6 +81,23 @@ test('full flow: confirm, block on a limit, next flight, and keep it after a rel
 	expect(errors).toEqual([]);
 });
 
+test('tabs close with ×, and the start page can check for new data', async ({ page }) => {
+	const errors = await failOnErrors(page);
+	await page.goto('/');
+	await page.getByRole('button', { name: /^TEST-DR/ }).click();
+	await page.getByRole('button', { name: '+ New' }).click();
+	await page.getByRole('button', { name: /^TEST-KF/ }).click();
+	await expect(page.getByRole('tab')).toHaveCount(2);
+	await page.getByRole('button', { name: /^Close .*TEST-KF/ }).click();
+	await expect(page.getByRole('tab')).toHaveCount(1);
+	await expect(page.getByRole('tab', { selected: true })).toContainText('TEST-DR');
+	await page.getByRole('button', { name: /^Close / }).click();
+	await expect(page.getByRole('heading', { name: 'Choose an aircraft' })).toBeVisible();
+	await page.getByRole('button', { name: 'Check for new data' }).click();
+	await expect(page.getByText('This is the latest data.')).toBeVisible();
+	expect(errors).toEqual([]);
+});
+
 test('starts with no connection', async ({ page, context }) => {
 	await page.goto('/');
 	await page.evaluate(() => navigator.serviceWorker.ready);
