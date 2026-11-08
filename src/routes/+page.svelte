@@ -9,6 +9,7 @@
 	import Segmented from '#lib/components/Segmented.svelte';
 	import CgChart from '#lib/components/CgChart.svelte';
 	import DistanceResult from '#lib/components/DistanceResult.svelte';
+	import { altitudeText, armText, distanceText, limitBadge, massBalanceRows, massText, statusWord, windText, workingRows } from '#lib/app/presentation.ts';
 	import { AppState } from '#lib/app/app-state.svelte.ts';
 	import { describeChanges, isStale, STALE_DAYS } from '#lib/data/release.ts';
 	import {
@@ -227,8 +228,9 @@
 		registration?.waiting?.postMessage('activate-update');
 	}
 
-	function massText(x: number) { return `${x.toFixed(aircraft!.display.massDecimals)} ${aircraft!.units.mass}`; }
-	function armText(x: number) { return `${x.toFixed(aircraft!.display.armDecimals)} ${aircraft!.units.arm}`; }
+	let altitude = $derived(results ? altitudeText(results) : null);
+	let wind = $derived(results && calc ? windText(results.wind, isVariableWind(calc)) : null);
+	let mbRows = $derived(aircraft && results ? massBalanceRows(aircraft, results) : null);
 
 	function startWith(registration: string) {
 		const a = app.aircraft.find((x) => x.registration === registration)!;
@@ -400,12 +402,12 @@
 							{#if r.groundRoll != null}<span><b>{r.groundRoll} {r.unit}</b><small>Ground roll</small></span>{/if}
 							{#if r.total != null}<span><b>{r.total} {r.unit}</b><small>{title === 'Takeoff' ? 'To 50 ft' : 'From 50 ft'}</small></span>{/if}
 						</div>
-					{:else}<b class="none">{r.status === 'noData' ? 'No data' : r.status === 'noResult' ? 'No result' : 'Needs inputs'}</b>{/if}
+					{:else}<b class="none">{statusWord(r.status)}</b>{/if}
 				</div>
 			{/each}
 			<div class="s"><b>{results.atmosphere?.densityAltitudeFt != null ? `${Math.round(results.atmosphere.densityAltitudeFt).toLocaleString('en')} ft` : '–'}</b><small>Density altitude{results.atmosphere ? `, PA ${Math.round(results.atmosphere.pressureAltitudeFt).toLocaleString('en')} ft` : ''}</small></div>
-			<div class="s"><b class:bad={results.exceeded.includes('takeoffMass') || results.exceeded.includes('takeoffCg')}>{results.massBalance.takeoff.mass.toFixed(0)} {aircraft.units.mass}</b><small>Takeoff, CG {armText(results.massBalance.takeoff.arm)}</small></div>
-			<div class="s"><b class:bad={results.exceeded.includes('landingMass') || results.exceeded.includes('landingCg')}>{results.massBalance.landing.mass.toFixed(0)} {aircraft.units.mass}</b><small>Landing, CG {armText(results.massBalance.landing.arm)}</small></div>
+			<div class="s"><b class:bad={results.exceeded.includes('takeoffMass') || results.exceeded.includes('takeoffCg')}>{massText(aircraft, results.massBalance.takeoff.mass)}</b><small>Takeoff, CG {armText(aircraft, results.massBalance.takeoff.arm)}</small></div>
+			<div class="s"><b class:bad={results.exceeded.includes('landingMass') || results.exceeded.includes('landingCg')}>{massText(aircraft, results.massBalance.landing.mass)}</b><small>Landing, CG {armText(aircraft, results.massBalance.landing.arm)}</small></div>
 			{#if exceededLimits.length}
 				<button type="button" class="status bad" onclick={goToFirstProblem}>{exceededLimits.length} limit{exceededLimits.length > 1 ? 's' : ''} over</button>
 			{:else if todo.length}
@@ -544,13 +546,13 @@
 			<div class="col">
 				<section>
 					<div class="big">
-						<DistanceResult title="Takeoff" result={results.takeoff} mass={massText(results.massBalance.takeoff.mass)} />
-						<DistanceResult title="Landing" result={results.landing} mass={massText(results.massBalance.landing.mass)} />
+						<DistanceResult text={distanceText('Takeoff', results.takeoff, massText(aircraft, results.massBalance.takeoff.mass))} />
+						<DistanceResult text={distanceText('Landing', results.landing, massText(aircraft, results.massBalance.landing.mass))} />
 						<div class="num"><h2>Altitude</h2>
-							{#if results.atmosphere}<b>{Math.round(results.atmosphere.pressureAltitudeFt)} ft</b><small>Pressure altitude{results.atmosphere.densityAltitudeFt !== null ? `. Density altitude ${Math.round(results.atmosphere.densityAltitudeFt)} ft` : ''}</small>{:else}<b class="none">Enter elevation and QNH</b>{/if}
+							{#if altitude}<b>{altitude.pressure}</b><small>Pressure altitude. Density altitude {altitude.density}</small>{:else}<b class="none">Enter elevation and QNH</b>{/if}
 						</div>
 						<div class="num"><h2>Wind</h2>
-							{#if results.wind && isVariableWind(calc)}<b>{Math.abs(results.wind.headwind).toFixed(0)} kt tail</b><small>Variable wind, applied as a tailwind</small>{:else if results.wind}<b>{Math.abs(results.wind.headwind).toFixed(0)} kt {results.wind.headwind >= 0 ? 'head' : 'tail'}</b><small>Crosswind {results.wind.crosswind.toFixed(0)} kt</small>{:else}<b class="none">Enter wind and heading</b>{/if}
+							{#if wind}<b>{wind.headline}</b><small>{wind.detail}</small>{:else}<b class="none">Enter wind and runway</b>{/if}
 						</div>
 					</div>
 				</section>
@@ -559,7 +561,7 @@
 					<div class="list">
 						{#each results.massBalance.limits as limit (limit.id)}
 							<div class="check">
-								<i class={limit.status === 'ok' ? 'ok' : limit.status === 'warning' ? 'warnb' : 'fail'}>{limit.status === 'ok' ? 'OK' : limit.status === 'warning' ? 'CHECK' : 'OVER'}</i>
+								<i class={limitBadge(limit.status).tone}>{limitBadge(limit.status).text}</i>
 								<span><strong>{limit.label}</strong> {limitText(aircraft, limit)}</span>
 							</div>
 						{/each}
@@ -571,22 +573,18 @@
 						<div class="scroll"><table>
 							<thead><tr><th>Item</th><th class="n">Mass {aircraft.units.mass}</th><th class="n">Arm {aircraft.units.arm}</th><th class="n">Moment</th></tr></thead>
 							<tbody>
-								{#each results.massBalance.rows as row (row.id)}<tr><td>{row.label}</td><td class="n">{row.mass.toFixed(aircraft.display.massDecimals)}</td><td class="n">{row.arm.toFixed(aircraft.display.armDecimals)}</td><td class="n">{row.moment.toFixed(2)}</td></tr>{/each}
-								<tr><th>Takeoff</th><th class="n">{results.massBalance.takeoff.mass.toFixed(aircraft.display.massDecimals)}</th><th class="n">{results.massBalance.takeoff.arm.toFixed(aircraft.display.armDecimals)}</th><th class="n">{results.massBalance.takeoff.moment.toFixed(2)}</th></tr>
-								<tr><th>Landing</th><th class="n">{results.massBalance.landing.mass.toFixed(aircraft.display.massDecimals)}</th><th class="n">{results.massBalance.landing.arm.toFixed(aircraft.display.armDecimals)}</th><th class="n">{results.massBalance.landing.moment.toFixed(2)}</th></tr>
+								{#if mbRows}{#each mbRows.rows as row (row.id)}<tr><td>{row.label}</td><td class="n">{row.mass}</td><td class="n">{row.arm}</td><td class="n">{row.moment}</td></tr>{/each}
+								<tr><th>Takeoff</th><th class="n">{mbRows.takeoff.mass}</th><th class="n">{mbRows.takeoff.arm}</th><th class="n">{mbRows.takeoff.moment}</th></tr>
+								<tr><th>Landing</th><th class="n">{mbRows.landing.mass}</th><th class="n">{mbRows.landing.arm}</th><th class="n">{mbRows.landing.moment}</th></tr>{/if}
 							</tbody>
 						</table></div>
 						{#each [['Takeoff', results.takeoff], ['Landing', results.landing]] as const as [title, result] (title)}
-							{#if result.steps.length}
+							{@const rows = workingRows(aircraft, result)}
+							{#if rows.length}
 								<div class="scroll"><table>
 									<caption>{title}, {result.conditionLabel}</caption>
 									<thead><tr><th>Step</th><th class="n">Total</th><th class="n">Ground roll</th></tr></thead>
-									<tbody>
-										{#each result.steps as step, i (i)}
-											<tr><td>{i + 1}. {step.detail}{step.cells ? `. Table values ${step.cells.join(', ')}` : ''}</td><td class="n">{step.total?.toFixed(1) ?? '–'}</td><td class="n">{step.groundRoll?.toFixed(1) ?? '–'}</td></tr>
-										{/each}
-										{#if result.status === 'ok'}<tr><th>Rounded up, {result.unit}</th><th class="n">{result.total ?? '–'}</th><th class="n">{result.groundRoll ?? '–'}</th></tr>{/if}
-									</tbody>
+									<tbody>{#each rows as row, k (k)}<tr><td>{row.step}</td><td class="n">{row.total}</td><td class="n">{row.groundRoll}</td></tr>{/each}</tbody>
 								</table></div>
 							{/if}
 						{/each}

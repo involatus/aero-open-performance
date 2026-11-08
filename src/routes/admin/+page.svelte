@@ -11,7 +11,9 @@
 	import NotesEditor from '#lib/components/admin/NotesEditor.svelte';
 	import TableEditor from '#lib/components/admin/TableEditor.svelte';
 	import CaseInputs from '#lib/components/admin/CaseInputs.svelte';
-	import { entryUnits, limitLabel, makeId, shown, stored } from '#lib/admin/editing.ts';
+	import CaseEditor from '#lib/components/admin/CaseEditor.svelte';
+	import { blankInput, newHandCase } from '#lib/admin/hand-cases.ts';
+	import { makeId } from '#lib/admin/editing.ts';
 	import { NEW_AIRCRAFT, copyForNewAircraft, emptyCells } from '#lib/admin/table-grid.ts';
 	import TableVerify from '#lib/components/admin/TableVerify.svelte';
 	import { tableCheckState } from '#lib/data/table-check.ts';
@@ -205,36 +207,6 @@
 		try { editing!.aircraft = JSON.parse(jsonText); jsonError = ''; touch(); message = 'Applied. Save to keep it.'; }
 		catch (e) { jsonError = `That isn't valid JSON: ${(e as Error).message}`; }
 	}
-	function blankInput(a: Aircraft): CalculationInput {
-		const perf = a.performance;
-		return { configuration: a.configurations[0].id, loads: {}, fuel: {}, burnPlan: a.defaultBurnPlan, flightTimeHours: 0, fuelFlow: a.fuelFlow?.value ?? 0, elevation: null, qnh: null, oat: null, windDirection: null, windSpeed: null, runwayHeading: null, takeoffCondition: perf.takeoff[0]?.id ?? '', landingCondition: perf.landing[0]?.id ?? '' };
-	}
-	function limitIds(a: Aircraft): string[] {
-		return [...a.stations.filter((s) => s.maxMass !== undefined).map((s) => `station:${s.id}`), ...a.combinedLimits.map((l) => `combined:${l.id}`), ...a.tanks.map((t) => `tank:${t.id}`), 'takeoffMass', 'takeoffCg', 'landingMass', 'landingCg', 'fuelBurn'];
-	}
-	function addCase() {
-		const a = parsed!, n = editing!.aircraft.handCases.length + 1;
-		editing!.aircraft.handCases.push({ id: `case-${n}-${Date.now().toString(36)}`, label: `Case ${n}`, author: status?.name ?? '', date: new Date().toISOString().slice(0, 10), input: blankInput(a), expected: { exceeded: [] } } satisfies HandCase);
-		touch();
-	}
-	// Expected masses and arms are typed in the manual's units, like the inputs.
-	const expectedKind = (key: string) => (key.endsWith('Mass') ? 'mass' : 'arm') as 'mass' | 'arm';
-	function setExpected(c: any, key: string, text: string) {
-		const n = Number(text.replace(',', '.'));
-		if (text.trim() === '' || !Number.isFinite(n)) delete c.expected[key]; else c.expected[key] = stored(editing!.aircraft, expectedKind(key), n);
-		touch();
-	}
-	function setExpectedResult(c: any, phase: 'takeoff' | 'landing', field: string, text: string) {
-		const r = c.expected[phase] ?? { status: 'ok' };
-		if (field === 'status') { if (text) r.status = text; else { delete c.expected[phase]; touch(); return; } }
-		else { const n = Number(text); if (text.trim() === '' || !Number.isFinite(n)) delete r[field]; else r[field] = n; }
-		c.expected[phase] = r;
-		touch();
-	}
-	function toggleExceeded(c: any, id: string, on: boolean) {
-		c.expected.exceeded = on ? [...c.expected.exceeded, id] : c.expected.exceeded.filter((x: string) => x !== id);
-		touch();
-	}
 </script>
 
 <svelte:head><title>Admin, Aero Open Performance</title></svelte:head>
@@ -313,37 +285,9 @@
 				{:else}
 					<p class="font-semibold" role="status">{caseFailures.length ? `${new Set(caseFailures.map((f) => f.caseId)).size} of ${parsed.handCases.length} cases fail.` : `${parsed.handCases.length} cases, all passing.`}</p>
 					{#each editing.aircraft.handCases as c, i (c.id)}
-						{@const fails = caseFailures.filter((f) => f.caseId === c.id)}
-						<details class="rounded-[5px] border border-line p-2">
-							<summary class="font-semibold"><span class={fails.length ? 'text-bad' : 'text-good'}>{fails.length ? 'FAILS' : 'PASSES'}</span> {c.label}</summary>
-							<div class="grid gap-3 pt-2">
-								<div class="grid grid-cols-2 gap-2 md:grid-cols-3">
-									<label class="adm-field">Label<input class="adm" bind:value={c.label} oninput={touch} /></label>
-									<label class="adm-field">Worked out by<input class="adm" bind:value={c.author} oninput={touch} /></label>
-									<label class="adm-field">Date<input class="adm" bind:value={c.date} oninput={touch} /></label>
-								</div>
-								<h3 class="m-0 font-bold">Inputs</h3>
-								<CaseInputs aircraft={parsed} input={c.input} onchange={touch} />
-								<h3 class="m-0 font-bold">Expected results, worked out by hand</h3>
-								<div class="grid grid-cols-2 gap-2 md:grid-cols-4">
-									{#each [['takeoffMass', 'Takeoff mass'], ['takeoffArm', 'Takeoff CG'], ['landingMass', 'Landing mass'], ['landingArm', 'Landing CG']] as [key, label] (key)}
-										<label class="adm-field">{label}, {entryUnits(editing.aircraft)[expectedKind(key)]}<input class="adm" inputmode="decimal" value={c.expected[key] === undefined ? '' : shown(editing.aircraft, expectedKind(key), c.expected[key])} onchange={(e) => setExpected(c, key, e.currentTarget.value)} /></label>
-									{/each}
-									{#each ['takeoff', 'landing'] as const as phase (phase)}
-										<label class="adm-field">{phase === 'takeoff' ? 'Takeoff' : 'Landing'} result<select class="adm" value={c.expected[phase]?.status ?? ''} onchange={(e) => setExpectedResult(c, phase, 'status', e.currentTarget.value)}><option value="">Not checked</option><option value="ok">A distance</option><option value="noData">No data</option><option value="noResult">No result</option><option value="needsInput">Needs input</option></select></label>
-										<label class="adm-field">{phase === 'takeoff' ? 'Takeoff' : 'Landing'} total, rounded up<input class="adm" inputmode="numeric" value={c.expected[phase]?.total ?? ''} onchange={(e) => setExpectedResult(c, phase, 'total', e.currentTarget.value)} /></label>
-										<label class="adm-field">{phase === 'takeoff' ? 'Takeoff' : 'Landing'} ground roll, rounded up<input class="adm" inputmode="numeric" value={c.expected[phase]?.groundRoll ?? ''} onchange={(e) => setExpectedResult(c, phase, 'groundRoll', e.currentTarget.value)} /></label>
-									{/each}
-								</div>
-								<fieldset class="m-0 flex flex-wrap gap-3 border-0 p-0"><legend class="font-bold">Limits this case should exceed</legend>
-									{#each limitIds(parsed) as id (id)}<label class="flex items-center gap-1 text-sm"><input type="checkbox" checked={c.expected.exceeded.includes(id)} onchange={(e) => toggleExceeded(c, id, e.currentTarget.checked)} /> {limitLabel(parsed, id)}</label>{/each}
-								</fieldset>
-								{#if fails.length}<ul class="m-0 list-disc pl-5 text-bad">{#each fails as f (f.field)}<li>{f.field}: you expected {String(f.expected)}, the tool got {String(f.actual)}. Check both against the manual.</li>{/each}</ul>{/if}
-								<button type="button" onclick={() => { editing!.aircraft.handCases.splice(i, 1); touch(); }}>Delete this case</button>
-							</div>
-						</details>
+						<CaseEditor aircraft={parsed} {c} fails={caseFailures.filter((f) => f.caseId === c.id)} {touch} remove={() => { editing!.aircraft.handCases.splice(i, 1); touch(); }} />
 					{/each}
-					<button type="button" onclick={addCase}>Add a case</button>
+					<button type="button" onclick={() => { editing!.aircraft.handCases.push(newHandCase(parsed!, status?.name ?? '', Date.now())); touch(); }}>Add a case</button>
 				{/if}
 			{:else if tab === 'Try it'}
 				<h2>Try it</h2>

@@ -5,12 +5,14 @@
 import type { Aircraft } from '../aircraft/schema.ts';
 import type { Calculation as Results } from '../engine/index.ts';
 import type { PerformanceResult } from '../engine/performance.ts';
+import type { DistanceText } from '../app/presentation.ts';
 import { limitText } from '../engine/mass-balance.ts';
-import { canReport, fieldsFor, isVariableWind, toInput, type Calculation , runwayHeading } from '../app/calculation.ts';
+import { canReport, fieldsFor, isVariableWind, performanceOf, toInput, type Calculation, runwayHeading } from '../app/calculation.ts';
+import { altitudeText, distanceText, limitBadge, massBalanceRows, runwayText, windText, workingRows } from '../app/presentation.ts';
 
 export type Delivery = 'notSent' | 'sent' | 'shared';
 export type ReportWorking = { title: string; rows: { step: string; total: string; groundRoll: string; source: string }[] };
-export type ReportDistance = { title: string; status: string; headline: string; detail: string; warnings: string[] };
+export type ReportDistance = DistanceText;
 export type ReportData = {
 	id: string;
 	createdUtc: string;
@@ -69,31 +71,10 @@ export function isExpired(report: Pick<StoredReport, 'created' | 'delivery'>, no
 	return report.delivery !== 'notSent' && now - report.created > RETENTION_DAYS * 86400000;
 }
 
-function sourceText(a: Aircraft, id: string | undefined): string {
-	const s = id ? a.sources[id] : undefined;
-	if (!s) return '';
-	return [s.document, s.revision && `Rev. ${s.revision}`, s.page && `p. ${s.page}`].filter(Boolean).join(' ');
-}
 
-function distance(title: string, r: PerformanceResult, mass: string): ReportDistance {
-	if (r.status !== 'ok') return { title, status: r.status, headline: r.reason ?? r.status, detail: r.conditionLabel, warnings: [] };
-	const hasTotal = r.total !== null;
-	return {
-		title, status: r.status,
-		headline: `${hasTotal ? r.total : r.groundRoll} ${r.unit}`,
-		detail: `${hasTotal ? `${r.groundRoll !== null ? `Ground roll ${r.groundRoll} ${r.unit}. ` : ''}Total distance.` : 'Ground roll only.'} ${r.conditionLabel}, ${mass}`,
-		warnings: [...r.warnings]
-	};
-}
 
 function working(a: Aircraft, title: string, r: PerformanceResult): ReportWorking {
-	const n = (x: number | null) => (x === null ? '-' : x.toFixed(1));
-	const rows = r.steps.map((s, i) => ({
-		step: `${i + 1}. ${s.detail}${s.cells ? `. Table values ${s.cells.join(', ')}` : ''}`,
-		total: n(s.total), groundRoll: n(s.groundRoll), source: sourceText(a, s.source)
-	}));
-	if (r.status === 'ok') rows.push({ step: `Rounded up, ${r.unit}`, total: r.total === null ? '-' : String(r.total), groundRoll: r.groundRoll === null ? '-' : String(r.groundRoll), source: '' });
-	return { title: `${title}, ${r.conditionLabel}`, rows };
+	return { title: `${title}, ${r.conditionLabel}`, rows: workingRows(a, r) };
 }
 
 export type ReportMeta = { id: string; now: number; toolVersion: string; dataRelease: string; lastDataCheck: string; preRelease: boolean; chartSvg: string };
@@ -101,8 +82,8 @@ export type ReportMeta = { id: string; now: number; toolVersion: string; dataRel
 /** Refuses to create a Report unless everything is confirmed and no limit is exceeded. */
 export function createReportData(a: Aircraft, calc: Calculation, r: Results, meta: ReportMeta): ReportData {
 	if (!canReport(a, calc, r)) throw new Error('This calculation is not ready for a Report');
-	const u = a.units, massDp = a.display.massDecimals, armDp = a.display.armDecimals;
-	const mass = (x: number) => x.toFixed(massDp), arm = (x: number) => x.toFixed(armDp), moment = (x: number) => x.toFixed(2);
+	const u = a.units;
+	const mass = (x: number) => x.toFixed(a.display.massDecimals);
 	const config = a.configurations.find((c) => c.id === calc.configuration)!;
 	const plan = a.burnPlans.find((p) => p.id === calc.burnPlan)!;
 	const allFields = fieldsFor(a, calc).flat();
@@ -111,12 +92,12 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 		const f = allFields.find((x) => x.key === key)!;
 		// A runway number alone can be misread, so the report also gives the heading it stands for.
 		const h = key === 'rwy' ? runwayHeading(calc.values.rwy) : null;
-		const value = h !== null ? `${String(h / 10).padStart(2, '0')}, heading ${String(h).padStart(3, '0')}°` : `${calc.values[key] ?? ''} ${f.unit}`.trim();
+		const value = h !== null ? runwayText(h) : `${calc.values[key] ?? ''} ${f.unit}`.trim();
 		return { label: f.label, value, source: fieldSource(key) };
 	};
-	const perf = (config.performance && config.performance !== 'none' ? config.performance : a.performance);
-	const conditionLabel = (list: typeof perf.takeoff, id: string) => list.find((c) => c.id === id)?.label ?? id;
-	const atm = r.atmosphere, wind = r.wind;
+	const perf = performanceOf(a, calc.configuration);
+	const conditionLabel = (phase: 'takeoff' | 'landing', id: string) => perf?.[phase].find((c) => c.id === id)?.label ?? id;
+	const altitude = altitudeText(r), wind = windText(r.wind, isVariableWind(calc));
 	const data: ReportData = {
 		id: meta.id,
 		createdUtc: `${new Date(meta.now).toISOString().slice(0, 16).replace('T', ' ')} UTC`,
@@ -126,30 +107,28 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 		pilot: calc.values.name.trim(),
 		departure: calc.values.place.trim(),
 		results: {
-			takeoff: distance('Takeoff', r.takeoff, `${mass(r.massBalance.takeoff.mass)} ${u.mass}`),
-			landing: distance('Landing', r.landing, `${mass(r.massBalance.landing.mass)} ${u.mass}`),
-			pressureAltitude: atm ? `${Math.round(atm.pressureAltitudeFt)} ft` : 'Not available',
-			densityAltitude: atm?.densityAltitudeFt != null ? `${Math.round(atm.densityAltitudeFt)} ft` : 'Not available',
-			wind: !wind ? 'Not available' : isVariableWind(calc) ? `Variable, ${Math.abs(wind.headwind).toFixed(0)} kt applied as a tailwind` : `${Math.abs(wind.headwind).toFixed(0)} kt ${wind.headwind >= 0 ? 'head' : 'tail'}, crosswind ${wind.crosswind.toFixed(0)} kt`
+			takeoff: distanceText('Takeoff', r.takeoff, `${mass(r.massBalance.takeoff.mass)} ${u.mass}`),
+			landing: distanceText('Landing', r.landing, `${mass(r.massBalance.landing.mass)} ${u.mass}`),
+			pressureAltitude: altitude?.pressure ?? 'Not available',
+			densityAltitude: altitude?.density ?? 'Not available',
+			wind: wind ? `${wind.headline}. ${wind.detail}` : 'Not available'
 		},
 		conditions: [
 			...['elev', 'rwy', 'qnh', 'oat', 'wdir', 'wspd', 'time', 'flow'].map(shown),
 			...a.tanks.map((t) => shown(`fuel:${t.id}`)),
-			{ label: 'Takeoff condition', value: conditionLabel(perf.takeoff, calc.takeoffCondition), source: 'Chosen by pilot' },
-			{ label: 'Landing condition', value: conditionLabel(perf.landing, calc.landingCondition), source: 'Chosen by pilot' }
+			{ label: 'Takeoff condition', value: conditionLabel('takeoff', calc.takeoffCondition), source: 'Chosen by pilot' },
+			{ label: 'Landing condition', value: conditionLabel('landing', calc.landingCondition), source: 'Chosen by pilot' }
 		],
 		rawMetar: calc.weather?.raw ?? null,
 		massBalance: {
-			rows: r.massBalance.rows.map((x) => ({ label: x.label, mass: mass(x.mass), arm: arm(x.arm), moment: moment(x.moment) })),
-			takeoff: { mass: mass(r.massBalance.takeoff.mass), arm: arm(r.massBalance.takeoff.arm), moment: moment(r.massBalance.takeoff.moment) },
-			landing: { mass: mass(r.massBalance.landing.mass), arm: arm(r.massBalance.landing.arm), moment: moment(r.massBalance.landing.moment) },
+			...(({ rows, takeoff, landing }) => ({ rows: rows.map(({ id: _, ...row }) => row), takeoff, landing }))(massBalanceRows(a, r)),
 			burnPlan: plan.label,
 			burned: `${r.massBalance.burned.toFixed(1)} ${u.volume}`,
 			units: { mass: u.mass, arm: u.arm, volume: u.volume }
 		},
 		limits: r.massBalance.limits.map((l) => ({
 			label: l.label,
-			status: l.status === 'ok' ? 'OK' : l.status === 'warning' ? 'CHECK' : 'OVER',
+			status: limitBadge(l.status).text,
 			detail: limitText(a, l)
 		})),
 		chartSvg: meta.chartSvg,

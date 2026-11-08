@@ -146,14 +146,6 @@ export function convertAircraft(a: any, to: Units) {
 	a.units = { ...to };
 }
 
-/** Readable names for limits, for the hand-calculated cases. */
-export function limitLabel(a: { stations: { id: string; label: string }[]; combinedLimits: { id: string; label: string }[]; tanks: { id: string; label: string }[] }, id: string): string {
-	const [kind, ref] = id.split(':');
-	if (kind === 'station') return `${a.stations.find((s) => s.id === ref)?.label ?? ref}: maximum`;
-	if (kind === 'combined') return `${a.combinedLimits.find((s) => s.id === ref)?.label ?? ref}: combined maximum`;
-	if (kind === 'tank') return `${a.tanks.find((s) => s.id === ref)?.label ?? ref}: capacity`;
-	return { takeoffMass: 'Takeoff mass', takeoffCg: 'Takeoff CG', landingMass: 'Landing mass', landingCg: 'Landing CG', fuelBurn: 'Fuel for the flight' }[id] ?? id;
-}
 
 /** Moves an item up (-1) or down (+1) in place. */
 export function move<T>(list: T[], index: number, by: -1 | 1) {

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
 import { validateAircraft } from '../aircraft/validate.ts';
 import { calculate, runHandCases } from '../engine/index.ts';
-import { convertAircraft, documents, factor, limitLabel, makeId, parseNumber, pruneSources, shown, sourceFor, stored, usedSources, type Units } from './editing.ts';
+import { convertAircraft, documents, factor, makeId, parseNumber, pruneSources, shown, sourceFor, stored, usedSources, type Units } from './editing.ts';
 
 const raw = (n: string) => JSON.parse(readFileSync(`aircraft-examples/${n}.json`, 'utf8'));
 const US: Units = { mass: 'lb', arm: 'in', volume: 'USgal' };
@@ -123,13 +123,5 @@ describe('sources by document and page', () => {
 		expect(Object.keys(a.sources).sort()).toEqual([used, 'poh', 'w'].sort());
 		expect(usedSources(a)).toEqual(new Set([used]));
 		expect(a.sources[unused]).toBeUndefined();
-	});
-});
-
-describe('limit names for people', () => {
-	it('uses the names pilots see', () => {
-		const a = raw('test-glastar-style');
-		expect(limitLabel(a, 'combined:baggage')).toBe('Total baggage: combined maximum');
-		expect(limitLabel(a, 'takeoffCg')).toBe('Takeoff CG');
 	});
 });
