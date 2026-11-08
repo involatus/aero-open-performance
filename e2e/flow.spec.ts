@@ -98,6 +98,30 @@ test('tabs close with ×, and the start page can check for new data', async ({ p
 	expect(errors).toEqual([]);
 });
 
+test('airfield list: find offline, choose a runway, confirm; unknown fields are typed by hand', async ({ page, context }) => {
+	const errors = await failOnErrors(page);
+	await page.goto('/');
+	await page.waitForFunction(async () => (await navigator.serviceWorker.ready).active?.state === 'activated');
+	await page.reload();
+	await page.getByRole('button', { name: /^TEST-GL/ }).click();
+	await page.locator('.steps button', { hasText: '3. Conditions' }).click();
+	await context.setOffline(true);
+	await page.getByLabel('Departure airfield').fill('LSZF');
+	await page.getByRole('button', { name: 'Find' }).click();
+	await expect(page.getByText('LSZF Birrfeld Airfield, 1300 ft')).toBeVisible();
+	await expect(page.locator('[id="f-elev"]')).toHaveValue('396');
+	await page.getByRole('button', { name: /^08R · grass/ }).click();
+	await expect(page.locator('[id="f-rwy"]')).toHaveValue('08');
+	await expect(page.getByText('Runway 08, heading 080°')).toBeVisible();
+	await expect(page.getByText('Runway 08R surface in the airfield list: GRASS')).toBeVisible();
+	await expect(page.locator('#w-rwy .chip')).toContainText('From airfield list LSZF');
+	await page.getByLabel('Departure airfield').fill('Nowhere strip');
+	await page.getByRole('button', { name: 'Find' }).click();
+	await expect(page.getByText('Not in the airfield list. Enter the elevation and runway by hand.')).toBeVisible();
+	await context.setOffline(false);
+	expect(errors).toEqual([]);
+});
+
 test('starts with no connection', async ({ page, context }) => {
 	await page.goto('/');
 	await page.evaluate(() => navigator.serviceWorker.ready);

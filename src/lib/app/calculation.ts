@@ -2,7 +2,8 @@
  * The pilot's Calculation, independent of any screen: its fields, inputs, to-do list and next flight.
  * Everything aircraft-specific comes from the aircraft file.
  */
-import type { Aircraft, CalculationInput, Performance } from '../aircraft/schema.ts';
+import type { Aircraft, CalculationInput, Condition, Performance } from '../aircraft/schema.ts';
+import type { Airfield, RunwayEnd } from '../airfield/airfields.ts';
 import type { Calculation as Results } from '../engine/index.ts';
 import { parseMetar } from '../weather/metar.ts';
 import type { WeatherReport } from '../weather/provider.ts';
@@ -25,6 +26,8 @@ export type Calculation = {
 	elevationUnit: 'm' | 'ft';
 	notes: Record<string, boolean>;
 	weather?: AppliedWeather | null;
+	/** The airfield and runway chosen from the airfield list, shown to help choose the matching condition. */
+	airfield?: { ident: string; name: string; date: string; runway: { designator: string; surface: string; lengthM: number | null } | null } | null;
 	notice?: string | null;
 };
 export type AppliedWeather = { raw: string; station: string; stationName: string | null; distanceKm: number | null; observed: string | null; flags: string[] };
@@ -157,6 +160,36 @@ export function applyWeather(calc: Calculation, report: WeatherReport, now: numb
 	}
 	calc.values.station = report.station;
 	calc.weather = { raw: report.raw, station: report.station, stationName: report.stationName, distanceKm: report.distanceKm, observed: m.observed, flags: m.flags };
+}
+
+/** Prefills elevation, airfield name and weather station from the airfield list. Never overwrites what the pilot typed. */
+export function applyAirfield(calc: Calculation, airfield: Airfield, date: string) {
+	const source = `airfield list ${airfield.ident}, ${date}`;
+	if (airfield.elevationFt !== null) {
+		const value = calc.elevationUnit === 'ft' ? airfield.elevationFt : Math.round(airfield.elevationFt * 0.3048);
+		prefill(calc, 'elev', String(value), source);
+	}
+	if (!calc.values.place) calc.values.place = `${airfield.ident} ${airfield.name}`;
+	if (!calc.values.station) calc.values.station = airfield.ident;
+	calc.airfield = { ident: airfield.ident, name: airfield.name, date, runway: null };
+}
+
+export function applyRunway(calc: Calculation, end: RunwayEnd) {
+	if (!calc.airfield) return;
+	prefill(calc, 'rwy', String(end.number).padStart(2, '0'), `airfield list ${calc.airfield.ident}, ${calc.airfield.date}`);
+	calc.airfield.runway = { designator: end.designator, surface: end.surface, lengthM: end.lengthM };
+}
+
+/** The corrections a condition applies beyond its table, in words, so pilots see what a choice adds. */
+export function conditionCorrections(condition: Condition | undefined): string[] {
+	if (!condition || condition.kind !== 'steps') return [];
+	const out: string[] = [];
+	for (const s of condition.steps) {
+		if (s.type === 'surface') out.push(`+${s.percent}% ground roll${s.carryToTotal ? ', also added to the total' : ''}`);
+		else if (s.type === 'factor') out.push(`× ${s.value} ${s.applies.length === 2 ? 'both distances' : s.applies[0] === 'total' ? 'total distance' : 'ground roll'}${s.reason ? ` (${s.reason})` : ''}`);
+		else if (s.type === 'fixed') out.push('A fixed distance from the manual');
+	}
+	return out;
 }
 
 export function confirmWeather(calc: Calculation) {

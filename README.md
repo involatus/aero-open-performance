@@ -34,6 +34,10 @@ Aircraft are described entirely by data. You can set them up in the [admin area]
 
 The fictional aircraft in `aircraft-examples` show what a complete file looks like. `npm run data:demo` rebuilds the demo release from them.
 
+## Airfields
+
+The app keeps a list of about 29,000 airfields with their runways from [OurAirports](https://ourairports.com/data/), which is public domain, so it works offline. Finding an airfield prefills its elevation and lets the pilot choose a runway. Pilots confirm each value, and can always type them by hand. Refresh the list with `npm run airports`; the app shows its date.
+
 ## Weather (optional)
 
 Set `CHECKWX_API_KEY` in your host's settings to let pilots prefill weather from a METAR. Without it, pilots enter weather by hand. Never commit a real key.

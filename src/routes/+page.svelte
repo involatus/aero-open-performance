@@ -5,13 +5,14 @@
 	import { version } from '$app/env';
 	import Keypad from '#lib/components/Keypad.svelte';
 	import NumberField from '#lib/components/NumberField.svelte';
+	import { findAirfields, loadAirfields, type Airfield } from '#lib/airfield/airfields.ts';
 	import Segmented from '#lib/components/Segmented.svelte';
 	import CgChart from '#lib/components/CgChart.svelte';
 	import DistanceResult from '#lib/components/DistanceResult.svelte';
 	import { AppState } from '#lib/app/app-state.svelte.ts';
 	import { describeChanges, isStale, STALE_DAYS } from '#lib/data/release.ts';
 	import {
-		STEP_NAMES, OLD_CALCULATION_DAYS, OLD_REPORT_MINUTES, WEATHER_KEYS, applyKey, applyQuick, applyWeather, canReport, changeConfiguration, confirmValue, confirmWeather, fieldsFor, isOldCalculation, isVariableWind, newCalculation, nextFlight,
+		STEP_NAMES, OLD_CALCULATION_DAYS, applyAirfield, applyRunway, conditionCorrections, OLD_REPORT_MINUTES, WEATHER_KEYS, applyKey, applyQuick, applyWeather, canReport, changeConfiguration, confirmValue, confirmWeather, fieldsFor, isOldCalculation, isVariableWind, newCalculation, nextFlight,
 		performanceOf, reportAgeMinutes, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation as Calc, type Field
 	} from '#lib/app/calculation.ts';
 	import { calculate } from '#lib/engine/index.ts';
@@ -30,6 +31,26 @@
 	let appUpdating = false;
 	let showReports = $state(false);
 	let weatherBusy = $state(false);
+	let airfieldQuery = $state('');
+	let airfieldMatches = $state<Airfield[]>([]);
+	let airfieldMessage = $state('');
+	let airfieldDate = $state('');
+	let airfieldFound = $state<Airfield | null>(null);
+	async function findAirfield() {
+		airfieldMessage = ''; airfieldMatches = [];
+		try {
+			const data = await loadAirfields();
+			airfieldDate = data.date;
+			const found = findAirfields(data, airfieldQuery);
+			if (found.length === 1) chooseAirfield(found[0]);
+			else if (found.length) airfieldMatches = found;
+			else airfieldMessage = 'Not in the airfield list. Enter the elevation and runway by hand.';
+		} catch (e) { airfieldMessage = `${(e as Error).message} Enter the elevation and runway by hand.`; }
+	}
+	function chooseAirfield(a: Airfield) {
+		airfieldFound = a; airfieldMatches = []; airfieldQuery = a.ident;
+		applyAirfield(calc!, a, airfieldDate);
+	}
 	let weatherMessage = $state('');
 	let now = $state(Date.now());
 	let creating = $state(false);
@@ -373,11 +394,11 @@
 		<div class="strip">
 			{#each [['Takeoff', results.takeoff], ['Landing', results.landing]] as const as [title, r] (title)}
 				<div class="s dist">
-					<small>{title}</small>
+					<small>{title}{r.conditionLabel ? ` · ${r.conditionLabel}` : ''}</small>
 					{#if r.status === 'ok'}
 						<div class="pair">
-							{#if r.groundRoll !== undefined}<span><b>{r.groundRoll} {r.unit}</b><small>Ground roll</small></span>{/if}
-							{#if r.total !== undefined}<span><b>{r.total} {r.unit}</b><small>{title === 'Takeoff' ? 'To 50 ft' : 'From 50 ft'}</small></span>{/if}
+							{#if r.groundRoll != null}<span><b>{r.groundRoll} {r.unit}</b><small>Ground roll</small></span>{/if}
+							{#if r.total != null}<span><b>{r.total} {r.unit}</b><small>{title === 'Takeoff' ? 'To 50 ft' : 'From 50 ft'}</small></span>{/if}
 						</div>
 					{:else}<b class="none">{r.status === 'noData' ? 'No data' : r.status === 'noResult' ? 'No result' : 'Needs inputs'}</b>{/if}
 				</div>
@@ -416,6 +437,19 @@
 						<h2>Fuel and flight</h2>
 					{:else if calc.step === 2}
 						<h2>Weather and runway</h2>
+						<div class="fields">
+							<div class="fld"><label for="f-airfield">Departure airfield</label><div class="inp"><input class="text" id="f-airfield" type="text" enterkeyhint="search" autocapitalize="characters" autocorrect="off" spellcheck="false" autocomplete="off" placeholder="ICAO code or name" bind:value={airfieldQuery} onfocus={closePad} onkeydown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur(); findAirfield(); } }} /></div></div>
+							<div class="fld"><span class="fld-label">Fill in from the airfield list</span><div class="quick"><button type="button" disabled={airfieldQuery.trim().length < 2} onclick={findAirfield}>Find</button></div></div>
+						</div>
+						{#if airfieldMessage}<div class="banner unk" role="status">{airfieldMessage}</div>{/if}
+						{#if airfieldMatches.length}<div class="quick">{#each airfieldMatches as a (a.ident)}<button type="button" onclick={() => chooseAirfield(a)}>{a.ident} {a.name}</button>{/each}</div>{/if}
+						{#if airfieldFound && calc.airfield?.ident === airfieldFound.ident}
+							<div class="metar">
+								<p class="m-0"><strong>{airfieldFound.ident} {airfieldFound.name}</strong>{airfieldFound.elevationFt !== null ? `, ${airfieldFound.elevationFt} ft` : ''}. Choose the runway:</p>
+								<div class="quick">{#each airfieldFound.runways as end (end.designator)}<button type="button" class:on={calc.airfield?.runway?.designator === end.designator} onclick={() => applyRunway(calc!, end)}>{end.designator} · {end.surfaceKind === 'unknown' ? end.surface || 'surface unknown' : end.surfaceKind}{end.lengthM ? ` · ${end.lengthM} m` : ''}</button>{/each}</div>
+								<p class="muted m-0">From OurAirports, a community database, as of {airfieldDate}. Check every value against the AIP or the airfield's own information.</p>
+							</div>
+						{/if}
 						{#if isOldCalculation(calc, now)}<div class="banner unk" role="status">This calculation is more than {OLD_CALCULATION_DAYS} days old. Get fresh weather.</div>{/if}
 						<div class="fields">
 							<div class="fld"><label for="f-station">Weather station</label><div class="inp"><input class="text" id="f-station" type="text" enterkeyhint="search" autocapitalize="characters" autocorrect="off" spellcheck="false" autocomplete="off" maxlength="4" placeholder="e.g. LSZH" bind:value={calc.values.station} onfocus={closePad} onkeydown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur(); getStationWeather(); } }} /></div></div>
@@ -451,8 +485,12 @@
 						{/if}
 					{:else if calc.step === 2}
 						{#if perf}
-							<Segmented label="Takeoff condition" options={perf.takeoff.map((c) => ({ id: c.id, label: c.label }))} value={calc.takeoffCondition} onchange={(id) => (calc!.takeoffCondition = id)} />
-							<Segmented label="Landing condition" options={perf.landing.map((c) => ({ id: c.id, label: c.label }))} value={calc.landingCondition} onchange={(id) => (calc!.landingCondition = id)} />
+							{#if calc.airfield?.runway}<p class="m-0 font-semibold">Runway {calc.airfield.runway.designator} surface in the airfield list: {calc.airfield.runway.surface || 'unknown'}. Choose the matching condition.</p>{/if}
+							{#each [['takeoff', 'Takeoff condition', perf.takeoff, calc.takeoffCondition], ['landing', 'Landing condition', perf.landing, calc.landingCondition]] as const as [phase, label, list, chosen] (phase)}
+								<Segmented {label} options={list.map((c) => ({ id: c.id, label: c.label }))} value={chosen} onchange={(id) => { if (phase === 'takeoff') calc!.takeoffCondition = id; else calc!.landingCondition = id; }} />
+								{@const corrections = conditionCorrections(list.find((c) => c.id === chosen))}
+								<p class="muted m-0">{corrections.length ? `Corrections: ${corrections.join('; ')}.` : 'No correction beyond the table and wind.'}</p>
+							{/each}
 						{/if}
 					{:else}
 						<h2>Check and confirm</h2>

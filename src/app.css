@@ -69,6 +69,7 @@ main.flow.keypad { padding-block-end: 430px; }
 .strip .dist .pair { display: flex; gap: 14px; } .strip .dist .pair span { display: grid; }
 .strip .dist > small { font-weight: 700; color: var(--ink); }
 .fld .hint { font-size: 14px; color: var(--muted); margin-top: 2px; }
+.quick button.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .unit-switch { display: inline-flex; gap: 2px; } .unit-switch button { min-height: 36px; min-width: 40px; padding: 0 8px; font-size: 15px; }
 .unit-switch button.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .pad-close { min-height: 40px; min-width: 44px; padding: 0 10px; font-size: 22px; line-height: 1; margin-left: auto; }
