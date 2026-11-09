@@ -77,7 +77,9 @@ describe('creating a Report', () => {
 		const d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
 		expect(d.rawMetar).toBe('METAR LSXX 061250Z 24008KT 12/06 Q1009');
 		expect(d.conditions.find((x) => x.label === 'OAT')!.source).toBe('From METAR LSXX, confirmed');
-		expect(JSON.stringify(reportDocument(d))).toContain('Raw METAR: METAR LSXX');
+		const doc = JSON.stringify(reportDocument(d));
+		expect(doc).toContain('Raw METAR: ');
+		expect(doc).toContain('METAR LSXX 061250Z 24008KT 12/06 Q1009');
 	});
 	it('keeps warnings and cites manual sources in the working', () => {
 		const c = ready(a), d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
@@ -93,7 +95,7 @@ describe('Report layout', () => {
 		const a = load(name), c = ready(a);
 		const r = calculate(a, toInput(a, c));
 		const doc = reportDocument(createReportData(a, c, r, meta(a, c, r))), all = text(doc);
-		for (const s of ['RESULTS', 'CONDITIONS', 'MASS AND BALANCE', 'LIMITS', 'WORKING', 'CONFIRMATION', RESPONSIBILITY, 'AOP-TEST', 'PRE-RELEASE, NOT FOR FLIGHT', 'FICTIONAL']) expect(all).toContain(s);
+		for (const s of ['TAKEOFF', 'LANDING', 'ALTITUDE', 'WIND', 'CONDITIONS', 'MASS AND BALANCE', 'LIMITS', 'WORKING', RESPONSIBILITY, 'AOP-TEST', 'PRE-RELEASE, NOT FOR FLIGHT', 'FICTIONAL']) expect(all).toContain(s);
 		expect(all).toContain('A Pilot');
 		expect(all).toContain('LSXX');
 	});

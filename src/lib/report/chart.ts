@@ -38,18 +38,21 @@ export function chartGeometry(a: Aircraft, results: Results, configuration: stri
 	};
 }
 
-/** A self-contained SVG for the Report, using print colours rather than theme tokens. */
+/** A self-contained SVG for the Report, in the same print colours as the rest of it. */
 export function chartSvg(a: Aircraft, results: Results, configuration: string): string {
 	const { W, H, L, R, B } = CHART, g = chartGeometry(a, results, configuration);
-	const text = (px: number, py: number, s: string | number, anchor = 'start', extra = '') => `<text x="${px.toFixed(1)}" y="${py.toFixed(1)}" text-anchor="${anchor}" font-size="11" fill="#566778" ${extra}>${s}</text>`;
+	const n = (v: number) => v.toFixed(1);
+	const text = (px: number, py: number, s: string | number, anchor = 'start', fill = '#5A6876') => `<text x="${n(px)}" y="${n(py)}" text-anchor="${anchor}" font-size="11" fill="${fill}">${s}</text>`;
+	const over = results.exceeded.some((id) => /^(takeoff|landing)(Mass|Cg)$/.test(id)), mark = over ? '#A12222' : '#13202D';
+	const to = { x: g.x(g.to.arm), y: g.y(g.to.mass) }, ld = { x: g.x(g.ld.arm), y: g.y(g.ld.mass) };
 	const parts: string[] = [];
-	g.massTicks.forEach((m) => { parts.push(`<line x1="${L}" x2="${W - R}" y1="${g.y(m).toFixed(1)}" y2="${g.y(m).toFixed(1)}" stroke="#d5dde4"/>`, text(L - 6, g.y(m) + 4, m, 'end')); });
+	g.massTicks.forEach((m) => { parts.push(`<line x1="${L}" x2="${W - R}" y1="${n(g.y(m))}" y2="${n(g.y(m))}" stroke="#E1E6EB"/>`, text(L - 6, g.y(m) + 4, m, 'end')); });
 	g.armTicks.forEach((v) => parts.push(text(g.x(v), H - B + 16, v, 'middle')));
-	parts.push(`<polygon points="${g.polygon}" fill="#d9f0e3" stroke="#16663f" stroke-width="1.5"/>`);
-	if (g.maxLanding !== null) parts.push(`<line x1="${g.x(g.armDomain[0]).toFixed(1)}" x2="${g.x(g.armDomain[1]).toFixed(1)}" y1="${g.y(g.maxLanding).toFixed(1)}" y2="${g.y(g.maxLanding).toFixed(1)}" stroke="#805300" stroke-dasharray="5 4"/>`, text(W - R - 2, g.y(g.maxLanding) - 4, `Max landing ${g.maxLanding}`, 'end'));
-	parts.push(`<line x1="${g.x(g.to.arm).toFixed(1)}" y1="${g.y(g.to.mass).toFixed(1)}" x2="${g.x(g.ld.arm).toFixed(1)}" y2="${g.y(g.ld.mass).toFixed(1)}" stroke="#14578f" stroke-width="2"/>`);
-	parts.push(`<circle cx="${g.x(g.to.arm).toFixed(1)}" cy="${g.y(g.to.mass).toFixed(1)}" r="6" fill="#14578f"/>`, text(g.x(g.to.arm) + 9, g.y(g.to.mass) - 5, 'Takeoff', 'start', 'font-weight="bold"'));
-	parts.push(`<circle cx="${g.x(g.ld.arm).toFixed(1)}" cy="${g.y(g.ld.mass).toFixed(1)}" r="6" fill="#ffffff" stroke="#14578f" stroke-width="2"/>`, text(g.x(g.ld.arm) + 9, g.y(g.ld.mass) + 16, 'Landing', 'start', 'font-weight="bold"'));
+	parts.push(`<polygon points="${g.polygon}" fill="#EAF2FA" stroke="#1D5C96" stroke-width="2" stroke-linejoin="round"/>`);
+	if (g.maxLanding !== null) parts.push(`<line x1="${n(g.x(g.armDomain[0]))}" x2="${n(g.x(g.armDomain[1]))}" y1="${n(g.y(g.maxLanding))}" y2="${n(g.y(g.maxLanding))}" stroke="#7A4D00" stroke-dasharray="5 4"/>`, text(W - R - 2, g.y(g.maxLanding) - 4, `Max landing ${g.maxLanding}`, 'end', '#7A4D00'));
+	parts.push(`<line x1="${n(to.x)}" y1="${n(to.y)}" x2="${n(ld.x)}" y2="${n(ld.y)}" stroke="${mark}" stroke-width="1" stroke-dasharray="3 2"/>`);
+	parts.push(`<circle cx="${n(to.x)}" cy="${n(to.y)}" r="5" fill="${mark}"/>`, text(to.x + 9, to.y - 4, 'Takeoff', 'start', mark));
+	parts.push(`<rect x="${n(ld.x - 4)}" y="${n(ld.y - 4)}" width="8" height="8" fill="#FFFFFF" stroke="${mark}" stroke-width="1.5"/>`, text(ld.x + 9, ld.y + 14, 'Landing', 'start', mark));
 	parts.push(text((L + W - R) / 2, H - 5, `CG arm, ${a.units.arm}. Mass, ${a.units.mass}.`, 'middle'));
 	return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${parts.join('')}</svg>`;
 }
