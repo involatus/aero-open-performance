@@ -8,7 +8,7 @@ import type { PerformanceResult } from '../engine/performance.ts';
 import type { DistanceText } from '../app/presentation.ts';
 import { limitText } from '../engine/mass-balance.ts';
 import { canReport, fieldsFor, isVariableWind, performanceOf, toInput, type Calculation, runwayHeading } from '../app/calculation.ts';
-import { altitudeText, distanceText, utcText, valueSource, limitBadge, massBalanceRows, runwayText, windText, workingRows } from '../app/presentation.ts';
+import { altitudeText, distanceText, utcText, valueSource, limitBadge, massBalanceRows, runwayText, windChoiceText, windText, workingRows } from '../app/presentation.ts';
 
 export type Delivery = 'notSent' | 'sent' | 'shared';
 export type ReportWorking = { title: string; rows: { step: string; total: string; groundRoll: string; source: string }[] };
@@ -97,6 +97,7 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 	const perf = performanceOf(a, calc.configuration);
 	const conditionLabel = (phase: 'takeoff' | 'landing', id: string) => perf?.[phase].find((c) => c.id === id)?.label ?? id;
 	const altitude = altitudeText(r), wind = windText(r.wind, isVariableWind(calc));
+	const windChoice = calc.windForDistances ?? 'entered', windUsed = windChoiceText(r, windChoice);
 	const data: ReportData = {
 		id: meta.id,
 		createdUtc: utcText(meta.now),
@@ -110,10 +111,12 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 			landing: distanceText('Landing', r.landing, `${mass(r.massBalance.landing.mass)} ${u.mass}`),
 			pressureAltitude: altitude?.pressure ?? 'Not available',
 			densityAltitude: altitude?.density ?? 'Not available',
-			wind: wind ? `${wind.headline}. ${wind.detail}` : 'Not available'
+			wind: `${wind ? `${wind.headline}. ${wind.detail}` : 'Not available'}${windChoice === 'entered' ? '' : `. Distances use: ${windUsed}`}`
 		},
 		conditions: [
-			...['elev', 'rwy', 'qnh', 'oat', 'wdir', 'wspd', 'time', 'flow'].map(shown),
+			...['elev', 'rwy', 'qnh', 'oat', 'wdir', 'wspd'].map(shown),
+			{ label: 'Wind for distances', value: windUsed, source: 'Chosen by pilot' },
+			...['time', 'flow'].map(shown),
 			...a.tanks.map((t) => shown(`fuel:${t.id}`)),
 			{ label: 'Takeoff condition', value: conditionLabel('takeoff', calc.takeoffCondition), source: 'Chosen by pilot' },
 			{ label: 'Landing condition', value: conditionLabel('landing', calc.landingCondition), source: 'Chosen by pilot' }

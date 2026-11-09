@@ -183,6 +183,33 @@ describe('warnings', () => {
 	});
 });
 
+describe('wind for the distances', () => {
+	const k = load('test-kitfox-style');
+	const distances = (over: Partial<CalculationInput>) => {
+		const r = calculate(k, baseInput(k, over));
+		return [r.takeoff.total, r.takeoff.groundRoll, r.landing.total, r.landing.groundRoll];
+	};
+	const head = { windDirection: 0, windSpeed: 12 }, tail = { windDirection: 180, windSpeed: 8 };
+	it('uses the entered wind by default', () => {
+		expect(distances(head)).toEqual(distances({ ...head, windForDistances: 'entered' }));
+		expect(distances(head)).not.toEqual(distances({ windSpeed: 0 }));
+	});
+	it('No wind leaves out a headwind', () => expect(distances({ ...head, windForDistances: 'none' })).toEqual(distances({ windSpeed: 0 })));
+	it('Tailwind 3 kt replaces a headwind', () => expect(distances({ ...head, windForDistances: 'tail3' })).toEqual(distances({ windDirection: 180, windSpeed: 3 })));
+	it('is never less conservative than the entered wind', () => {
+		expect(distances({ ...tail, windForDistances: 'none' })).toEqual(distances(tail));
+		expect(distances({ ...tail, windForDistances: 'tail3' })).toEqual(distances(tail));
+	});
+	it('keeps the entered wind for the crosswind check and the display', () => {
+		const d = load('test-dr-style');
+		const r = calculate(d, baseInput(d, { windDirection: 90, windSpeed: 20, windForDistances: 'none' }));
+		expect(r.wind?.crosswind).toBeCloseTo(20, 9);
+		expect(r.massBalance.limits.find((l) => l.id === 'crosswind')?.status).toBe('warning');
+		expect(r.distanceWind?.crosswind).toBeCloseTo(20, 9);
+		expect(r.distanceWind?.headwind).toBe(0);
+	});
+});
+
 describe('atmosphere', () => {
 	it('gives elevation as pressure altitude at standard QNH', () => expect(atmosphere(1000, 1013.25, 15).pressureAltitudeFt).toBeCloseTo(1000 / 0.3048, 9));
 	it('rises when QNH falls', () => expect(atmosphere(0, 1000, null).pressureAltitudeFt).toBeGreaterThan(300));

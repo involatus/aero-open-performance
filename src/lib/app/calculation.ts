@@ -2,7 +2,7 @@
  * The pilot's Calculation, independent of any screen: its fields, inputs, to-do list and next flight.
  * Everything aircraft-specific comes from the aircraft file.
  */
-import type { Aircraft, CalculationInput, Condition, Performance } from '../aircraft/schema.ts';
+import type { Aircraft, CalculationInput, Condition, Performance, WindForDistances } from '../aircraft/schema.ts';
 import type { Airfield, RunwayEnd } from '../airfield/airfields.ts';
 import type { Calculation as Results } from '../engine/index.ts';
 import { parseMetar } from '../weather/metar.ts';
@@ -24,6 +24,8 @@ export type Calculation = {
 	takeoffCondition: string;
 	landingCondition: string;
 	elevationUnit: 'm' | 'ft';
+	/** The pilot may plan with no wind or a 3 kt tailwind. Older saved calculations have none, meaning as entered. */
+	windForDistances?: WindForDistances;
 	notes: Record<string, boolean>;
 	weather?: AppliedWeather | null;
 	/** The airfield and runway chosen from the airfield list, shown to help choose the matching condition. */
@@ -259,6 +261,7 @@ export function toInput(a: Aircraft, calc: Calculation): CalculationInput {
 		windDirection: direction,
 		windSpeed: speed !== null && speed >= 0 ? speed : null,
 		runwayHeading: heading,
+		windForDistances: calc.windForDistances ?? 'entered',
 		takeoffCondition: calc.takeoffCondition,
 		landingCondition: calc.landingCondition
 	};

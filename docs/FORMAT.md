@@ -48,6 +48,7 @@ A **Configuration** has `id`, `label` and `weighing` (`mass`, `moment`, `date`, 
 | `oat` | °C, or `null` |
 | `windDirection`, `runwayHeading` | Degrees, or `null` |
 | `windSpeed` | Knots, or `null` |
+| `windForDistances` | Optional: `entered` (the default), `none` or `tail3` |
 | `takeoffCondition`, `landingCondition` | Condition ids |
 
 Every id must exist in the file. An unknown id is an error in the calling code, not a result.
@@ -118,6 +119,8 @@ Needs direction, speed and runway heading. With `angle = (windDirection − runw
 headwind  = windSpeed × cos(angle)    (negative means tailwind)
 crosswind = |windSpeed × sin(angle)|
 ```
+
+The crosswind check and the wind shown to the pilot always use the entered wind. The distances use `windForDistances`: `none` plans with no headwind and `tail3` with a 3 kt tailwind. The headwind used is the smaller of the chosen and the entered one, so a choice never shortens a distance. A stronger entered tailwind is always kept.
 
 ## Performance
 

@@ -1,21 +1,23 @@
 <script lang="ts">
 	import { onMount, untrack, type Snippet } from 'svelte';
 	import { ToggleGroup } from 'bits-ui';
-	import type { Performance } from '#lib/aircraft/schema.ts';
+	import type { Performance, WindForDistances } from '#lib/aircraft/schema.ts';
+	import type { Calculation as Results } from '#lib/engine/index.ts';
+	import { WIND_CHOICES, enteredWindKept, windText } from '#lib/app/presentation.ts';
 	import { findAirfields, loadAirfields, type Airfield, type RunwayEnd } from '#lib/airfield/airfields.ts';
 	import { lookUpWeather } from '#lib/weather/lookup.ts';
 	import type { WeatherQuery } from '#lib/weather/provider.ts';
 	import {
 		OLD_CALCULATION_DAYS, OLD_REPORT_MINUTES, WEATHER_KEYS, applyAirfield, applyRunway, applyWeather, conditionCorrections, confirmWeather,
-		isOldCalculation, reportAgeMinutes, type Calculation, type Field
+		isOldCalculation, isVariableWind, parse, reportAgeMinutes, runwayHeading, type Calculation, type Field
 	} from '#lib/app/calculation.ts';
 	import Button from '../../ui/Button.svelte';
 	import Card from '../../ui/Card.svelte';
 	import Segmented from '../../ui/Segmented.svelte';
 	import StepHeading from './StepHeading.svelte';
 
-	let { calc, perf, fields, numberField, closePad }: {
-		calc: Calculation; perf: Performance | null; fields: Field[]; numberField: Snippet<[Field]>;
+	let { calc, results, perf, fields, numberField, closePad }: {
+		calc: Calculation; results: Results; perf: Performance | null; fields: Field[]; numberField: Snippet<[Field]>;
 		closePad: () => void;
 	} = $props();
 
@@ -33,6 +35,18 @@
 	let weatherFields = $derived(fields.filter((f) => WEATHER_KEYS.includes(f.key)));
 	let metarAge = $derived(reportAgeMinutes(calc.weather, now));
 	let weatherToConfirm = $derived(WEATHER_KEYS.filter((k) => calc.status[k] === 'pre').length);
+	let windChoice = $derived<WindForDistances>(calc.windForDistances ?? 'entered');
+	let windOptions = $derived.by(() => {
+		const heading = runwayHeading(calc.values.rwy), deg = (x: number) => `${String(x).padStart(3, '0')}°`;
+		const speed = parse(calc.values.wspd), entered = windText(results.wind, isVariableWind(calc));
+		const enteredDetail = speed === null ? 'Enter the wind first' : `${isVariableWind(calc) ? 'VRB' : deg(parse(calc.values.wdir) ?? 0)} / ${speed} kt${entered ? ` · ${entered.headline}` : ''}`;
+		const kept = (c: WindForDistances) => enteredWindKept(results, c);
+		return [
+			{ id: 'entered', label: WIND_CHOICES.entered, detail: enteredDetail },
+			{ id: 'none', label: WIND_CHOICES.none, detail: kept('none') ? 'Entered tailwind used' : '0 kt' },
+			{ id: 'tail3', label: WIND_CHOICES.tail3, detail: kept('tail3') ? 'Entered tailwind used' : heading === null ? '3 kt from behind' : `${deg((heading + 180) % 360)} / 3 kt on rwy ${String(heading / 10).padStart(2, '0')}` }
+		];
+	});
 	let showRunways = $derived(airfieldFound !== null && calc.airfield?.ident === airfieldFound.ident);
 
 	// The runway list isn't saved with the calculation, so it is looked up again on return to this step.
@@ -163,6 +177,14 @@
 	{/if}
 	<div class="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
 		{#each weatherFields as field (field.key)}{@render numberField(field)}{/each}
+	</div>
+	<div class="flex flex-col gap-1.5">
+		<Segmented label="Wind for the calculation" options={windOptions} value={windChoice} minWidth={150} onchange={(id) => (calc.windForDistances = id as WindForDistances)} />
+		{#if enteredWindKept(results, windChoice)}
+			<p class="text-[13px] font-semibold text-amber" role="status">The entered tailwind is stronger than {WIND_CHOICES[windChoice]}, so the distances use the entered wind.</p>
+		{:else}
+			<p class="text-[13px] text-muted">No wind and Tailwind 3 kt leave out any headwind, so the distances come out on the conservative side. The crosswind check always uses the entered wind. The report shows which you chose.</p>
+		{/if}
 	</div>
 	{#if weatherToConfirm}
 		<div class="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-amber-bg py-2.5 pr-2.5 pl-3.5">

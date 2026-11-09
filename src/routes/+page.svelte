@@ -336,7 +336,7 @@
 							{:else if calc.step === 1}
 								<FuelStep {aircraft} {calc} {results} fields={fields[1]} {numberField} />
 							{:else if calc.step === 2}
-								{#key calc.id}<ConditionsStep {calc} {perf} fields={fields[2]} {numberField} {closePad} />{/key}
+								{#key calc.id}<ConditionsStep {calc} {results} {perf} fields={fields[2]} {numberField} {closePad} />{/key}
 							{:else}
 								<SendStep
 									{aircraft} {calc} {todo} exceeded={exceededLimits} {ready} {creating} {reportError} {latestReport} {reportIsCurrent}

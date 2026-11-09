@@ -6,7 +6,7 @@
 	import { limitText } from '#lib/engine/mass-balance.ts';
 	import type { Calculation, ToDo } from '#lib/app/calculation.ts';
 	import { isVariableWind } from '#lib/app/calculation.ts';
-	import { altitudeText, armText, limitBadge, statusWord, windText } from '#lib/app/presentation.ts';
+	import { altitudeText, armText, limitBadge, statusWord, windChoiceText, windText } from '#lib/app/presentation.ts';
 	import type { PerformanceResult } from '#lib/engine/performance.ts';
 	import CgChart from '../CgChart.svelte';
 	import Badge from '../ui/Badge.svelte';
@@ -90,7 +90,7 @@
 				<div class="border-r border-divider px-5 py-3"><dt class="label-caps text-[11px]">Takeoff mass</dt><dd class="m-0"><span class={['num font-semibold', massOver('takeoff') && 'text-bad']}>{mass(results.massBalance.takeoff.mass)} {aircraft.units.mass}</span><br /><span class="text-xs text-muted">CG {armText(aircraft, results.massBalance.takeoff.arm)}</span></dd></div>
 				<div class="px-5 py-3"><dt class="label-caps text-[11px]">Landing mass</dt><dd class="m-0"><span class={['num font-semibold', massOver('landing') && 'text-bad']}>{mass(results.massBalance.landing.mass)} {aircraft.units.mass}</span><br /><span class="text-xs text-muted">CG {armText(aircraft, results.massBalance.landing.arm)}</span></dd></div>
 				<div class="border-t border-r border-divider px-5 py-3"><dt class="label-caps text-[11px]">Density alt.</dt><dd class="m-0">{#if altitude}<span class="num font-semibold">{altitude.density}</span><br /><span class="text-xs text-muted">PA {altitude.pressure}</span>{:else}<span class="text-[13px] font-semibold text-amber">Enter elevation and QNH</span>{/if}</dd></div>
-				<div class="border-t border-divider px-5 py-3"><dt class="label-caps text-[11px]">Wind</dt><dd class="m-0">{#if wind}<span class="num font-semibold">{wind.headline}</span><br /><span class="text-xs text-muted">{wind.detail}</span>{:else}<span class="text-[13px] font-semibold text-amber">Enter wind and runway</span>{/if}</dd></div>
+				<div class="border-t border-divider px-5 py-3"><dt class="label-caps text-[11px]">Wind</dt><dd class="m-0">{#if wind}<span class="num font-semibold">{wind.headline}</span><br /><span class="text-xs text-muted">{wind.detail}</span>{#if (calc.windForDistances ?? 'entered') !== 'entered'}<br /><span class="text-xs font-semibold text-ink-2">Distances: {windChoiceText(results, calc.windForDistances)}</span>{/if}{:else}<span class="text-[13px] font-semibold text-amber">Enter wind and runway</span>{/if}</dd></div>
 			</dl>
 		</section>
 	{/if}

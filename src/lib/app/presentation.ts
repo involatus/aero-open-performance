@@ -2,7 +2,7 @@
  * What the pilot reads about a result, worded once. The screen and the Report both use this,
  * so they can't drift apart. Calculations stay in the engine; this only turns them into text.
  */
-import type { Aircraft } from '../aircraft/schema.ts';
+import type { Aircraft, WindForDistances } from '../aircraft/schema.ts';
 import type { Calculation } from './calculation.ts';
 import type { Calculation as Results } from '../engine/index.ts';
 import type { Limit } from '../engine/mass-balance.ts';
@@ -42,6 +42,20 @@ export function windText(wind: Wind | null, variable: boolean): { headline: stri
 	const kt = Math.abs(wind.headwind).toFixed(0);
 	if (variable) return { headline: `${kt} kt tail`, detail: 'Variable wind, applied as a tailwind' };
 	return { headline: `${kt} kt ${wind.headwind >= 0 ? 'head' : 'tail'}`, detail: `Crosswind ${wind.crosswind.toFixed(0)} kt` };
+}
+
+export const WIND_CHOICES: Record<WindForDistances, string> = { entered: 'As entered', none: 'No wind', tail3: 'Tailwind 3 kt' };
+const CHOSEN_HEADWIND: Record<WindForDistances, number> = { entered: Infinity, none: 0, tail3: -3 };
+
+/** True when the entered wind is already a stronger tailwind than the choice, so the entered wind is used. */
+export function enteredWindKept(r: Pick<Results, 'wind'>, choice: WindForDistances): boolean {
+	return choice !== 'entered' && !!r.wind && r.wind.headwind < CHOSEN_HEADWIND[choice] - 1e-9;
+}
+
+/** Which wind the distances use, in words, the same on screen and on the Report. */
+export function windChoiceText(r: Pick<Results, 'wind' | 'distanceWind'>, choice: WindForDistances = 'entered'): string {
+	const label = WIND_CHOICES[choice];
+	return enteredWindKept(r, choice) ? `${label} chosen, but the entered tailwind is stronger, so it is used` : label;
 }
 
 export function altitudeText(r: Results): { pressure: string; density: string } | null {

@@ -161,6 +161,8 @@ export const CalculationInput = v.strictObject({
 	windDirection: v.nullable(Num),
 	windSpeed: v.nullable(NonNegative),
 	runwayHeading: v.nullable(Num),
+	/** Which wind the distances use. Missing means the entered wind. */
+	windForDistances: v.optional(v.picklist(['entered', 'none', 'tail3'])),
 	takeoffCondition: Id,
 	landingCondition: Id
 });
@@ -228,3 +230,4 @@ export type Envelope = v.InferOutput<typeof Envelope>;
 export type Performance = v.InferOutput<typeof Performance>;
 export type HandCase = v.InferOutput<typeof HandCase>;
 export type WindRule = v.InferOutput<typeof WindRule>;
+export type WindForDistances = NonNullable<CalculationInput['windForDistances']>;
