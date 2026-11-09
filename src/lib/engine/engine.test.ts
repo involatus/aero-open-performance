@@ -210,6 +210,41 @@ describe('wind for the distances', () => {
 	});
 });
 
+describe('landing at another airfield', () => {
+	// Its landing table has altitude, temperature and a wind correction.
+	const k = load('test-sr22-style'), d = load('test-dr-style');
+	const place = (over: Partial<NonNullable<CalculationInput['landingAt']>> = {}): NonNullable<CalculationInput['landingAt']> => {
+		const i = baseInput(k);
+		return { elevation: i.elevation, qnh: i.qnh, oat: i.oat, windDirection: i.windDirection, windSpeed: i.windSpeed, runwayHeading: i.runwayHeading, ...over };
+	};
+	it('gives the same results as landing at the departure airfield when the conditions match', () => {
+		const same = calculate(k, baseInput(k)), at = calculate(k, baseInput(k, { landingAt: place() }));
+		expect([at.takeoff.total, at.landing.total, at.landing.groundRoll]).toEqual([same.takeoff.total, same.landing.total, same.landing.groundRoll]);
+		expect(same.landingAt).toBeNull();
+	});
+	it('uses the landing airfield for the landing only', () => {
+		const same = calculate(k, baseInput(k));
+		const high = calculate(k, baseInput(k, { landingAt: place({ elevation: { value: 3000, unit: 'ft' }, oat: 25 }) }));
+		expect(high.takeoff.total).toBe(same.takeoff.total);
+		expect(high.landing.total!).toBeGreaterThan(same.landing.total!);
+		expect(high.landingAt?.atmosphere?.pressureAltitudeFt).toBeGreaterThan(same.atmosphere!.pressureAltitudeFt);
+	});
+	it('applies the landing wind and its own wind choice', () => {
+		const head = calculate(k, baseInput(k, { landingAt: place({ windDirection: 0, windSpeed: 15, runwayHeading: 0 }) }));
+		const none = calculate(k, baseInput(k, { landingAt: place({ windDirection: 0, windSpeed: 15, runwayHeading: 0, windForDistances: 'none' }) }));
+		const calm = calculate(k, baseInput(k, { landingAt: place({ windSpeed: 0 }) }));
+		expect(head.landing.total!).toBeLessThan(calm.landing.total!);
+		expect(none.landing.total).toBe(calm.landing.total);
+		expect(none.landingAt?.wind?.headwind).toBeCloseTo(15, 9);
+	});
+	it('checks the crosswind at each airfield', () => {
+		const r = calculate(d, baseInput(d, { windSpeed: 0, landingAt: { ...place(), windDirection: 90, windSpeed: 20, runwayHeading: 0 } }));
+		const ids = r.massBalance.limits.map((l) => [l.id, l.label]);
+		expect(ids).toContainEqual(['landingCrosswind', 'Crosswind at landing']);
+		expect(ids.map(([id]) => id)).not.toContain('crosswind');
+	});
+});
+
 describe('atmosphere', () => {
 	it('gives elevation as pressure altitude at standard QNH', () => expect(atmosphere(1000, 1013.25, 15).pressureAltitudeFt).toBeCloseTo(1000 / 0.3048, 9));
 	it('rises when QNH falls', () => expect(atmosphere(0, 1000, null).pressureAltitudeFt).toBeGreaterThan(300));

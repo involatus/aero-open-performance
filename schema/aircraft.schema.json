@@ -2608,6 +2608,107 @@
 								],
 								"type": "string"
 							},
+							"landingAt": {
+								"type": "object",
+								"properties": {
+									"elevation": {
+										"anyOf": [
+											{
+												"type": "object",
+												"properties": {
+													"value": {
+														"type": "number"
+													},
+													"unit": {
+														"enum": [
+															"m",
+															"ft"
+														],
+														"type": "string"
+													}
+												},
+												"required": [
+													"value",
+													"unit"
+												],
+												"additionalProperties": false
+											},
+											{
+												"type": "null"
+											}
+										]
+									},
+									"qnh": {
+										"anyOf": [
+											{
+												"type": "number",
+												"exclusiveMinimum": 0
+											},
+											{
+												"type": "null"
+											}
+										]
+									},
+									"oat": {
+										"anyOf": [
+											{
+												"type": "number"
+											},
+											{
+												"type": "null"
+											}
+										]
+									},
+									"windDirection": {
+										"anyOf": [
+											{
+												"type": "number"
+											},
+											{
+												"type": "null"
+											}
+										]
+									},
+									"windSpeed": {
+										"anyOf": [
+											{
+												"type": "number",
+												"minimum": 0
+											},
+											{
+												"type": "null"
+											}
+										]
+									},
+									"runwayHeading": {
+										"anyOf": [
+											{
+												"type": "number"
+											},
+											{
+												"type": "null"
+											}
+										]
+									},
+									"windForDistances": {
+										"enum": [
+											"entered",
+											"none",
+											"tail3"
+										],
+										"type": "string"
+									}
+								},
+								"required": [
+									"elevation",
+									"qnh",
+									"oat",
+									"windDirection",
+									"windSpeed",
+									"runwayHeading"
+								],
+								"additionalProperties": false
+							},
 							"takeoffCondition": {
 								"type": "string",
 								"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"

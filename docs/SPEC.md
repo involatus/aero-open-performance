@@ -79,7 +79,9 @@ No login. On first launch with no data, one message asks the pilot to connect on
 - Field problems appear at the field and state what is expected.
 - Keypad keys are at least 72 points and buttons at least 52. Status is shown in words as well as colour.
 
-**Calculations** are shown in tabs and saved on the device. A tab is named by registration, departure identifier once entered, and date, with a number if names repeat. "Next flight" copies aircraft, Configuration, load and pilot name; fuel starts from the calculated landing fuel as a Prefilled Value; elevation, runway heading, weather, flight time and note confirmations are cleared. Pilots delete tabs themselves. A Calculation older than 7 days asks for fresh weather.
+**Calculations** are shown in tabs and saved on the device. A tab is named by registration, departure identifier once entered, and date, with a number if names repeat. "Next flight" copies aircraft, Configuration, load and pilot name; fuel starts from the calculated landing fuel as a Prefilled Value; elevation, runway heading, weather, flight time and note confirmations are cleared. After landing elsewhere, the next flight departs from the landing airfield, with its elevation as a Prefilled Value. Pilots delete tabs themselves. A Calculation older than 7 days asks for fresh weather.
+
+**Landing elsewhere:** landing is at the departure airfield unless the pilot chooses another airfield in Conditions. That airfield then has its own elevation, runway, QNH, OAT, wind and wind choice, entered or looked up the same way. The landing distance and the landing crosswind check use them; the takeoff keeps the departure values. A METAR for the landing airfield describes now, not the arrival time, and the tool says so.
 
 **Altitude:** the tool calculates pressure and density altitude from elevation, QNH and OAT. Density altitude is display only unless a table's axis states it as its basis.
 
@@ -101,9 +103,9 @@ Weather loads only when the pilot asks, by station code or "Nearest" with device
 
 One standard PDF, one page where possible, in English. Sections, in order:
 
-1. **Heading:** aircraft, Configuration, UTC date and time, pilot's typed name, departure airfield as free text.
+1. **Heading:** aircraft, Configuration, UTC date and time, pilot's typed name, departure airfield as free text, and the landing airfield when it is another one.
 2. **Results,** with the same labels as on screen.
-3. **Conditions,** with each value's source and the raw METAR.
+3. **Conditions,** with each value's source and the raw METAR, for each airfield.
 4. **Mass and balance,** with Burn Plan, limit results and CG chart.
 5. **Working,** with table values and manual sources.
 6. **Footer:** Report ID, tool version, Data Release, aircraft revision, last data check, confirmed notes, and the statement that the pilot in command is responsible for verifying the results.

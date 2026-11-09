@@ -12,6 +12,8 @@ export type Calculation = {
 	wind: Wind | null;
 	/** The wind the distances use, after the pilot's choice. */
 	distanceWind: Wind | null;
+	/** The landing airfield's atmosphere and wind, when the pilot lands elsewhere. Null means at the departure airfield. */
+	landingAt: PlaceConditions | null;
 	takeoff: PerformanceResult;
 	landing: PerformanceResult;
 	exceeded: string[];
@@ -20,6 +22,10 @@ export type Calculation = {
 function noPerformance(label: string): PerformanceResult {
 	return { status: 'noData', conditionLabel: label, unit: null, rawTotal: null, rawGroundRoll: null, total: null, groundRoll: null, steps: [], warnings: [], reason: "No data: pilot's judgement", missing: [], windApplied: false };
 }
+
+/** What an airfield's conditions give the distances: its atmosphere, the entered wind and the wind the distances use. */
+export type PlaceConditions = { atmosphere: Atmosphere | null; elevationM: number | null; oat: number | null; wind: Wind | null; distanceWind: Wind | null };
+type PlaceInput = Pick<CalculationInput, 'elevation' | 'qnh' | 'oat' | 'windDirection' | 'windSpeed' | 'runwayHeading' | 'windForDistances'>;
 
 const CHOSEN_HEADWIND: Record<WindForDistances, number | null> = { entered: null, none: 0, tail3: -3 };
 
@@ -33,21 +39,31 @@ export function windForDistances(wind: Wind | null, choice: WindForDistances = '
 	return { headwind: Math.min(wind.headwind, chosen), crosswind: wind.crosswind };
 }
 
+function placeConditions(p: PlaceInput): PlaceConditions {
+	const elevationM = p.elevation ? convertLength(p.elevation.value, p.elevation.unit, 'm') : null;
+	const atm = elevationM !== null && p.qnh !== null ? atmosphere(elevationM, p.qnh, p.oat) : null;
+	let wind: Wind | null = null;
+	if (p.windDirection !== null && p.windSpeed !== null && p.runwayHeading !== null) {
+		const angle = ((p.windDirection - p.runwayHeading) * Math.PI) / 180;
+		wind = { headwind: p.windSpeed * Math.cos(angle), crosswind: Math.abs(p.windSpeed * Math.sin(angle)) };
+	}
+	return { atmosphere: atm, elevationM, oat: p.oat, wind, distanceWind: windForDistances(wind, p.windForDistances) };
+}
+
 export function calculate(a: Aircraft, input: CalculationInput): Calculation {
 	const mb = massBalance(a, input);
-	const elevationM = input.elevation ? convertLength(input.elevation.value, input.elevation.unit, 'm') : null;
-	const atm = elevationM !== null && input.qnh !== null ? atmosphere(elevationM, input.qnh, input.oat) : null;
+	const departure = placeConditions(input);
+	const landingAt = input.landingAt ? placeConditions(input.landingAt) : null;
+	const { atmosphere: atm, wind, distanceWind } = departure;
 
-	let wind: Wind | null = null;
-	if (input.windDirection !== null && input.windSpeed !== null && input.runwayHeading !== null) {
-		const angle = ((input.windDirection - input.runwayHeading) * Math.PI) / 180;
-		wind = { headwind: input.windSpeed * Math.cos(angle), crosswind: Math.abs(input.windSpeed * Math.sin(angle)) };
-	}
-
+	// Each airfield's own runway and wind, so landing elsewhere is checked there.
 	const limits = [...mb.limits];
-	if (a.crosswind && wind && wind.crosswind > a.crosswind.value + 1e-9) limits.push({ id: 'crosswind', label: 'Crosswind', status: 'warning', value: wind.crosswind, limit: a.crosswind.value });
+	const crosswind = (id: string, label: string, w: Wind | null) => {
+		if (a.crosswind && w && w.crosswind > a.crosswind.value + 1e-9) limits.push({ id, label, status: 'warning', value: w.crosswind, limit: a.crosswind.value });
+	};
+	crosswind('crosswind', landingAt ? 'Crosswind at departure' : 'Crosswind', wind);
+	if (landingAt) crosswind('landingCrosswind', 'Crosswind at landing', landingAt.wind);
 	mb.limits = limits;
-	const distanceWind = windForDistances(wind, input.windForDistances);
 
 	const config = configurationOf(a, input.configuration);
 	const run = (phase: 'takeoff' | 'landing', id: string, mass: number): PerformanceResult => {
@@ -55,7 +71,8 @@ export function calculate(a: Aircraft, input: CalculationInput): Calculation {
 		const conditions = (config.performance ?? a.performance)[phase];
 		const condition = conditions.find((c) => c.id === id);
 		if (!condition) throw new Error(`Unknown ${phase} condition: ${id}`);
-		return runCondition(a, condition, { atm, oat: input.oat, elevationM, mass, massUnit: a.units.mass, wind: distanceWind });
+		const at = phase === 'landing' && landingAt ? landingAt : departure;
+		return runCondition(a, condition, { atm: at.atmosphere, oat: at.oat, elevationM: at.elevationM, mass, massUnit: a.units.mass, wind: at.distanceWind });
 	};
 
 	return {
@@ -63,6 +80,7 @@ export function calculate(a: Aircraft, input: CalculationInput): Calculation {
 		atmosphere: atm,
 		wind,
 		distanceWind,
+		landingAt,
 		takeoff: run('takeoff', input.takeoffCondition, mb.takeoff.mass),
 		landing: run('landing', input.landingCondition, mb.landing.mass),
 		exceeded: mb.limits.filter((l) => l.status === 'exceeded').map((l) => l.id)

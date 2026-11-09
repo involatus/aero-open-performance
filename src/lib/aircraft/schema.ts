@@ -163,6 +163,16 @@ export const CalculationInput = v.strictObject({
 	runwayHeading: v.nullable(Num),
 	/** Which wind the distances use. Missing means the entered wind. */
 	windForDistances: v.optional(v.picklist(['entered', 'none', 'tail3'])),
+	/** The landing airfield's conditions, when it isn't the departure airfield. Missing means landing where it took off. */
+	landingAt: v.optional(v.strictObject({
+		elevation: v.nullable(Quantity),
+		qnh: v.nullable(Positive),
+		oat: v.nullable(Num),
+		windDirection: v.nullable(Num),
+		windSpeed: v.nullable(NonNegative),
+		runwayHeading: v.nullable(Num),
+		windForDistances: v.optional(v.picklist(['entered', 'none', 'tail3']))
+	})),
 	takeoffCondition: Id,
 	landingCondition: Id
 });

@@ -9,6 +9,9 @@ import { parseMetar } from '../weather/metar.ts';
 import type { WeatherReport } from '../weather/provider.ts';
 
 export type FieldStatus = 'pre' | 'ok' | 'pilot';
+/** The airfield a value belongs to. Landing is at the departure airfield unless the pilot chooses another. */
+export type Place = 'departure' | 'landing';
+export type ChosenAirfield = { ident: string; name: string; date: string; runway: { designator: string; surface: string; lengthM: number | null } | null };
 export type Calculation = {
 	id: string;
 	created: number;
@@ -29,7 +32,12 @@ export type Calculation = {
 	notes: Record<string, boolean>;
 	weather?: AppliedWeather | null;
 	/** The airfield and runway chosen from the airfield list, shown to help choose the matching condition. */
-	airfield?: { ident: string; name: string; date: string; runway: { designator: string; surface: string; lengthM: number | null } | null } | null;
+	airfield?: ChosenAirfield | null;
+	/** Landing at another airfield than the departure one. Its values sit under keys such as land:qnh. */
+	landingElsewhere?: boolean;
+	landingAirfield?: ChosenAirfield | null;
+	landingWeather?: AppliedWeather | null;
+	landingWindForDistances?: WindForDistances;
 	notice?: string | null;
 };
 export type AppliedWeather = { raw: string; station: string; stationName: string | null; distanceKm: number | null; observed: string | null; flags: string[] };
@@ -56,7 +64,15 @@ export const STEP_NAMES = ['Load', 'Fuel', 'Conditions', 'Send'];
 
 /** Variable wind has no direction, so every Operator's calculations apply it as a tailwind. */
 export const VARIABLE_WIND = 'VRB';
-export const isVariableWind = (calc: Pick<Calculation, 'values'>) => calc.values.wdir === VARIABLE_WIND;
+export const isVariableWind = (calc: Pick<Calculation, 'values'>, place: Place = 'departure') => calc.values[keyAt(place, 'wdir')] === VARIABLE_WIND;
+
+/** The landing airfield's values sit beside the departure ones under their own keys, such as land:qnh. */
+export const keyAt = (place: Place, key: string) => (place === 'landing' ? `land:${key}` : key);
+export const airfieldAt = (calc: Calculation, place: Place) => (place === 'landing' ? calc.landingAirfield : calc.airfield) ?? null;
+export const weatherAt = (calc: Calculation, place: Place) => (place === 'landing' ? calc.landingWeather : calc.weather) ?? null;
+export const windChoiceAt = (calc: Calculation, place: Place): WindForDistances => (place === 'landing' ? calc.landingWindForDistances : calc.windForDistances) ?? 'entered';
+/** The places whose conditions the pilot enters: the departure, and the landing when it is elsewhere. */
+export const placesOf = (calc: Pick<Calculation, 'landingElsewhere'>): Place[] => (calc.landingElsewhere ? ['departure', 'landing'] : ['departure']);
 
 /** Converted values such as 113.56235352 L read as 113.6. */
 export const tenths = (x: number) => String(Math.round(x * 10) / 10);
@@ -89,7 +105,7 @@ function runwayHint(text: string | undefined) {
 }
 
 /** The numeric fields of each step, built from the aircraft file. */
-export function fieldsFor(a: Aircraft, calc: Pick<Calculation, 'elevationUnit'> & { values?: Calculation['values'] }): Field[][] {
+export function fieldsFor(a: Aircraft, calc: Pick<Calculation, 'elevationUnit'> & Partial<Pick<Calculation, 'values' | 'landingElsewhere'>>): Field[][] {
 	const mass = a.units.mass, step = massStep(mass), maxMass = a.massLimits.maxTakeoff.value;
 	const arm = (x: number) => `arm ${x.toFixed(a.display.armDecimals)} ${a.units.arm}`;
 	const meta = (...parts: (string | false | undefined)[]) => parts.filter(Boolean).join(' · ') || undefined;
@@ -111,15 +127,20 @@ export function fieldsFor(a: Aircraft, calc: Pick<Calculation, 'elevationUnit'> 
 		{ key: 'flow', label: 'Fuel flow', unit: `${volume}/h`, decimals: true, negative: false, range: [0, 500], quick: [], required: true }
 	);
 	const elevMax = calc.elevationUnit === 'm' ? 6000 : 20000;
-	const conditions: Field[] = [
-		{ key: 'elev', label: 'Elevation', unit: calc.elevationUnit, units: ['m', 'ft'], decimals: false, negative: true, range: [-500, elevMax], quick: [], required: true },
-		{ key: 'rwy', label: 'Runway', unit: '', decimals: false, negative: false, range: [1, 36], quick: [], required: true, hint: runwayHint(calc.values?.rwy) },
-		{ key: 'qnh', label: 'QNH', unit: 'hPa', decimals: false, negative: false, range: [900, 1100], quick: [], required: true },
-		{ key: 'oat', label: 'OAT', unit: '°C', decimals: true, negative: true, range: [-60, 60], quick: [], required: true },
-		{ key: 'wdir', label: 'Wind from', unit: '°', decimals: false, negative: false, range: [0, 360], quick: [VARIABLE_WIND], required: true },
-		{ key: 'wspd', label: 'Wind speed', unit: 'kt', decimals: false, negative: false, range: [0, 99], quick: [], required: true }
-	];
-	return [load, fuel, conditions, []];
+	// The landing airfield's fields say so, as they also appear in the to-do list and on the Report.
+	const at = (place: Place): Field[] => {
+		const k = (key: string) => keyAt(place, key);
+		const name = (label: string) => (place === 'landing' ? `Landing ${/^[A-Z]{2,}/.test(label) ? label : label.toLowerCase()}` : label);
+		return [
+			{ key: k('elev'), label: name('Elevation'), unit: calc.elevationUnit, units: ['m', 'ft'], decimals: false, negative: true, range: [-500, elevMax], quick: [], required: true },
+			{ key: k('rwy'), label: name('Runway'), unit: '', decimals: false, negative: false, range: [1, 36], quick: [], required: true, hint: runwayHint(calc.values?.[k('rwy')]) },
+			{ key: k('qnh'), label: name('QNH'), unit: 'hPa', decimals: false, negative: false, range: [900, 1100], quick: [], required: true },
+			{ key: k('oat'), label: name('OAT'), unit: '°C', decimals: true, negative: true, range: [-60, 60], quick: [], required: true },
+			{ key: k('wdir'), label: name('Wind from'), unit: '°', decimals: false, negative: false, range: [0, 360], quick: [VARIABLE_WIND], required: true },
+			{ key: k('wspd'), label: name('Wind speed'), unit: 'kt', decimals: false, negative: false, range: [0, 99], quick: [], required: true }
+		];
+	};
+	return [load, fuel, placesOf({ landingElsewhere: calc.landingElsewhere }).flatMap(at), []];
 }
 
 export function newCalculation(a: Aircraft, id: string, now: number): Calculation {
@@ -176,37 +197,40 @@ export const OLD_CALCULATION_DAYS = 7;
  * Prefills only what the report clearly states. A value it doesn't state is left empty,
  * and anything the pilot typed is never touched.
  */
-export function applyWeather(calc: Calculation, report: WeatherReport, now: number) {
+export function applyWeather(calc: Calculation, report: WeatherReport, now: number, place: Place = 'departure') {
 	const m = parseMetar(report.raw, now);
 	const values: Record<string, number | string | null> = { qnh: m.qnh, oat: m.oat, wdir: m.windVariable ? VARIABLE_WIND : m.windDirection, wspd: m.windSpeed };
 	const source = `METAR ${report.station}`;
-	for (const key of WEATHER_KEYS) {
-		const value = values[key];
+	for (const base of WEATHER_KEYS) {
+		const value = values[base], key = keyAt(place, base);
 		if (value !== null) prefill(calc, key, String(value), source);
 		else if (calc.status[key] !== 'pilot') {
 			delete calc.values[key]; delete calc.status[key]; delete calc.sources[key]; delete calc.changed[key];
 		}
 	}
-	calc.values.station = report.station;
-	calc.weather = { raw: report.raw, station: report.station, stationName: report.stationName, distanceKm: report.distanceKm, observed: m.observed, flags: m.flags };
+	calc.values[keyAt(place, 'station')] = report.station;
+	const applied: AppliedWeather = { raw: report.raw, station: report.station, stationName: report.stationName, distanceKm: report.distanceKm, observed: m.observed, flags: m.flags };
+	if (place === 'landing') calc.landingWeather = applied; else calc.weather = applied;
 }
 
 /** Prefills elevation, airfield name and weather station from the airfield list. Never overwrites what the pilot typed. */
-export function applyAirfield(calc: Calculation, airfield: Airfield, date: string) {
-	const source = `airfield list ${airfield.ident}, ${date}`;
+export function applyAirfield(calc: Calculation, airfield: Airfield, date: string, place: Place = 'departure') {
+	const source = `airfield list ${airfield.ident}, ${date}`, k = (key: string) => keyAt(place, key);
 	if (airfield.elevationFt !== null) {
 		const value = calc.elevationUnit === 'ft' ? airfield.elevationFt : Math.round(airfield.elevationFt * 0.3048);
-		prefill(calc, 'elev', String(value), source);
+		prefill(calc, k('elev'), String(value), source);
 	}
-	if (!calc.values.place) calc.values.place = `${airfield.ident} ${airfield.name}`;
-	if (!calc.values.station) calc.values.station = airfield.ident;
-	calc.airfield = { ident: airfield.ident, name: airfield.name, date, runway: null };
+	if (!calc.values[k('place')]) calc.values[k('place')] = `${airfield.ident} ${airfield.name}`;
+	if (!calc.values[k('station')]) calc.values[k('station')] = airfield.ident;
+	const chosen = { ident: airfield.ident, name: airfield.name, date, runway: null };
+	if (place === 'landing') calc.landingAirfield = chosen; else calc.airfield = chosen;
 }
 
-export function applyRunway(calc: Calculation, end: RunwayEnd) {
-	if (!calc.airfield) return;
-	prefill(calc, 'rwy', String(end.number).padStart(2, '0'), `airfield list ${calc.airfield.ident}, ${calc.airfield.date}`);
-	calc.airfield.runway = { designator: end.designator, surface: end.surface, lengthM: end.lengthM };
+export function applyRunway(calc: Calculation, end: RunwayEnd, place: Place = 'departure') {
+	const airfield = airfieldAt(calc, place);
+	if (!airfield) return;
+	prefill(calc, keyAt(place, 'rwy'), String(end.number).padStart(2, '0'), `airfield list ${airfield.ident}, ${airfield.date}`);
+	airfield.runway = { designator: end.designator, surface: end.surface, lengthM: end.lengthM };
 }
 
 /** The corrections a condition applies beyond its table, in words, so pilots see what a choice adds. */
@@ -221,8 +245,8 @@ export function conditionCorrections(condition: Condition | undefined): string[]
 	return out;
 }
 
-export function confirmWeather(calc: Calculation) {
-	WEATHER_KEYS.forEach((key) => confirmValue(calc, key));
+export function confirmWeather(calc: Calculation, place: Place = 'departure') {
+	WEATHER_KEYS.forEach((key) => confirmValue(calc, keyAt(place, key)));
 }
 
 export function reportAgeMinutes(weather: AppliedWeather | null | undefined, now: number): number | null {
@@ -267,24 +291,32 @@ export function toInput(a: Aircraft, calc: Calculation): CalculationInput {
 		if (calc.positions[s.id]) loads[s.id].position = calc.positions[s.id];
 	});
 	a.tanks.forEach((t) => { fuel[t.id] = Math.max(0, parse(calc.values[`fuel:${t.id}`]) ?? 0); });
-	const elevation = parse(calc.values.elev), qnh = parse(calc.values.qnh), speed = parse(calc.values.wspd);
-	// Older saved calculations still have a heading instead of a runway number.
-	const heading = calc.values.rwy !== undefined && calc.values.rwy !== '' ? runwayHeading(calc.values.rwy) : parse(calc.values.hdg);
-	// Blowing from straight behind is how the engine sees a tailwind.
-	const direction = isVariableWind(calc) ? (heading === null ? null : (heading + 180) % 360) : parse(calc.values.wdir);
 	return {
 		configuration: calc.configuration, loads, fuel, burnPlan: calc.burnPlan,
 		flightTimeHours: Math.max(0, parse(calc.values.time) ?? 0),
 		fuelFlow: Math.max(0, parse(calc.values.flow) ?? 0),
+		...placeInput(calc, 'departure'),
+		...(calc.landingElsewhere ? { landingAt: placeInput(calc, 'landing') } : {}),
+		takeoffCondition: calc.takeoffCondition,
+		landingCondition: calc.landingCondition
+	};
+}
+
+function placeInput(calc: Calculation, place: Place): NonNullable<CalculationInput['landingAt']> {
+	const v = (key: string) => calc.values[keyAt(place, key)];
+	const elevation = parse(v('elev')), qnh = parse(v('qnh')), speed = parse(v('wspd'));
+	// Older saved calculations still have a heading instead of a runway number.
+	const heading = v('rwy') !== undefined && v('rwy') !== '' ? runwayHeading(v('rwy')) : place === 'departure' ? parse(calc.values.hdg) : null;
+	// Blowing from straight behind is how the engine sees a tailwind.
+	const direction = isVariableWind(calc, place) ? (heading === null ? null : (heading + 180) % 360) : parse(v('wdir'));
+	return {
 		elevation: elevation === null ? null : { value: elevation, unit: calc.elevationUnit },
 		qnh: qnh !== null && qnh > 0 ? qnh : null,
-		oat: parse(calc.values.oat),
+		oat: parse(v('oat')),
 		windDirection: direction,
 		windSpeed: speed !== null && speed >= 0 ? speed : null,
 		runwayHeading: heading,
-		windForDistances: calc.windForDistances ?? 'entered',
-		takeoffCondition: calc.takeoffCondition,
-		landingCondition: calc.landingCondition
+		windForDistances: windChoiceAt(calc, place)
 	};
 }
 
@@ -296,7 +328,7 @@ export function isUnusual(field: Field, text: string | undefined): boolean {
 /** Which step fixes a given limit. */
 export function stepOfLimit(id: string): number {
 	if (id === 'takeoffMass' || id === 'takeoffCg' || id.startsWith('station:') || id.startsWith('combined:')) return 0;
-	if (id === 'crosswind') return 2;
+	if (id === 'crosswind' || id === 'landingCrosswind') return 2;
 	return 1;
 }
 
@@ -306,7 +338,7 @@ export function toDoList(a: Aircraft, calc: Calculation): ToDo[] {
 		fields.forEach((f) => {
 			const text = calc.values[f.key];
 			if (calc.status[f.key] === 'pre') items.push({ key: f.key, label: `Confirm ${f.label}`, step });
-			else if (f.required && parse(text) === null && !(f.key === 'wdir' && text === VARIABLE_WIND)) items.push({ key: f.key, label: `Enter ${f.label}`, step });
+			else if (f.required && parse(text) === null && !(f.key.endsWith('wdir') && text === VARIABLE_WIND)) items.push({ key: f.key, label: `Enter ${f.label}`, step });
 			else if (isUnusual(f, text)) items.push({ key: f.key, label: `Check ${f.label}`, step });
 		});
 	});
@@ -319,6 +351,7 @@ export function toDoList(a: Aircraft, calc: Calculation): ToDo[] {
 		items.splice(at < 0 ? items.length : at, 0, { key: `fuel:${a.tanks[0].id}`, label: `Enter ${a.tanks[0].label}`, step: 1 });
 	}
 	if (!calc.values.place?.trim()) items.push({ key: 'place', label: 'Enter departure airfield', step: 3 });
+	if (calc.landingElsewhere && !calc.values['land:place']?.trim()) items.push({ key: 'land:place', label: 'Enter landing airfield', step: 3 });
 	if (!calc.values.name?.trim()) items.push({ key: 'name', label: 'Enter pilot name', step: 3 });
 	a.notes.forEach((n) => { if (!calc.notes[n.id]) items.push({ key: `note:${n.id}`, label: 'Confirm manual note', step: 3 }); });
 	return items;
@@ -350,6 +383,13 @@ export function nextFlight(a: Aircraft, calc: Calculation, results: Results, id:
 		n.sources.flow = calc.sources.flow;
 	}
 	if (calc.values.name) { n.values.name = calc.values.name; }
+	// Landed elsewhere: the next flight departs from there.
+	if (calc.landingElsewhere) {
+		if (calc.landingAirfield) n.airfield = { ...calc.landingAirfield, runway: null };
+		if (calc.values['land:place']) n.values.place = calc.values['land:place'];
+		if (calc.values['land:station']) n.values.station = calc.values['land:station'];
+		if (calc.values['land:elev']) prefill(n, 'elev', calc.values['land:elev'], 'previous flight, landing airfield');
+	}
 	n.step = 1;
 	return n;
 }

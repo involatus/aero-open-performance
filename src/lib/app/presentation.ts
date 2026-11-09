@@ -58,7 +58,12 @@ export function windChoiceText(r: Pick<Results, 'wind' | 'distanceWind'>, choice
 	return enteredWindKept(r, choice) ? `${label} chosen, but the entered tailwind is stronger, so it is used` : label;
 }
 
-export function altitudeText(r: Results): { pressure: string; density: string } | null {
+/** The landing airfield's atmosphere and wind: its own when landing elsewhere, else the departure's. */
+export function landingConditions(r: Results): Pick<Results, 'atmosphere' | 'wind' | 'distanceWind'> {
+	return r.landingAt ?? r;
+}
+
+export function altitudeText(r: Pick<Results, 'atmosphere'>): { pressure: string; density: string } | null {
 	const atm = r.atmosphere;
 	if (!atm) return null;
 	return { pressure: `${Math.round(atm.pressureAltitudeFt)} ft`, density: atm.densityAltitudeFt != null ? `${Math.round(atm.densityAltitudeFt)} ft` : 'Not available' };

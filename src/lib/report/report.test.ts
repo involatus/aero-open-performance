@@ -64,6 +64,24 @@ describe('creating a Report', () => {
 		expect(d.conditions.find((x) => x.label === 'Wind for distances')).toEqual({ label: 'Wind for distances', value: 'Tailwind 3 kt', source: 'Chosen by pilot' });
 		expect(d.results.wind).toContain('Distances use: Tailwind 3 kt');
 	});
+	it('records the landing airfield and its conditions when landing elsewhere', () => {
+		const c = ready(a);
+		expect(createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c)).landing).toBeNull();
+		c.landingElsewhere = true;
+		for (const [k, v] of [['elev', '450'], ['rwy', '25'], ['qnh', '1005'], ['oat', '20'], ['wdir', '250'], ['wspd', '10']]) setByPilot(c, `land:${k}`, v);
+		c.values['land:place'] = 'LSYY';
+		const before = fingerprint(a, c);
+		c.landingWindForDistances = 'none';
+		expect(fingerprint(a, c)).not.toBe(before);
+		const d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
+		expect(d.landing).toMatchObject({ airfield: 'LSYY', runway: '25', wind: '10 kt head. Crosswind 0 kt. Distances use: No wind', rawMetar: null });
+		const row = (label: string) => d.conditions.find((x) => x.label === label)!;
+		expect(row('Runway')).toEqual({ label: 'Runway', value: '09, heading 090°', source: 'Entered by pilot', landing: { value: '25, heading 250°', source: 'Entered by pilot' } });
+		expect(row('Wind for distances').landing?.value).toBe('No wind');
+		expect(row('Fuel flow').landing).toBeUndefined();
+		const doc = JSON.stringify(reportDocument(d));
+		expect(doc).toContain('LSXX runway 09 → LSYY runway 25');
+	});
 	it('says so when a result has no data, without blocking', () => {
 		const c = ready(a); c.landingCondition = 'grass';
 		const d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
