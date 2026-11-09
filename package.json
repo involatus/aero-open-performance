@@ -37,6 +37,8 @@
     "vitest": "5.1.0"
   },
   "dependencies": {
+    "@fontsource/ibm-plex-mono": "5.3.0",
+    "@fontsource/ibm-plex-sans": "5.3.0",
     "@internationalized/date": "3.12.4",
     "@standard-schema/spec": "1.1.0",
     "@valibot/to-json-schema": "1.8.0",
