@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { validateAircraft } from '../aircraft/validate.ts';
-import { blankInput, limitChoices, newHandCase, setExceeded, setExpectedResult, setExpectedValue } from './hand-cases.ts';
+import { blankInput, caseCoverage, caseSummaries, limitChoices, newHandCase, setExceeded, setExpectedResult, setExpectedValue } from './hand-cases.ts';
 
 const aircraft = (n: string) => {
 	const v = validateAircraft(JSON.parse(readFileSync(`aircraft-examples/${n}.json`, 'utf8')));
@@ -61,5 +61,31 @@ describe('hand-calculated cases', () => {
 			const a = aircraft(n), ids = new Set(limitChoices(a).map((x) => x.id));
 			for (const c of a.handCases) for (const l of calculate(a, c.input).massBalance.limits) expect(ids.has(l.id), `${n}: ${l.id}`).toBe(true);
 		}
+	});
+});
+
+describe('case summaries', () => {
+	it('list each expected distance on paper beside the app, and match when every check of the case passes', () => {
+		const a = aircraft('test-sr22-style');
+		const rows = caseSummaries(a);
+		expect(rows.length).toBeGreaterThanOrEqual(a.handCases.length);
+		expect(rows.every((r) => r.matches)).toBe(true);
+		const withDistance = rows.find((r) => r.phase === 'takeoff' && r.total.paper !== '–')!;
+		expect(withDistance.total.paper).toBe(withDistance.total.app);
+		expect(withDistance.situation).toMatch(/^Takeoff, PA [\d,]+ ft, -?\d+ °C, [\d,]+ lb$/);
+	});
+	it('show what the app got when a case fails', () => {
+		const a = aircraft('test-sr22-style');
+		const c = a.handCases.find((h) => h.expected.takeoff?.total !== undefined)!;
+		c.expected.takeoff!.total! += 10;
+		const row = caseSummaries(a).find((r) => r.caseId === c.id && r.phase === 'takeoff')!;
+		expect(row.matches).toBe(false);
+		expect(row.total.paper).not.toBe(row.total.app);
+	});
+	it('count which conditions have a case, per phase', () => {
+		const a = aircraft('test-dr-style');
+		const full = caseCoverage(a);
+		expect(full.takeoff.missing).toEqual([]);
+		expect(caseCoverage({ ...a, handCases: [] }).takeoff).toMatchObject({ covered: 0, missing: a.performance.takeoff.filter((c) => c.kind === 'steps').map((c) => c.label) });
 	});
 });

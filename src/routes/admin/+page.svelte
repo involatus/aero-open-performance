@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, untrack, type Component } from 'svelte';
+	import { onMount, tick, untrack, type Component } from 'svelte';
 	import { Collapsible, Dialog } from 'bits-ui';
 	import { resolve } from '$app/paths';
 	import Button from '#lib/components/ui/Button.svelte';
@@ -16,13 +16,14 @@
 	import TableEditor from '#lib/components/admin/TableEditor.svelte';
 	import CaseInputs from '#lib/components/admin/CaseInputs.svelte';
 	import CaseEditor from '#lib/components/admin/CaseEditor.svelte';
-	import { blankInput, newHandCase } from '#lib/admin/hand-cases.ts';
+	import { blankInput, caseCoverage, caseSummaries, newHandCase } from '#lib/admin/hand-cases.ts';
 	import { defaultSource, draftId, makeId } from '#lib/admin/editing.ts';
 	import type { AdminStatus, Overview } from '#lib/server/admin-requests.ts';
 	import { NEW_AIRCRAFT, copyForNewAircraft, emptyCells } from '#lib/admin/table-grid.ts';
 	import TableVerify from '#lib/components/admin/TableVerify.svelte';
 	import { tableCheckState } from '#lib/data/table-check.ts';
-	import { publishChecks } from '#lib/data/publish-checks.ts';
+	import { checkList, type Check } from '#lib/data/publish-checks.ts';
+	import { sha256 } from '#lib/data/canonical.ts';
 	import { validateAircraft } from '#lib/aircraft/validate.ts';
 	import type { Aircraft, CalculationInput, HandCase , Axis } from '#lib/aircraft/schema.ts';
 	import { calculate, runHandCases } from '#lib/engine/index.ts';
@@ -50,7 +51,6 @@
 	let tableName = $state('');
 	let currentTable = $state('');
 	let secondTable = $state('');
-	let checked = $state<ReturnType<typeof publishChecks> | null>(null);
 	let testInput = $state<CalculationInput | null>(null);
 	let jsonText = $state('');
 	let jsonError = $state('');
@@ -87,12 +87,40 @@
 	let section = $derived(SECTIONS.find((x) => x.id === tab)!);
 	let Editor = $derived(EDITORS[tab]);
 	// Rerun on every change, so the sidebar always says what still blocks publishing.
-	let liveChecks = $derived.by(() => { if (!editing) return null; try { return publishChecks($state.snapshot(editing.aircraft)); } catch { return null; } });
+	let liveChecks = $derived.by(() => { if (!editing) return null; try { return checkList($state.snapshot(editing.aircraft)); } catch { return null; } });
+	let failing = $derived(liveChecks?.checks.filter((c) => c.status === 'fail') ?? []);
+	/** A section is red while a check it fixes fails, green once they pass, and grey when nothing checks it yet. */
+	function sectionStatus(id: string): Check['status'] | 'none' {
+		const own = liveChecks?.checks.filter((c) => c.section === id) ?? [];
+		if (!own.length) return 'none';
+		return own.some((c) => c.status === 'fail') ? 'fail' : own.some((c) => c.status === 'blocked') ? 'blocked' : 'pass';
+	}
+	const DOT = { fail: 'bg-bad', pass: 'bg-good', blocked: 'bg-line-strong', none: 'bg-line-strong' };
+	let summaries = $derived.by(() => { if (!parsed) return []; try { return caseSummaries(parsed); } catch { return []; } });
+	let coverage = $derived.by(() => (parsed ? caseCoverage(parsed) : null));
+	let openCase = $state<string | null>(null);
+	async function showCase(id: string) {
+		openCase = id;
+		await tick();
+		document.getElementById(`case-${id}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+	}
+	const liveEntry = (registration: string) => overview?.index?.aircraft.find((e) => e.registration === registration && !e.withdrawn);
+	// Pilots' Reports show the data revision, so changed data under the same number would be ambiguous.
+	let published = $derived(editing ? liveEntry(editing.aircraft.registration) : undefined);
+	let changedFromPublished = $state<boolean | null>(null);
+	$effect(() => {
+		const entry = published, data = editing ? $state.snapshot(editing.aircraft) : null;
+		if (!entry?.sha256 || !data) { changedFromPublished = null; return; }
+		let current = true;
+		sha256(data).then((hash) => { if (current) changedFromPublished = hash !== entry.sha256; });
+		return () => { current = false; };
+	});
+	let needsRevision = $derived(!!published && changedFromPublished === true && (editing?.aircraft.revision ?? 0) <= published.revision);
+	function raiseRevision() { editing!.aircraft.revision = published!.revision + 1; touch(); }
 	let showAdd = $state(false);
 	let showSettings = $state(false);
 	let fileInput = $state<HTMLInputElement>();
 	let nextRelease = $derived((overview?.index?.release ?? 0) + 1);
-	const liveEntry = (registration: string) => overview?.index?.aircraft.find((e) => e.registration === registration && !e.withdrawn);
 	// Pilots can only lose an aircraft through a withdrawal, so every published one can be withdrawn.
 	let withdrawable = $derived([...new Set([...(overview?.index?.aircraft.filter((e) => !e.withdrawn).map((e) => e.registration) ?? []), ...(overview?.drafts.map((d) => d.registration).filter(Boolean) ?? [])])]);
 	let parsed = $derived.by(() => { if (!editing) return null; const v = validateAircraft($state.snapshot(editing.aircraft)); return v.ok ? v.aircraft : null; });
@@ -147,7 +175,7 @@
 
 	function open(id: string, aircraft: unknown, version: string | null) {
 		editing = { id, aircraft: structuredClone(aircraft) as Aircraft, version };
-		dirty = false; tab = 'Aircraft'; checked = null; testInput = null; currentTable = ''; secondTable = '';
+		dirty = false; tab = 'Aircraft'; testInput = null; currentTable = ''; secondTable = '';
 	}
 	const openDraft = (id: string) => run(async () => { const d = await api('getDraft', { id }); open(id, d.data.aircraft, d.version); });
 	const createAircraft = () => run(async () => {
@@ -217,7 +245,7 @@
 		message = `${registration} from Release ${release} is now the draft. Publish to make it a new release.`;
 	});
 
-	function touch() { dirty = true; checked = null; }
+	function touch() { dirty = true; }
 	function addTable() {
 		const name = tableName.trim();
 		if (!name) { message = 'Name the table first, such as "takeoff".'; return; }
@@ -229,7 +257,6 @@
 	function removeTable(id: string) { delete editing!.aircraft.tables[id]; currentTable = ''; touch(); }
 	$effect(() => {
 		if (tab === 'JSON' && editing) untrack(() => { jsonText = JSON.stringify($state.snapshot(editing!.aircraft), null, 2); jsonError = ''; });
-		if (tab === 'Check' && editing) untrack(() => { checked = publishChecks($state.snapshot(editing!.aircraft)); });
 		if (tab === 'Try it' && parsed && !testInput) untrack(() => { testInput = blankInput(parsed!); });
 	});
 	function applyJson() {
@@ -255,25 +282,86 @@
 	</Dialog.Root>
 {/snippet}
 
+{#snippet checksPage(list: NonNullable<typeof liveChecks>)}
+	{@const passing = list.checks.filter((c) => c.status === 'pass').length}
+	<div class={['flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3', failing.length ? 'border-bad-line bg-bad-bg' : 'border-good bg-good-bg']} role="status">
+		{#if failing.length}
+			<span class="num flex size-8 flex-none items-center justify-center rounded-full bg-bad font-semibold text-surface">{failing.length}</span>
+			<span class="flex-1"><strong>{failing.length} check{failing.length > 1 ? 's' : ''} to fix.</strong> <span class="text-ink-2">{passing} pass. They rerun on every change.</span></span>
+		{:else}
+			<span class="flex size-8 flex-none items-center justify-center rounded-full bg-good text-surface"><Icon name="check" size={16} stroke={3} /></span>
+			<span class="flex-1 font-bold text-good">This aircraft passes every check.</span>
+		{/if}
+	</div>
+	{#each ['Aircraft data', 'Mass and balance', 'Performance and verification'] as group (group)}
+		{@const own = list.checks.filter((c) => c.group === group)}
+		<section class="overflow-hidden rounded-xl border border-line bg-surface" aria-label={group}>
+			<div class="flex items-baseline justify-between gap-3 px-5 pt-3.5 pb-2">
+				<h3 class="text-[16px] font-bold">{group}</h3>
+				<span class="num text-[13px] text-muted">{own.filter((c) => c.status === 'pass').length} of {own.length}</span>
+			</div>
+			<ul class="m-0 list-none p-0">
+				{#each own as c (c.id)}
+					<li class="flex min-h-12 items-center gap-3 border-t border-canvas px-5 py-1.5">
+						<span class={['flex size-6 flex-none items-center justify-center rounded-full', { pass: 'bg-good-bg text-good', fail: 'bg-bad-bg text-bad', blocked: 'bg-canvas text-muted' }[c.status]]}>
+							<Icon name={c.status === 'pass' ? 'check' : c.status === 'fail' ? 'close' : 'more'} size={12} stroke={3} />
+						</span>
+						<span class="flex-1 text-sm">
+							{#if c.status === 'fail'}<strong>{c.label}</strong>{:else}{c.label}{/if}
+							{#if c.status === 'blocked'}<span class="text-muted"> · runs once the data is complete</span>{/if}
+							{#each c.problems as p (p)}<br /><span class="text-[13px] text-ink-2">{p}</span>{/each}
+						</span>
+						{#if c.status === 'fail' && c.section !== 'Check'}<Button size="sm" onclick={() => (tab = c.section)}>Fix</Button>{/if}
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/each}
+	{#if list.unusual.length && editing}
+		<Card title="Unusual values" description="Compare each with the manual, and tick it only if the manual really says this.">
+			{#each list.unusual as u (u)}
+				<label class="flex items-start gap-2 text-sm"><input type="checkbox" class="mt-0.5 size-5" checked={(editing.aircraft.acknowledgedUnusualValues ?? []).includes(u)} onchange={(e) => { const acknowledged = editing!.aircraft.acknowledgedUnusualValues ?? []; editing!.aircraft.acknowledgedUnusualValues = e.currentTarget.checked ? [...acknowledged, u] : acknowledged.filter((x: string) => x !== u); touch(); }} /> <span>{u}</span></label>
+			{/each}
+		</Card>
+	{/if}
+	<Card title="Optional" description="Compare tables and Try it help find mistakes, but don't block publishing." />
+{/snippet}
+
 {#snippet aside()}
 	<aside class="flex min-w-0 flex-col gap-3" aria-label="Before publishing">
 		<section class="flex flex-col gap-2.5 rounded-xl border border-line bg-surface p-4">
 			<span class="label-caps">Before publishing</span>
+			{#if needsRevision && published}
+				<div class="flex flex-col gap-2 rounded-lg bg-amber-bg p-3 text-sm text-amber-ink">
+					<span><strong>Raise the data revision.</strong> The data changed since pilots got revision {published.revision}, and their Reports show this number.</span>
+					<Button size="sm" variant="dark" class="self-start" onclick={raiseRevision}>Raise to {published.revision + 1}</Button>
+				</div>
+			{/if}
 			{#if !liveChecks}
 				<span class="text-sm text-muted">Checks run once the draft can be read.</span>
-			{:else if liveChecks.problems.length}
+			{:else if failing.length}
 				<div class="flex gap-2.5">
-					<span class="num flex size-6 flex-none items-center justify-center rounded-full bg-amber-bg text-[13px] font-semibold text-amber">{liveChecks.problems.length}</span>
-					<span class="text-sm">{liveChecks.problems[0]}</span>
+					<span class="num flex size-6 flex-none items-center justify-center rounded-full bg-bad-bg text-[13px] font-semibold text-bad">{failing.length}</span>
+					<span class="text-sm"><strong>{failing[0].label}</strong><br /><span class="text-ink-2">{failing[0].problems[0]}</span></span>
 				</div>
+				{#if failing[0].section !== tab}
+					<button type="button" class="link min-h-0 self-start p-0 text-sm" onclick={() => (tab = failing[0].section)}>Go to {SECTIONS.find((x) => x.id === failing[0].section)?.label}</button>
+				{/if}
 				<button type="button" class="link min-h-0 self-start p-0 text-sm" onclick={() => (tab = 'Check')}>See all publish checks</button>
 			{:else}
 				<div class="flex items-center gap-2.5 text-sm"><span class="flex size-6 items-center justify-center rounded-full bg-good-bg text-good"><Icon name="check" size={13} stroke={3} /></span>Every check passes.</div>
 			{/if}
 		</section>
 		<section class="flex flex-col gap-1 rounded-xl border border-line bg-surface p-4">
-			<span class="label-caps">Hand-calculated cases</span>
-			{#if parsed}
+			<span class="label-caps">{tab === 'Test cases' ? 'Coverage' : 'Hand-calculated cases'}</span>
+			{#if parsed && coverage && tab === 'Test cases'}
+				{#each [['Takeoff conditions', coverage.takeoff], ['Landing conditions', coverage.landing]] as const as [label, c] (label)}
+					<span class="flex justify-between text-sm"><span>{label}</span><span class={['num', c.missing.length ? 'text-amber' : 'text-good']}>{c.covered} of {c.total}</span></span>
+				{/each}
+				{#each [...coverage.takeoff.missing.map((m) => `${m} takeoff`), ...coverage.landing.missing.map((m) => `${m} landing`)] as m (m)}
+					<span class="text-[13px] text-muted">{m} has no case yet.</span>
+				{/each}
+			{:else if parsed}
 				<span class="text-sm"><strong>{parsed.handCases.length} case{parsed.handCases.length === 1 ? '' : 's'}</strong>, {caseFailures.length ? `${new Set(caseFailures.map((f) => f.caseId)).size} failing` : 'all passing'}</span>
 				<span class="text-[13px] text-muted">They rerun on every change.</span>
 			{:else}<span class="text-sm text-muted">Finish the other sections first.</span>{/if}
@@ -355,8 +443,11 @@
 									onclick={() => (tab = s.id)}
 									class="flex min-h-10 items-center justify-between gap-2 rounded-lg border-0 bg-transparent px-3 text-left text-sm font-medium text-ink-2 hover:bg-surface aria-[current=page]:bg-surface aria-[current=page]:font-semibold aria-[current=page]:text-ink aria-[current=page]:shadow-raised"
 								>
-									{s.label}
-									{#if s.id === 'Check' && liveChecks?.problems.length}<span aria-hidden="true" class="num rounded-full bg-amber-bg px-[7px] py-0.5 text-xs text-amber">{liveChecks.problems.length}</span>{/if}
+									<span class="flex items-center gap-2.5">
+										{#if s.id !== 'Check' && s.id !== 'JSON'}<span aria-hidden="true" class={['size-2 flex-none rounded-full', DOT[sectionStatus(s.id)]]}></span>{/if}
+										{s.label}
+									</span>
+									{#if s.id === 'Check' && failing.length}<span aria-hidden="true" class="num rounded-full bg-bad-bg px-[7px] py-0.5 text-xs text-bad">{failing.length}</span>{/if}
 								</button>
 							{/each}
 						</div>
@@ -368,6 +459,9 @@
 						<h2 class="text-[22px]! font-bold tracking-[-0.01em]">{section.label}</h2>
 						<p class="mt-0.5 text-muted">{section.description}</p>
 					</div>
+					{#if tab === 'Check' && liveChecks}
+						{@render checksPage(liveChecks)}
+					{:else}
 					<section class="flex min-w-0 flex-col gap-3 rounded-xl border border-line bg-surface p-5">
 						{#if Editor}
 							<Editor a={editing.aircraft} {touch} />
@@ -388,15 +482,51 @@
 								{#key secondTable}<TableVerify a={editing.aircraft} id={secondTable} table={editing.aircraft.tables[secondTable]} by={status?.name ?? ''} {touch} />{/key}
 							{/if}
 						{:else if tab === 'Test cases'}
-							<p class="text-sm text-muted">Each takeoff and landing condition needs one case on a table value and one between values. Also add forward CG, aft CG and over-limit cases.</p>
 							{#if !parsed}
 								<div class="banner unk">Finish the other sections first. Still needed: {validationProblems[0]}</div>
 							{:else}
-								<p class={['font-semibold', caseFailures.length ? 'text-bad' : 'text-good']} role="status">{caseFailures.length ? `${new Set(caseFailures.map((f) => f.caseId)).size} of ${parsed.handCases.length} cases fail.` : `${parsed.handCases.length} cases, all passing.`}</p>
+								{@const failingCases = new Set(caseFailures.map((f) => f.caseId)).size}
+								<div class="flex flex-wrap items-center justify-between gap-3">
+									<p class={['font-semibold', failingCases ? 'text-bad' : 'text-good']} role="status">{failingCases ? `${failingCases} of ${parsed.handCases.length} cases fail.` : `${parsed.handCases.length} of ${parsed.handCases.length} match.`} <span class="font-normal text-muted">They rerun on every change.</span></p>
+									<Button onclick={() => { const c = newHandCase(parsed!, status?.name ?? '', Date.now()); editing!.aircraft.handCases.push(c); touch(); showCase(c.id); }}><Icon name="plus" />Add a case</Button>
+								</div>
+								<p class="text-sm text-muted">Each takeoff and landing condition needs one case on a table value and one between values. Also add forward CG, aft CG and over-limit cases.</p>
+								{#if summaries.length}
+									<div class="-mx-5 overflow-x-auto border-y border-line">
+										<table class="w-full border-collapse text-sm">
+											<thead>
+												<tr class="bg-subtle-2 text-left">
+													<th class="label-caps px-3 py-2 text-[11px] first:pl-5">#</th>
+													<th class="label-caps min-w-[260px] px-3 py-2 text-[11px]">Situation</th>
+													<th class="label-caps px-3 py-2 text-right text-[11px]">Ground roll<br /><span class="font-normal tracking-normal normal-case">paper · app</span></th>
+													<th class="label-caps px-3 py-2 text-right text-[11px]">Total<br /><span class="font-normal tracking-normal normal-case">paper · app</span></th>
+													<th class="label-caps px-3 py-2 pr-5 text-[11px]">Result</th>
+												</tr>
+											</thead>
+											<tbody>
+												{#each summaries as row, i (`${row.caseId}-${row.phase}`)}
+													<tr class="border-t border-divider">
+														<td class="num px-3 py-2 pl-5 align-top text-muted">{i + 1}</td>
+														<td class="px-3 py-2 align-top">
+															<button type="button" class="link min-h-0 p-0 text-left font-normal text-ink no-underline hover:underline" onclick={() => showCase(row.caseId)}>
+																{#if row.phase === 'massBalance'}<strong>Mass and balance</strong>{row.situation.slice('Mass and balance'.length)}{:else}<strong>{row.situation.split(',')[0]}</strong>{row.situation.slice(row.situation.indexOf(','))}{/if}
+															</button>
+															<br /><span class="text-[13px] text-muted">{row.label} · {row.detail}</span>
+														</td>
+														{#each [row.groundRoll, row.total] as v, k (k)}
+															<td class={['num px-3 py-2 text-right align-top whitespace-nowrap', v.paper !== v.app && 'font-semibold text-bad']}>{v.paper} · {v.app}</td>
+														{/each}
+														<td class="px-3 py-2 pr-5 align-top"><span class={['rounded-full px-2 py-0.5 text-xs font-semibold', row.matches ? 'bg-good-bg text-good' : 'bg-bad-bg text-bad']}>{row.matches ? 'Match' : 'Differs'}</span></td>
+													</tr>
+												{/each}
+											</tbody>
+										</table>
+									</div>
+								{/if}
+								<h3 class="pt-2 text-[16px] font-bold">Edit cases</h3>
 								{#each editing.aircraft.handCases as c, i (c.id)}
-									<CaseEditor aircraft={parsed} {c} fails={caseFailures.filter((f) => f.caseId === c.id)} {touch} remove={() => { editing!.aircraft.handCases.splice(i, 1); touch(); }} />
+									<CaseEditor aircraft={parsed} {c} open={openCase === c.id} fails={caseFailures.filter((f) => f.caseId === c.id)} {touch} remove={() => { editing!.aircraft.handCases.splice(i, 1); touch(); }} />
 								{/each}
-								<div><Button onclick={() => { editing!.aircraft.handCases.push(newHandCase(parsed!, status?.name ?? '', Date.now())); touch(); }}><Icon name="plus" />Add a case</Button></div>
 							{/if}
 						{:else if tab === 'Try it'}
 							{#if !parsed}<div class="banner unk">Finish the other sections first. Still needed: {validationProblems[0]}</div>
@@ -414,31 +544,13 @@
 									{/each}
 								{/if}
 							{/if}
-						{:else if tab === 'Check'}
-							{#if checked}
-								{#if checked.problems.length}
-									<p class="font-bold text-bad" role="status">{checked.problems.length} still to fix.</p>
-									<ul class="m-0 flex list-none flex-col p-0">
-										{#each checked.problems as p (p)}
-											<li class="flex items-start gap-3 border-t border-divider py-2.5 first:border-t-0"><span class="mt-0.5 flex size-5 flex-none items-center justify-center rounded-full bg-bad-bg text-bad"><Icon name="close" size={11} stroke={3} /></span><span class="text-sm">{p}</span></li>
-										{/each}
-									</ul>
-								{:else}<p class="flex items-center gap-2.5 font-bold text-good" role="status"><span class="flex size-6 items-center justify-center rounded-full bg-good-bg"><Icon name="check" size={13} stroke={3} /></span>This aircraft passes every check.</p>{/if}
-								{#if checked.unusual.length}
-									<h3 class="m-0 font-bold">Unusual values</h3>
-									<p class="muted">Compare each with the manual, and tick it only if the manual really says this.</p>
-									{#each checked.unusual as u (u)}
-										<label class="flex items-start gap-2"><input type="checkbox" checked={(editing.aircraft.acknowledgedUnusualValues ?? []).includes(u)} onchange={(e) => { const list = editing!.aircraft.acknowledgedUnusualValues ?? []; editing!.aircraft.acknowledgedUnusualValues = e.currentTarget.checked ? [...list, u] : list.filter((x: string) => x !== u); touch(); checked = publishChecks($state.snapshot(editing!.aircraft)); }} /> <span>{u}</span></label>
-									{/each}
-								{/if}
-								<div><Button onclick={() => (checked = publishChecks($state.snapshot(editing!.aircraft)))}>Rerun checks</Button></div>
-							{/if}
 						{:else if tab === 'JSON'}
 							<textarea class="adm h-96 w-full font-mono text-sm" spellcheck="false" aria-label="Aircraft file as JSON" bind:value={jsonText}></textarea>
 							{#if jsonError}<div class="banner notsent" role="alert">{jsonError}</div>{/if}
 							<div><Button onclick={applyJson}>Apply</Button></div>
 						{/if}
 					</section>
+					{/if}
 				</div>
 
 				{@render aside()}
@@ -472,13 +584,12 @@
 									</thead>
 									<tbody>
 										{#each overview.drafts as d (d.id)}
-											{@const live = liveEntry(d.registration)}
 											<tr class="border-b border-divider last:border-b-0">
 												<td class="px-5 py-3"><button type="button" class="link num min-h-0 p-0 font-semibold no-underline" onclick={() => openDraft(d.id)}>{d.registration || d.id}</button></td>
 												<td class="px-5 py-3">{d.type}<br /><span class="text-[13px] text-muted">Revision {d.revision ?? '–'}</span></td>
 												<td class="px-5 py-3">
-													<span class={['rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap', !live ? 'bg-amber-bg text-amber' : live.revision !== d.revision ? 'bg-accent-soft text-accent-strong' : 'bg-canvas text-ink-2']}>
-														{!live ? 'Not published yet' : live.revision !== d.revision ? `Pilots have revision ${live.revision}` : 'Published revision'}
+													<span class={['rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap', !d.published ? 'bg-amber-bg text-amber' : d.published.same ? 'bg-canvas text-ink-2' : 'bg-accent-soft text-accent-strong']}>
+														{!d.published ? 'New, not published' : d.published.same ? 'Same as published' : `Changed since Release ${d.published.release}`}
 													</span>
 												</td>
 												<td class="px-5 py-3">{d.updatedBy}<br /><span class="num text-[13px] text-muted">{d.updatedAt.slice(0, 10)}</span></td>

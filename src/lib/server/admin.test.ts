@@ -89,6 +89,15 @@ describe('publishing', () => {
 		expect(await verifyInstalled(installed)).toBe(true);
 		expect((await listReleases(s))[0]).toMatchObject({ release: 1, publishedBy: ADMIN });
 	});
+	it('says for each draft whether pilots already have exactly this version', async () => {
+		expect((await listDrafts(s))[0].published).toBeNull();
+		await publish(s, {}, ADMIN, NOW);
+		expect((await listDrafts(s))[0].published).toEqual({ release: 1, revision: 1, same: true });
+		const changed = raw('test-kitfox-style');
+		changed.type = 'Changed type';
+		await saveDraft(s, 'TEST-KF', { aircraft: changed, version: (await getDraft(s, 'TEST-KF')).version }, ADMIN, NOW);
+		expect((await listDrafts(s))[0].published).toEqual({ release: 1, revision: 1, same: false });
+	});
 	it('has no way past a failing check, and leaves pilots on the old release', async () => {
 		await publish(s, {}, ADMIN, NOW);
 		const bad = raw('test-kitfox-style');

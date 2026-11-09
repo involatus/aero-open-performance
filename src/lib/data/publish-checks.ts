@@ -92,18 +92,78 @@ function checkAcross(table: Table, cells: unknown, output: string, id: string, o
 	loop(0, []);
 }
 
-export function publishChecks(data: unknown): CheckResult & { aircraft: Aircraft | null } {
+export type CheckGroup = 'Aircraft data' | 'Mass and balance' | 'Performance and verification';
+/** One named check. A blocked check waits for the file to be complete before it can run. */
+export type Check = { id: string; group: CheckGroup; label: string; section: string; status: 'pass' | 'fail' | 'blocked'; problems: string[] };
+
+/** Every named check, in the order they are listed. `section` is the admin section that fixes it. */
+const CHECKS: Array<Omit<Check, 'status' | 'problems'>> = [
+	{ id: 'identity', group: 'Aircraft data', label: 'Registration, type, revision and units set', section: 'Aircraft' },
+	{ id: 'sources', group: 'Aircraft data', label: 'Every arm, limit and table names its manual page', section: 'Documents' },
+	{ id: 'notes', group: 'Aircraft data', label: 'Manual notes complete', section: 'Notes' },
+	{ id: 'weighing', group: 'Mass and balance', label: 'Weighing and configurations complete', section: 'Weighing' },
+	{ id: 'stations', group: 'Mass and balance', label: 'Every station has an arm, and combined limits name real stations', section: 'Load' },
+	{ id: 'fuel', group: 'Mass and balance', label: 'Every tank and burn plan complete', section: 'Fuel' },
+	{ id: 'limits', group: 'Mass and balance', label: 'Mass limits and CG envelope complete', section: 'Limits' },
+	{ id: 'tables', group: 'Performance and verification', label: 'Tables complete, with axes that rise', section: 'Tables' },
+	{ id: 'conditions', group: 'Performance and verification', label: 'Every condition pilots can pick has its steps', section: 'Performance' },
+	{ id: 'cases-match', group: 'Performance and verification', label: 'Hand-calculated cases all match', section: 'Test cases' },
+	{ id: 'cases-cover', group: 'Performance and verification', label: 'Cases cover every condition, forward and aft CG, and an exceeded limit', section: 'Test cases' },
+	{ id: 'tables-compared', group: 'Performance and verification', label: 'Every table compared with the manual', section: 'Compare tables' },
+	{ id: 'unusual', group: 'Performance and verification', label: 'Unusual values checked against the manual', section: 'Check' }
+];
+/** Checks that need a complete, valid file before they can run. */
+const NEEDS_VALID = new Set(['cases-match', 'cases-cover', 'tables-compared', 'unusual']);
+
+/** Which check a problem from validating the file belongs to, from where it points in the file. */
+function checkOfProblem(problem: string): string {
+	const where = problem.split(':')[0];
+	if (problem.includes('unknown source') || /^sources\b/.test(where)) return 'sources';
+	const rules: Array<[RegExp, string]> = [
+		[/^(stations|Station|combinedLimits|Limit )/, 'stations'],
+		[/^(tanks|Tank|burnPlans|Burn plan|defaultBurnPlan|fuelFlow|Fuel flow)/, 'fuel'],
+		[/^(envelope|Envelope|massLimits|Max |mac|MAC|crosswind|Crosswind)/, 'limits'],
+		[/^(tables|Table )/, 'tables'],
+		[/^Configuration \S+ weighing/, 'weighing'],
+		[/^(performance|Performance|Configuration \S+ (takeoff|landing))/, 'conditions'],
+		[/^configurations/, /^configurations\.\d+\.performance/.test(where) ? 'conditions' : 'weighing'],
+		[/^(notes|Note )/, 'notes'],
+		[/^handCases/, 'cases-match']
+	];
+	return rules.find(([re]) => re.test(where))?.[1] ?? 'identity';
+}
+
+/** All named checks, passing or not, so the admin can show what is done as well as what is left. */
+export function checkList(data: unknown): CheckResult & { aircraft: Aircraft | null; checks: Check[] } {
+	const found = new Map<string, string[]>();
+	const add = (id: string, problem: string) => found.set(id, [...(found.get(id) ?? []), problem]);
 	const v = validateAircraft(data);
-	if (!v.ok) return { problems: v.problems, unusual: [], aircraft: null };
-	const a = v.aircraft, problems: string[] = [];
-	try {
-		runHandCases(a).forEach((f) => problems.push(`Case ${f.caseId}, ${f.field}: expected ${String(f.expected)}, got ${String(f.actual)}`));
-		problems.push(...coverageProblems(a));
-		problems.push(...tableCheckProblems(a));
-	} catch (error) {
-		problems.push(`Could not run the hand-calculated cases: ${(error as Error).message}`);
+	let unusual: string[] = [], problems: string[];
+	if (!v.ok) {
+		problems = v.problems;
+		problems.forEach((p) => add(checkOfProblem(p), p));
+	} else {
+		const a = v.aircraft;
+		try {
+			runHandCases(a).forEach((f) => add('cases-match', `Case ${f.caseId}, ${f.field}: expected ${String(f.expected)}, got ${String(f.actual)}`));
+			coverageProblems(a).forEach((p) => add('cases-cover', p));
+			tableCheckProblems(a).forEach((p) => add('tables-compared', p));
+		} catch (error) {
+			add('cases-match', `Could not run the hand-calculated cases: ${(error as Error).message}`);
+		}
+		unusual = unusualValues(a);
+		const acknowledged = new Set(a.acknowledgedUnusualValues ?? []);
+		unusual.filter((u) => !acknowledged.has(u)).forEach((u) => add('unusual', `Unusual value not acknowledged: ${u}`));
+		problems = ['cases-match', 'cases-cover', 'tables-compared', 'unusual'].flatMap((id) => found.get(id) ?? []);
 	}
-	const unusual = unusualValues(a), acknowledged = new Set(a.acknowledgedUnusualValues ?? []);
-	unusual.filter((u) => !acknowledged.has(u)).forEach((u) => problems.push(`Unusual value not acknowledged: ${u}`));
-	return { problems, unusual, aircraft: a };
+	const checks = CHECKS.map((c): Check => {
+		const list = found.get(c.id) ?? [];
+		return { ...c, problems: list, status: list.length ? 'fail' : !v.ok && NEEDS_VALID.has(c.id) ? 'blocked' : 'pass' };
+	});
+	return { problems, unusual, aircraft: v.ok ? v.aircraft : null, checks };
+}
+
+export function publishChecks(data: unknown): CheckResult & { aircraft: Aircraft | null } {
+	const { problems, unusual, aircraft } = checkList(data);
+	return { problems, unusual, aircraft };
 }

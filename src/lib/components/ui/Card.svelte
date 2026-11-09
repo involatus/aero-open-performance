@@ -7,7 +7,7 @@
 		description?: string;
 		/** Beside the title, such as buttons or a short source note. */
 		actions?: Snippet;
-		children: Snippet;
+		children?: Snippet;
 		flush?: boolean;
 		class?: string;
 	} & HTMLAttributes<HTMLElement>;
@@ -24,5 +24,5 @@
 			{@render actions?.()}
 		</div>
 	{/if}
-	{@render children()}
+	{@render children?.()}
 </section>

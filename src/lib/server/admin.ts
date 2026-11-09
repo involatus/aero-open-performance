@@ -4,6 +4,7 @@ import { formatIsReadable } from '../aircraft/validate.ts';
 import { buildRelease, nextReleaseNumber, type DraftInput } from '../data/build-release.ts';
 import { unusualValues } from '../data/publish-checks.ts';
 import { parseIndex, type Change, type ReleaseIndex } from '../data/release.ts';
+import { sha256 } from '../data/canonical.ts';
 import { validateAircraft } from '../aircraft/validate.ts';
 import { AlreadyExists, VersionConflict, type Storage } from './storage/index.ts';
 
@@ -35,14 +36,22 @@ export async function latestIndex(s: Storage): Promise<ReleaseIndex | null> {
 	return stored ? parseIndex(stored.data) : null;
 }
 
+/** Where pilots' copy of a draft's aircraft came from, and whether the draft is still exactly that. */
+export type PublishedState = { release: number; revision: number; same: boolean } | null;
+
 export async function listDrafts(s: Storage) {
-	const paths = await s.list('drafts/');
+	const paths = await s.list('drafts/'), index = await latestIndex(s);
 	const out = [];
 	for (const path of paths) {
 		const stored = await s.get<Draft>(path);
 		if (!stored) continue;
 		const a = stored.data.aircraft as { registration?: string; type?: string; revision?: number } | null;
-		out.push({ id: path.slice('drafts/'.length, -'.json'.length), registration: a?.registration ?? '', type: a?.type ?? '', revision: a?.revision ?? null, updatedBy: stored.data.updatedBy, updatedAt: stored.data.updatedAt });
+		const live = index?.aircraft.find((e) => e.registration === a?.registration && !e.withdrawn);
+		// The index holds each file's checksum, so no published file needs reading. Its path names the release it came from.
+		const published: PublishedState = live?.file && live.sha256
+			? { release: Number(/releases\/(\d+)\//.exec(live.file)?.[1] ?? index!.release), revision: live.revision, same: (await sha256(stored.data.aircraft)) === live.sha256 }
+			: null;
+		out.push({ id: path.slice('drafts/'.length, -'.json'.length), registration: a?.registration ?? '', type: a?.type ?? '', revision: a?.revision ?? null, updatedBy: stored.data.updatedBy, updatedAt: stored.data.updatedAt, published });
 	}
 	return out;
 }

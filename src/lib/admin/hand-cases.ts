@@ -4,6 +4,7 @@
  */
 import type { Aircraft, CalculationInput, HandCase } from '../aircraft/schema.ts';
 import { performanceOf } from '../app/calculation.ts';
+import { calculate, runHandCases } from '../engine/index.ts';
 import { stored } from './editing.ts';
 
 type Phase = 'takeoff' | 'landing';
@@ -68,4 +69,70 @@ export function setExpectedResult(c: HandCase, phase: Phase, field: 'status' | '
 
 export function setExceeded(c: HandCase, id: string, on: boolean) {
 	c.expected.exceeded = on ? [...new Set([...c.expected.exceeded, id])] : c.expected.exceeded.filter((x) => x !== id);
+}
+
+export type CaseSummary = {
+	caseId: string;
+	label: string;
+	phase: Phase | 'massBalance';
+	/** "Takeoff, PA 1,240 ft, 12 °C, 3,105 lb" */
+	situation: string;
+	/** "9 kt head · Paved, dry" */
+	detail: string;
+	groundRoll: { paper: string; app: string };
+	total: { paper: string; app: string };
+	/** False when any check of this case fails, so a failing case is never shown as matching. */
+	matches: boolean;
+};
+
+const STATUS_WORDS: Record<string, string> = { noData: 'No data', noResult: 'No result', needsInput: 'Needs input' };
+
+/** One row per expected distance, and one for a case that only checks mass and CG: paper beside the app. */
+export function caseSummaries(a: Aircraft): CaseSummary[] {
+	const failures = runHandCases(a), n = (x: number) => x.toLocaleString('en');
+	const rows: CaseSummary[] = [];
+	for (const c of a.handCases) {
+		const r = calculate(a, c.input), matches = !failures.some((f) => f.caseId === c.id);
+		const pa = r.atmosphere ? `PA ${n(Math.round(r.atmosphere.pressureAltitudeFt))} ft` : 'no altitude';
+		const oat = c.input.oat === null ? 'no OAT' : `${c.input.oat} °C`;
+		const wind = !r.distanceWind ? 'No wind given' : Math.abs(r.distanceWind.headwind) < 0.5 ? 'Calm' : `${n(Math.round(Math.abs(r.distanceWind.headwind)))} kt ${r.distanceWind.headwind > 0 ? 'head' : 'tail'}`;
+		const phases = (['takeoff', 'landing'] as const).filter((p) => c.expected[p]);
+		for (const phase of phases) {
+			const want = c.expected[phase]!, got = r[phase], mass = r.massBalance[phase].mass;
+			const paper = (x: number | undefined) => (want.status !== 'ok' ? STATUS_WORDS[want.status] : x === undefined ? '–' : n(x));
+			const app = (x: number | null) => (got.status !== 'ok' ? STATUS_WORDS[got.status] : x === null ? '–' : n(x));
+			rows.push({
+				caseId: c.id, label: c.label, phase,
+				situation: `${phase === 'takeoff' ? 'Takeoff' : 'Landing'}, ${pa}, ${oat}, ${n(Math.round(mass))} ${a.units.mass}`,
+				detail: `${wind} · ${got.conditionLabel}`,
+				groundRoll: { paper: paper(want.groundRoll), app: app(got.groundRoll) },
+				total: { paper: paper(want.total), app: app(got.total) },
+				matches
+			});
+		}
+		if (!phases.length) {
+			const exceeded = c.expected.exceeded.length ? `Exceeds ${c.expected.exceeded.join(', ')}` : 'Within every limit';
+			rows.push({
+				caseId: c.id, label: c.label, phase: 'massBalance',
+				situation: `Mass and balance, ${n(Math.round(r.massBalance.takeoff.mass))} ${a.units.mass} at takeoff`,
+				detail: exceeded,
+				groundRoll: { paper: '–', app: '–' }, total: { paper: '–', app: '–' },
+				matches
+			});
+		}
+	}
+	return rows;
+}
+
+/** How many of the conditions pilots can pick have at least one case, per phase, and which don't. */
+export function caseCoverage(a: Aircraft): Record<Phase, { covered: number; total: number; missing: string[] }> {
+	const out = {} as Record<Phase, { covered: number; total: number; missing: string[] }>;
+	for (const phase of ['takeoff', 'landing'] as const) {
+		const conditions = new Map<string, string>();
+		for (const config of a.configurations) performanceOf(a, config.id)?.[phase].forEach((c) => { if (c.kind === 'steps') conditions.set(c.id, c.label); });
+		const used = new Set(a.handCases.filter((h) => h.expected[phase]).map((h) => (phase === 'takeoff' ? h.input.takeoffCondition : h.input.landingCondition)));
+		const missing = [...conditions].filter(([id]) => !used.has(id)).map(([, label]) => label);
+		out[phase] = { covered: conditions.size - missing.length, total: conditions.size, missing };
+	}
+	return out;
 }
