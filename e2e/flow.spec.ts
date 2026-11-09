@@ -468,3 +468,63 @@ test('wind for the calculation: a conservative choice changes distances, never t
 	await expect(results).not.toContainText('Distances:');
 	expect(errors).toEqual([]);
 });
+
+test('landing at another airfield: its own conditions for the landing, on the Report, and the next flight starts there', async ({ page }) => {
+	const errors = await failOnErrors(page);
+	await page.addInitScript(() => {
+		const w = window as unknown as { shared: string[] };
+		w.shared = [];
+		navigator.canShare = () => true;
+		navigator.share = async (data) => {
+			const bytes = new Uint8Array(await (data as { files: File[] }).files[0].arrayBuffer());
+			let binary = '';
+			bytes.forEach((b) => { binary += String.fromCharCode(b); });
+			w.shared.push(btoa(binary));
+		};
+	});
+	await page.goto('/');
+	// Its landing table has altitude, temperature and a wind correction.
+	await page.getByRole('button', { name: /^TEST-SR/ }).click();
+	await type(page, 'load:front', '340');
+	await stepButton(page, '2 · Fuel').click();
+	await type(page, 'fuel:main', '50');
+	await type(page, 'time', '1');
+	await type(page, 'flow', '15');
+	await stepButton(page, '3 · Conditions').click();
+	for (const [id, value] of [['elev', '400'], ['rwy', '9'], ['qnh', '1013'], ['oat', '15'], ['wdir', '90'], ['wspd', '5']]) await type(page, id, value);
+	await page.getByRole('button', { name: 'Close keypad' }).click();
+	const results = page.getByRole('complementary', { name: 'Results' });
+	const landing = results.getByText(/^Landing · /).locator('..');
+	const atDeparture = await landing.textContent();
+
+	await page.getByRole('radio', { name: 'Another airfield' }).click();
+	await expect(page.getByRole('heading', { name: 'Landing weather' })).toBeVisible();
+	await expect(page.getByText('A METAR is the weather now, not at your arrival.')).toBeVisible();
+	await expect(stepButton(page, '3 · Conditions')).toContainText('6 to do');
+	for (const [id, value] of [['elev', '1000'], ['rwy', '36'], ['qnh', '1000'], ['oat', '25'], ['wdir', '90'], ['wspd', '20']]) await type(page, `land:${id}`, value);
+	await page.getByRole('button', { name: 'Close keypad' }).click();
+	await expect(results).toContainText('Landing density alt.');
+	await expect(results).toContainText('Landing wind');
+	await expect(landing).not.toHaveText(atDeparture!);
+	await expect(results).toContainText('Crosswind 20 kt');
+
+	await stepButton(page, '4 · Send').click();
+	await expect(page.getByRole('button', { name: /Enter landing airfield/ })).toBeVisible();
+	await page.locator('#f-place').fill('LSXX');
+	await page.locator('[id="f-land:place"]').fill('LSYY');
+	await page.locator('#f-name').fill('A Pilot');
+	await page.getByRole('button', { name: 'Create report' }).click();
+	await page.getByRole('button', { name: 'Share PDF' }).click();
+	await expect(page.locator('.banner')).toContainText('Shared, delivery unknown');
+	const shared = await page.evaluate(() => (window as unknown as { shared: string[] }).shared);
+	expect(shared).toHaveLength(1);
+	if (process.env.LANDING_PDF_OUT) writeFileSync(process.env.LANDING_PDF_OUT, Buffer.from(shared[0], 'base64'));
+
+	await newCalculation(page, 'Next flight');
+	await stepButton(page, '3 · Conditions').click();
+	await expect(page.locator('[id="f-elev"]')).toHaveValue('1000');
+	await expect(page.getByRole('radio', { name: 'Departure airfield' })).toBeChecked();
+	await stepButton(page, '4 · Send').click();
+	await expect(page.locator('#f-place')).toHaveValue('LSYY');
+	expect(errors).toEqual([]);
+});

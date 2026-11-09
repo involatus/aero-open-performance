@@ -49,6 +49,7 @@ A **Configuration** has `id`, `label` and `weighing` (`mass`, `moment`, `date`, 
 | `windDirection`, `runwayHeading` | Degrees, or `null` |
 | `windSpeed` | Knots, or `null` |
 | `windForDistances` | Optional: `entered` (the default), `none` or `tail3` |
+| `landingAt` | Optional: the landing airfield's `elevation`, `qnh`, `oat`, `windDirection`, `windSpeed`, `runwayHeading` and `windForDistances`, when it isn't the departure airfield |
 | `takeoffCondition`, `landingCondition` | Condition ids |
 
 Every id must exist in the file. An unknown id is an error in the calling code, not a result.
@@ -121,6 +122,8 @@ crosswind = |windSpeed × sin(angle)|
 ```
 
 The crosswind check and the wind shown to the pilot always use the entered wind. The distances use `windForDistances`: `none` plans with no headwind and `tail3` with a 3 kt tailwind. The headwind used is the smaller of the chosen and the entered one, so a choice never shortens a distance. A stronger entered tailwind is always kept.
+
+With `landingAt`, the landing distance uses the landing airfield's atmosphere and wind, and the crosswind check runs at each airfield: `crosswind` for the departure and `landingCrosswind` for the landing.
 
 ## Performance
 

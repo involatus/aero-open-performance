@@ -4,7 +4,7 @@ import fc from 'fast-check';
 import { validateAircraft } from '../aircraft/validate.ts';
 import type { Aircraft } from '../aircraft/schema.ts';
 import { calculate } from '../engine/index.ts';
-import { applyKey, applyQuick, applyWeather, canReport, changeConfiguration, confirmValue, confirmWeather, isOldCalculation, reportAgeMinutes, fieldsFor, newCalculation, nextFlight, parse, prefill, reconcileAfterInstall, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation , runwayHeading } from './calculation.ts';
+import { applyKey, applyQuick, applyWeather, keyAt, canReport, changeConfiguration, confirmValue, confirmWeather, isOldCalculation, reportAgeMinutes, fieldsFor, newCalculation, nextFlight, parse, prefill, reconcileAfterInstall, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation , runwayHeading } from './calculation.ts';
 
 const load = (name: string): Aircraft => {
 	const r = validateAircraft(JSON.parse(readFileSync(`aircraft-examples/${name}.json`, 'utf8')));
@@ -207,6 +207,60 @@ describe('next flight', () => {
 		expect(Object.values(n.notes)).toEqual([]);
 	});
 	it('does not change the original', () => expect(c.values['fuel:front']).toBe('20'));
+});
+
+describe('landing at another airfield', () => {
+	const elsewhere = () => {
+		const c = ready(dr);
+		c.landingElsewhere = true;
+		return c;
+	};
+	const fill = (c: Calculation) => {
+		for (const [k, v] of [['elev', '450'], ['rwy', '25'], ['qnh', '1005'], ['oat', '20'], ['wdir', '250'], ['wspd', '10']]) setByPilot(c, keyAt('landing', k), v);
+		c.values['land:place'] = 'LSYY';
+	};
+	it('adds the landing fields to Conditions, named as landing', () => {
+		const labels = fieldsFor(dr, elsewhere())[2].map((f) => f.label);
+		expect(labels).toEqual(['Elevation', 'Runway', 'QNH', 'OAT', 'Wind from', 'Wind speed', 'Landing elevation', 'Landing runway', 'Landing QNH', 'Landing OAT', 'Landing wind from', 'Landing wind speed']);
+		expect(fieldsFor(dr, ready(dr))[2]).toHaveLength(6);
+	});
+	it('asks for the landing values and airfield before a Report', () => {
+		const c = elsewhere();
+		expect(toDoList(dr, c).map((t) => t.label)).toEqual(expect.arrayContaining(['Enter Landing QNH', 'Enter landing airfield']));
+		fill(c);
+		expect(toDoList(dr, c)).toEqual([]);
+	});
+	it('passes the landing conditions to the engine only when landing elsewhere', () => {
+		const c = elsewhere();
+		fill(c);
+		c.landingWindForDistances = 'tail3';
+		expect(toInput(dr, c).landingAt).toEqual({ elevation: { value: 450, unit: 'm' }, qnh: 1005, oat: 20, windDirection: 250, windSpeed: 10, runwayHeading: 250, windForDistances: 'tail3' });
+		expect(toInput(dr, c).qnh).toBe(1013);
+		c.landingElsewhere = false;
+		expect(toInput(dr, c).landingAt).toBeUndefined();
+	});
+	it('applies variable wind as a tailwind on the landing runway', () => {
+		const c = elsewhere();
+		fill(c);
+		setByPilot(c, 'land:wdir', 'VRB');
+		expect(toInput(dr, c).landingAt?.windDirection).toBe(70);
+		expect(toDoList(dr, c)).toEqual([]);
+	});
+	it('prefills landing weather under its own keys', () => {
+		const c = elsewhere();
+		applyWeather(c, { raw: 'METAR LSYY 061250Z 27012KT 9999 18/06 Q1004', station: 'LSYY', stationName: null, distanceKm: 0 }, Date.UTC(2026, 10, 6, 13), 'landing');
+		expect([c.values['land:qnh'], c.values['land:wspd'], c.values.qnh]).toEqual(['1004', '12', '1013']);
+		expect(c.status['land:qnh']).toBe('pre');
+		expect(c.landingWeather?.station).toBe('LSYY');
+		confirmWeather(c, 'landing');
+		expect(c.status['land:qnh']).toBe('ok');
+	});
+	it('starts the next flight at the landing airfield', () => {
+		const c = elsewhere();
+		fill(c);
+		const n = nextFlight(dr, c, calculate(dr, toInput(dr, c)), 'n', NOW);
+		expect([n.values.place, n.values.elev, n.status.elev, n.landingElsewhere]).toEqual(['LSYY', '450', 'pre', undefined]);
+	});
 });
 
 describe('tabs and configurations', () => {

@@ -35,6 +35,12 @@
 			<span class="font-bold">Departure airfield</span>
 			<input id="f-place" type="text" enterkeyhint="done" autocapitalize="characters" autocorrect="off" spellcheck="false" autocomplete="off" placeholder="Identifier or name" bind:value={calc.values.place} onfocus={closePad} class={textInput(!calc.values.place?.trim())} />
 		</label>
+		{#if calc.landingElsewhere}
+			<label class="flex flex-col gap-1.5" id="w-land:place">
+				<span class="font-bold">Landing airfield</span>
+				<input id="f-land:place" type="text" enterkeyhint="done" autocapitalize="characters" autocorrect="off" spellcheck="false" autocomplete="off" placeholder="Identifier or name" bind:value={calc.values['land:place']} onfocus={closePad} class={textInput(!calc.values['land:place']?.trim())} />
+			</label>
+		{/if}
 		<label class="flex flex-col gap-1.5" id="w-name">
 			<span class="font-bold">Pilot name</span>
 			<input id="f-name" type="text" enterkeyhint="done" autocapitalize="words" autocorrect="off" spellcheck="false" autocomplete="name" placeholder="First and last name" bind:value={calc.values.name} onfocus={closePad} class={textInput(!calc.values.name?.trim())} />

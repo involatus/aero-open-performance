@@ -6,7 +6,7 @@
 	import { limitText } from '#lib/engine/mass-balance.ts';
 	import type { Calculation, ToDo } from '#lib/app/calculation.ts';
 	import { isVariableWind } from '#lib/app/calculation.ts';
-	import { altitudeText, armText, limitBadge, statusWord, windChoiceText, windText } from '#lib/app/presentation.ts';
+	import { altitudeText, armText, landingConditions, limitBadge, statusWord, windChoiceText, windText } from '#lib/app/presentation.ts';
 	import type { PerformanceResult } from '#lib/engine/performance.ts';
 	import CgChart from '../CgChart.svelte';
 	import Badge from '../ui/Badge.svelte';
@@ -23,9 +23,12 @@
 	// Load and fuel set the masses, so those steps lead with them. Conditions and Send lead with distances.
 	let massFirst = $derived(calc.step < 2);
 	let limits = $derived(results.massBalance.limits);
-	let altitude = $derived(altitudeText(results));
-	let wind = $derived(windText(results.wind, isVariableWind(calc)));
-	let runway = $derived(calc.airfield?.runway);
+	/** One row of conditions per airfield: the landing one only when it is elsewhere. */
+	let places = $derived([
+		{ title: calc.landingElsewhere ? 'Departure' : '', at: results, variable: isVariableWind(calc), choice: calc.windForDistances ?? 'entered' },
+		...(calc.landingElsewhere ? [{ title: 'Landing', at: landingConditions(results), variable: isVariableWind(calc, 'landing'), choice: calc.landingWindForDistances ?? 'entered' }] : [])
+	]);
+	let runways = $derived({ takeoff: calc.airfield?.runway, landing: calc.landingElsewhere ? calc.landingAirfield?.runway : calc.airfield?.runway });
 	const thousands = (x: number) => x.toLocaleString('en');
 	const mass = (x: number) => thousands(Number(x.toFixed(aircraft.display.massDecimals)));
 	const tone = (s: Limit['status']) => ({ ok: 'ok', warnb: 'todo', fail: 'over' } as const)[limitBadge(s).tone];
@@ -34,7 +37,7 @@
 	const row = 'flex min-h-12 w-full items-center gap-3 rounded-lg border-0 bg-transparent px-3.5 py-1.5 font-normal text-ink hover:bg-subtle';
 </script>
 
-{#snippet distances(title: string, r: PerformanceResult, totalLabel: string, first: boolean)}
+{#snippet distances(title: string, r: PerformanceResult, totalLabel: string, first: boolean, runway: NonNullable<Calculation['airfield']>['runway'] | undefined)}
 	<div class={['flex flex-col gap-2 px-5 py-4', !first && 'border-t border-divider']}>
 		<span class="label-caps">{title}{r.conditionLabel ? ` · ${r.conditionLabel}` : ''}</span>
 		{#if r.status === 'ok'}
@@ -50,7 +53,7 @@
 		{:else}
 			<span class="text-[17px] font-semibold text-amber">{r.reason ?? statusWord(r.status)}</span>
 		{/if}
-		{#if first && runway?.lengthM}
+		{#if runway?.lengthM && (first || calc.landingElsewhere)}
 			<span class="text-[13px] text-ink-2">Runway {runway.designator} · <span class="num">{thousands(runway.lengthM)} m ({thousands(Math.round(runway.lengthM / 0.3048))} ft)</span> available</span>
 		{/if}
 	</div>
@@ -84,13 +87,18 @@
 		</section>
 	{:else}
 		<section class="overflow-hidden rounded-xl border border-line bg-surface">
-			{@render distances('Takeoff', results.takeoff, 'Over 50 ft obstacle', true)}
-			{@render distances('Landing', results.landing, 'From 50 ft obstacle', false)}
+			{@render distances('Takeoff', results.takeoff, 'Over 50 ft obstacle', true, runways.takeoff)}
+			{@render distances('Landing', results.landing, 'From 50 ft obstacle', false, runways.landing)}
 			<dl class="m-0 grid grid-cols-2 border-t border-divider bg-subtle-2">
 				<div class="border-r border-divider px-5 py-3"><dt class="label-caps text-[11px]">Takeoff mass</dt><dd class="m-0"><span class={['num font-semibold', massOver('takeoff') && 'text-bad']}>{mass(results.massBalance.takeoff.mass)} {aircraft.units.mass}</span><br /><span class="text-xs text-muted">CG {armText(aircraft, results.massBalance.takeoff.arm)}</span></dd></div>
 				<div class="px-5 py-3"><dt class="label-caps text-[11px]">Landing mass</dt><dd class="m-0"><span class={['num font-semibold', massOver('landing') && 'text-bad']}>{mass(results.massBalance.landing.mass)} {aircraft.units.mass}</span><br /><span class="text-xs text-muted">CG {armText(aircraft, results.massBalance.landing.arm)}</span></dd></div>
-				<div class="border-t border-r border-divider px-5 py-3"><dt class="label-caps text-[11px]">Density alt.</dt><dd class="m-0">{#if altitude}<span class="num font-semibold">{altitude.density}</span><br /><span class="text-xs text-muted">PA {altitude.pressure}</span>{:else}<span class="text-[13px] font-semibold text-amber">Enter elevation and QNH</span>{/if}</dd></div>
-				<div class="border-t border-divider px-5 py-3"><dt class="label-caps text-[11px]">Wind</dt><dd class="m-0">{#if wind}<span class="num font-semibold">{wind.headline}</span><br /><span class="text-xs text-muted">{wind.detail}</span>{#if (calc.windForDistances ?? 'entered') !== 'entered'}<br /><span class="text-xs font-semibold text-ink-2">Distances: {windChoiceText(results, calc.windForDistances)}</span>{/if}{:else}<span class="text-[13px] font-semibold text-amber">Enter wind and runway</span>{/if}</dd></div>
+				{#each places as p (p.title)}
+					{@const altitude = altitudeText(p.at)}
+					{@const wind = windText(p.at.wind, p.variable)}
+					{@const named = (label: string) => (p.title ? `${p.title} ${label.toLowerCase()}` : label)}
+					<div class="border-t border-r border-divider px-5 py-3"><dt class="label-caps text-[11px]">{named('Density alt.')}</dt><dd class="m-0">{#if altitude}<span class="num font-semibold">{altitude.density}</span><br /><span class="text-xs text-muted">PA {altitude.pressure}</span>{:else}<span class="text-[13px] font-semibold text-amber">Enter elevation and QNH</span>{/if}</dd></div>
+					<div class="border-t border-divider px-5 py-3"><dt class="label-caps text-[11px]">{named('Wind')}</dt><dd class="m-0">{#if wind}<span class="num font-semibold">{wind.headline}</span><br /><span class="text-xs text-muted">{wind.detail}</span>{#if p.choice !== 'entered'}<br /><span class="text-xs font-semibold text-ink-2">Distances: {windChoiceText(p.at, p.choice)}</span>{/if}{:else}<span class="text-[13px] font-semibold text-amber">Enter wind and runway</span>{/if}</dd></div>
+				{/each}
 			</dl>
 		</section>
 	{/if}
