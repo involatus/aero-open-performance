@@ -12,7 +12,8 @@ import { altitudeText, distanceText, utcText, valueSource, limitBadge, massBalan
 
 export type Delivery = 'notSent' | 'sent' | 'shared';
 export type ReportWorking = { title: string; rows: { step: string; total: string; groundRoll: string; source: string }[] };
-export type ReportDistance = DistanceText;
+/** Ground roll and total come apart for the results band. Reports made before this have only the headline. */
+export type ReportDistance = DistanceText & { condition?: string; groundRoll?: string | null; total?: string | null };
 export type ReportData = {
 	id: string;
 	createdUtc: string;
@@ -21,6 +22,8 @@ export type ReportData = {
 	aircraft: { registration: string; type: string; revision: number; configuration: string };
 	pilot: string;
 	departure: string;
+	/** Missing on Reports made before it was recorded. */
+	runway?: string | null;
 	results: { takeoff: ReportDistance; landing: ReportDistance; pressureAltitude: string; densityAltitude: string; wind: string };
 	conditions: { label: string; value: string; source: string }[];
 	rawMetar: string | null;
@@ -96,6 +99,12 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 	};
 	const perf = performanceOf(a, calc.configuration);
 	const conditionLabel = (phase: 'takeoff' | 'landing', id: string) => perf?.[phase].find((c) => c.id === id)?.label ?? id;
+	const thousands = (x: number | null, unit: string | null) => (x === null ? null : `${x.toLocaleString('en')} ${unit ?? ''}`.trim());
+	const distance = (title: string, p: PerformanceResult, m: number): ReportDistance => ({
+		...distanceText(title, p, `${mass(m)} ${u.mass}`),
+		condition: p.conditionLabel,
+		...(p.status === 'ok' ? { groundRoll: thousands(p.groundRoll, p.unit), total: thousands(p.total, p.unit) } : {})
+	});
 	const altitude = altitudeText(r), wind = windText(r.wind, isVariableWind(calc));
 	const windChoice = calc.windForDistances ?? 'entered', windUsed = windChoiceText(r, windChoice);
 	const data: ReportData = {
@@ -106,9 +115,10 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 		aircraft: { registration: a.registration, type: a.type, revision: a.revision, configuration: config.label },
 		pilot: calc.values.name.trim(),
 		departure: calc.values.place.trim(),
+		runway: runwayHeading(calc.values.rwy) === null ? null : String(runwayHeading(calc.values.rwy)! / 10).padStart(2, '0'),
 		results: {
-			takeoff: distanceText('Takeoff', r.takeoff, `${mass(r.massBalance.takeoff.mass)} ${u.mass}`),
-			landing: distanceText('Landing', r.landing, `${mass(r.massBalance.landing.mass)} ${u.mass}`),
+			takeoff: distance('Takeoff', r.takeoff, r.massBalance.takeoff.mass),
+			landing: distance('Landing', r.landing, r.massBalance.landing.mass),
 			pressureAltitude: altitude?.pressure ?? 'Not available',
 			densityAltitude: altitude?.density ?? 'Not available',
 			wind: `${wind ? `${wind.headline}. ${wind.detail}` : 'Not available'}${windChoice === 'entered' ? '' : `. Distances use: ${windUsed}`}`
@@ -141,17 +151,34 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 	return JSON.parse(JSON.stringify(data)) as ReportData;
 }
 
+/* Print colours, from the design. A Report is printed or archived, so it has no dark version. */
+const INK = '#13202D', INK2 = '#3E4C59', MUTED = '#5A6876', LINE = '#E1E6EB', DIVIDER = '#C6CFD8', TOTAL = '#B5C0CA', RED = '#A12222', GOOD = '#1B6B44', AMBER = '#7A4D00';
+/** IBM Plex, as on screen. The complete fonts cover every European Latin letter a name may use. */
+export const SANS = 'PlexSans', MONO = 'PlexMono';
 const small = 7.5;
-const head = (text: string) => ({ text: text.toUpperCase(), bold: true, fontSize: 8.5, margin: [0, 6, 0, 2], color: '#14263a' });
-const lines = { hLineWidth: () => 0.4, vLineWidth: () => 0, hLineColor: () => '#b7c4cf', paddingTop: () => 0.8, paddingBottom: () => 0.8, paddingLeft: () => 3, paddingRight: () => 3 };
+const num = (text: string, extra: Record<string, unknown> = {}) => ({ text, font: MONO, ...extra });
+const heading = (text: string) => ({
+	table: { widths: ['*'], body: [[{ text: text.toUpperCase(), bold: true, fontSize: 8.6, characterSpacing: 0.7, color: INK }]] },
+	layout: { hLineWidth: (i: number) => (i === 1 ? 1.2 : 0), vLineWidth: () => 0, hLineColor: () => INK, paddingLeft: () => 0, paddingRight: () => 0, paddingTop: () => 0, paddingBottom: () => 3 },
+	margin: [0, 0, 0, 4]
+});
+const rows = { hLineWidth: (i: number) => (i === 0 ? 0 : 0.75), vLineWidth: () => 0, hLineColor: () => LINE, paddingTop: () => 2.2, paddingBottom: () => 2.2, paddingLeft: () => 3.5, paddingRight: () => 3.5 };
+const th = (text: string, alignment = 'left') => ({ text, bold: true, color: MUTED, fontSize: 8, alignment });
+const caps = (text: string) => ({ text: text.toUpperCase(), bold: true, fontSize: 8, characterSpacing: 0.5, color: MUTED });
 
-function distanceBlock(d: ReportDistance) {
-	return { stack: [
-		{ text: d.title.toUpperCase(), bold: true, fontSize: 8, color: '#566778' },
-		{ text: d.headline, bold: true, fontSize: d.status === 'ok' ? 18 : 10, color: d.status === 'ok' ? '#14263a' : '#805300' },
-		{ text: d.detail, fontSize: small },
-		...d.warnings.map((w) => ({ text: w, fontSize: small, bold: true, color: '#805300' }))
-	] };
+function distanceCell(d: ReportDistance, totalLabel: string) {
+	const label = caps(d.condition ? `${d.title} · ${d.condition}` : d.title);
+	if (d.status !== 'ok') return { stack: [label, { text: d.headline, bold: true, fontSize: 10, color: AMBER, margin: [0, 4, 0, 0] }] };
+	// The unit is smaller, so a four-digit distance still fits on one line.
+	const big = (v: string) => {
+		const at = v.lastIndexOf(' ');
+		return at < 0 ? num(v, { fontSize: 15, bold: true }) : { text: [{ text: v.slice(0, at), fontSize: 15, bold: true }, { text: v.slice(at), fontSize: 8.5, color: INK2 }], font: MONO, noWrap: true };
+	};
+	const value = (title: string, v: string | null | undefined) => ({ stack: [{ text: title, color: INK2 }, big(v ?? '–')] });
+	const pair = d.groundRoll !== undefined
+		? { columns: [value('Ground roll', d.groundRoll), value(totalLabel, d.total)], columnGap: 8, margin: [0, 3, 0, 0] }
+		: { ...big(d.headline), margin: [0, 3, 0, 0] };
+	return { stack: [label, pair, ...d.warnings.map((w) => ({ text: w, fontSize: small, bold: true, color: AMBER, margin: [0, 2, 0, 0] }))] };
 }
 
 /** The one standard Report layout. Returns a pdfmake document definition. */
@@ -159,54 +186,87 @@ export function reportDocument(data: ReportData) {
 	// pdfmake changes what it is given, so it must never receive the permanent record itself.
 	const d = JSON.parse(JSON.stringify(data)) as ReportData;
 	const m = d.massBalance;
-	const banner: unknown[] = [];
-	if (d.preRelease || d.fictional) banner.push({ text: `${d.preRelease ? 'PRE-RELEASE, NOT FOR FLIGHT.' : ''}${d.fictional ? ' FICTIONAL AIRCRAFT WITH INVENTED DATA.' : ''}`.trim(), bold: true, fontSize: 9, color: '#a12222', margin: [0, 0, 0, 5] });
+	const [windHead, ...windRest] = d.results.wind.split('. ');
+	const warning = [d.preRelease && 'PRE-RELEASE, NOT FOR FLIGHT', d.fictional && 'FICTIONAL AIRCRAFT WITH INVENTED DATA'].filter(Boolean).join(' · ');
 	return {
-		pageSize: 'A4', pageMargins: [30, 20, 30, 24],
+		pageSize: 'A4', pageMargins: [30, 25, 30, 28],
 		info: { title: `Performance report ${d.id}`, subject: `${d.aircraft.registration} ${d.departure}` },
-		defaultStyle: { fontSize: 8.5, lineHeight: 1 },
-		footer: (page: number, pages: number) => ({ text: `${d.id}    Page ${page} of ${pages}`, alignment: 'right', fontSize: 7, margin: [30, 6, 30, 0], color: '#566778' }),
+		defaultStyle: { font: SANS, fontSize: 9, lineHeight: 1.15, color: INK },
+		footer: (page: number, pages: number) => ({ text: `${d.id} · Page ${page} of ${pages}`, font: MONO, alignment: 'right', fontSize: 7, margin: [30, 8, 30, 0], color: MUTED }),
 		content: [
-			...banner,
-			{ columns: [
-				{ stack: [{ text: 'Performance report', bold: true, fontSize: 15 }, { text: `${d.aircraft.registration}, ${d.aircraft.type}, ${d.aircraft.configuration}`, fontSize: 9.5 }] },
-				{ stack: [{ text: d.createdUtc, bold: true }, { text: `Pilot: ${d.pilot}` }, { text: `Departure: ${d.departure}` }], alignment: 'right', width: 200 }
-			] },
-			head('Results'),
-			{ columns: [distanceBlock(d.results.takeoff), distanceBlock(d.results.landing), { stack: [
-				{ text: 'ALTITUDE AND WIND', bold: true, fontSize: 8, color: '#566778' },
-				{ text: `Pressure altitude ${d.results.pressureAltitude}` }, { text: `Density altitude ${d.results.densityAltitude}` }, { text: `Wind ${d.results.wind}` }
-			] }], columnGap: 12 },
-			head('Conditions'),
-			{ table: { widths: [86, 44, '*', 86, 44, '*'], body: pairRows(d.conditions) }, layout: lines, fontSize: small },
-			...(d.rawMetar ? [{ text: `Raw METAR: ${d.rawMetar}`, fontSize: small, margin: [0, 3, 0, 0] }] : []),
-			head('Mass and balance'),
+			...(warning ? [{
+				table: { widths: ['*'], body: [[{ text: warning, bold: true, fontSize: 7.5, characterSpacing: 0.45, color: RED, alignment: 'center' }]] },
+				layout: { hLineWidth: () => 1.1, vLineWidth: () => 1.1, hLineColor: () => RED, vLineColor: () => RED, paddingTop: () => 3, paddingBottom: () => 3 },
+				margin: [0, 0, 0, 10]
+			}] : []),
 			{ columns: [
 				{ width: '*', stack: [
-					{ table: { widths: ['*', 42, 38, 52], headerRows: 1, body: [
-						[{ text: 'Item', bold: true }, { text: m.units.mass, bold: true, alignment: 'right' }, { text: m.units.arm, bold: true, alignment: 'right' }, { text: 'Moment', bold: true, alignment: 'right' }],
-						...m.rows.map((r) => [r.label, { text: r.mass, alignment: 'right' }, { text: r.arm, alignment: 'right' }, { text: r.moment, alignment: 'right' }]),
-						[{ text: 'Takeoff', bold: true }, { text: m.takeoff.mass, bold: true, alignment: 'right' }, { text: m.takeoff.arm, bold: true, alignment: 'right' }, { text: m.takeoff.moment, bold: true, alignment: 'right' }],
-						[{ text: 'Landing', bold: true }, { text: m.landing.mass, bold: true, alignment: 'right' }, { text: m.landing.arm, bold: true, alignment: 'right' }, { text: m.landing.moment, bold: true, alignment: 'right' }]
-					] }, layout: lines, fontSize: small },
-					{ text: `Burn plan: ${m.burnPlan}. Burned ${m.burned}.`, fontSize: small, margin: [0, 3, 0, 0] }
+					caps('Performance report'),
+					{ text: [{ text: d.aircraft.registration, bold: true }, { text: ` · ${d.departure}${d.runway ? ` runway ${d.runway}` : ''}`, color: INK2 }], fontSize: 19.5, margin: [0, 2, 0, 0] },
+					{ text: `${d.aircraft.type} · ${d.aircraft.configuration} · Data revision ${d.aircraft.revision}`, color: INK2, margin: [0, 2, 0, 0] }
 				] },
-				{ width: 205, svg: d.chartSvg, fit: [205, 121] }
-			], columnGap: 10 },
-			head('Limits'),
-			{ columns: chunk(d.limits, 2).map((part) => ({ table: { widths: [32, '*', 'auto'], body: part.map((l) => [{ text: l.status, bold: true, color: l.status === 'OK' ? '#16663f' : '#a12222' }, l.label, { text: l.detail, alignment: 'right' }]) }, layout: lines, fontSize: small })), columnGap: 12 },
-			head('Working'),
-			...d.working.flatMap((w) => [
-				{ text: w.title, bold: true, fontSize: small, margin: [0, 2, 0, 1] },
-				{ table: { widths: ['*', 34, 42, 140], headerRows: 1, dontBreakRows: true, body: [
-					[{ text: 'Step', bold: true }, { text: 'Total', bold: true, alignment: 'right' }, { text: 'Ground roll', bold: true, alignment: 'right' }, { text: 'Source', bold: true }],
-					...w.rows.map((r) => [r.step, { text: r.total, alignment: 'right' }, { text: r.groundRoll, alignment: 'right' }, r.source])
-				] }, layout: lines, fontSize: small }
-			]),
-			head('Confirmation'),
-			...(d.notes.length ? [{ text: 'Manual notes confirmed by the pilot:', fontSize: small }, { ul: d.notes, fontSize: small }] : []),
-			{ text: RESPONSIBILITY, bold: true, margin: [0, 3, 0, 3] },
-			{ text: `Report ID ${d.id}. Tool ${d.footer.toolVersion}. ${d.footer.dataRelease}. Aircraft revision ${d.aircraft.revision}. Last data check: ${d.footer.lastDataCheck}. The pilot's name is for traceability and is not a signature.`, fontSize: small, color: '#566778' }
+				{ width: 'auto', alignment: 'right', stack: [num(d.createdUtc, { bold: true, fontSize: 9.75 }), { text: `Pilot: ${d.pilot}`, color: INK2 }, num(d.id, { fontSize: 7.5, color: MUTED })], margin: [0, 8, 0, 0] }
+			], columnGap: 15, margin: [0, 0, 0, 10] },
+			{
+				table: { widths: ['*', '*', 84, 84], body: [[
+					distanceCell(d.results.takeoff, 'Over 50 ft'),
+					distanceCell(d.results.landing, 'From 50 ft'),
+					{ stack: [caps('Altitude'), num(`DA ${d.results.densityAltitude}`, { bold: true, fontSize: 12.75, margin: [0, 4, 0, 0] }), { text: [{ text: 'PA ' }, { text: d.results.pressureAltitude, font: MONO }] }] },
+					{ stack: [caps('Wind'), num(windHead, { bold: true, fontSize: 12.75, margin: [0, 4, 0, 0] }), ...windRest.map((t) => ({ text: t, fontSize: small, color: INK2 }))] }
+				]] },
+				layout: {
+					hLineWidth: () => 1.1, vLineWidth: (i: number, node: { table: { widths: unknown[] } }) => (i === 0 || i === node.table.widths.length ? 1.1 : 0.75),
+					hLineColor: () => INK, vLineColor: (i: number, node: { table: { widths: unknown[] } }) => (i === 0 || i === node.table.widths.length ? INK : DIVIDER),
+					paddingLeft: () => 9, paddingRight: () => 9, paddingTop: () => 7, paddingBottom: () => 7
+				},
+				margin: [0, 0, 0, 12]
+			},
+			{ columns: [
+				{ width: '*', stack: [
+					heading('Conditions'),
+					{ table: { widths: ['auto', 'auto', '*'], headerRows: 1, body: [
+						[th('Item'), th('Value', 'right'), th('Source')],
+						...d.conditions.map((c) => [c.label, num(c.value, { alignment: 'right' }), { text: c.source, color: MUTED, fontSize: 8 }])
+					] }, layout: rows },
+					...(d.rawMetar ? [{ text: ['Raw METAR: ', { text: d.rawMetar, font: MONO }], fontSize: 7, color: INK2, margin: [0, 5, 0, 0] }] : [])
+				] },
+				{ width: '*', stack: [
+					heading('Mass and balance'),
+					{ table: { widths: ['*', 'auto', 'auto', 'auto'], headerRows: 1, body: [
+						[th('Item'), th(m.units.mass, 'right'), th(m.units.arm, 'right'), th('Moment', 'right')],
+						...m.rows.map((r) => [r.label, num(r.mass, { alignment: 'right' }), num(r.arm, { alignment: 'right' }), num(r.moment, { alignment: 'right' })]),
+						...([['Takeoff', m.takeoff], ['Landing', m.landing]] as const).map(([label, t]) => [{ text: label, bold: true }, num(t.mass, { alignment: 'right', bold: true }), num(t.arm, { alignment: 'right', bold: true }), num(t.moment, { alignment: 'right', bold: true })])
+					] }, layout: { ...rows, hLineColor: (i: number, node: { table: { body: unknown[] } }) => (i >= node.table.body.length - 2 ? TOTAL : LINE) } },
+					{ text: `Burn plan: ${m.burnPlan}. Burned ${m.burned}.`, fontSize: small, color: INK2, margin: [0, 3, 0, 6] },
+					{ svg: d.chartSvg, fit: [252, 150] }
+				] }
+			], columnGap: 18, margin: [0, 0, 0, 12] },
+			heading('Limits'),
+			{ columns: chunk(d.limits, 2).map((part) => ({ table: { widths: [26, '*', 'auto'], body: part.map((l) => [
+				{ text: l.status, bold: true, color: l.status === 'OK' ? GOOD : l.status === 'CHECK' ? AMBER : RED },
+				l.label,
+				num(l.detail, { alignment: 'right' })
+			]) }, layout: rows })), columnGap: 18, margin: [0, 0, 0, 12] },
+			heading('Working'),
+			...d.working.map((w) => ({
+				table: { widths: ['*', 50, 50, 112], headerRows: 1, dontBreakRows: true, body: [
+					[th(w.title), th('Gr. roll', 'right'), th('50 ft', 'right'), th('Source')],
+					...w.rows.map((r, i) => {
+						const last = i === w.rows.length - 1 && r.step.startsWith('Rounded');
+						return [{ text: r.step, bold: last }, num(r.groundRoll, { alignment: 'right', bold: last }), num(r.total, { alignment: 'right', bold: last }), { text: r.source, color: MUTED, fontSize: 8 }];
+					})
+				] },
+				layout: rows, margin: [0, 0, 0, 8]
+			})),
+			{
+				table: { widths: ['*'], body: [[{ stack: [
+					...d.notes.map((n) => ({ columns: [{ width: 12, svg: '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10" fill="none" stroke="#1B6B44" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>', fit: [9, 9], margin: [0, 1.5, 0, 0] }, { text: `Manual note confirmed by the pilot: ${n}` }], margin: [0, 0, 0, 3] })),
+					{ text: RESPONSIBILITY, bold: true, fontSize: 9, margin: [0, 2, 0, 3] },
+					{ text: `Tool ${d.footer.toolVersion} · ${d.footer.dataRelease} · Aircraft revision ${d.aircraft.revision} · Last data check ${d.footer.lastDataCheck}. The pilot's name is for traceability and is not a signature.`, fontSize: 7, color: MUTED }
+				] }]] },
+				layout: { hLineWidth: (i: number) => (i === 0 ? 1.1 : 0), vLineWidth: () => 0, hLineColor: () => INK, paddingLeft: () => 0, paddingRight: () => 0, paddingTop: () => 8, paddingBottom: () => 0 },
+				unbreakable: true, margin: [0, 6, 0, 0]
+			}
 		]
 	};
 }
@@ -216,11 +276,4 @@ function chunk<T>(list: T[], parts: number): T[][] {
 	for (let i = 0; i < parts; i++) out.push(list.slice(i * size, (i + 1) * size));
 	return out.filter((p) => p.length);
 }
-function pairRows(items: ReportData['conditions']) {
-	const rows: unknown[][] = [];
-	for (let i = 0; i < items.length; i += 2) {
-		const [a, b] = [items[i], items[i + 1]];
-		rows.push([a.label, { text: a.value, bold: true }, a.source, b?.label ?? '', { text: b?.value ?? '', bold: true }, b?.source ?? '']);
-	}
-	return rows;
-}
+
