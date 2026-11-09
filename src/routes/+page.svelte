@@ -84,7 +84,8 @@
 		// Saves when the app is hidden or closed, because iPadOS can end it without warning.
 		const saveNow = () => { if (app.loaded) app.save(); };
 		addEventListener('pagehide', saveNow);
-		document.addEventListener('visibilitychange', saveNow);
+		// iPadOS keeps the app open in the background for days, so coming back is also a time to look for new data, at most hourly.
+		document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { now = Date.now(); app.check(); } else saveNow(); });
 	});
 
 	$effect(() => {

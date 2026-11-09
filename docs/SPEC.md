@@ -8,7 +8,7 @@ An open-source, offline-capable web app for mass and balance and takeoff and lan
 
 - **Simple, with one way of doing things.** There is one flow and one report, with no per-club variants.
 - **The pilot is responsible.** The tool does the arithmetic, shows its working and never hides what it assumes.
-- **Prefilled Values are suggestions.** The pilot must confirm or overwrite each one.
+- **Prefilled Values are suggestions.** The pilot must confirm or overwrite each one. Values that are part of the Aircraft Data, such as the default fuel flow, aren't Prefilled Values: the Data Owner checked them before publishing, so they are used as published, and the pilot can still overwrite them. An empty tank counts as empty; a Report needs fuel in at least one tank.
 - **No aircraft logic in code.** Aircraft behaviour is described entirely by Aircraft Data. The only built-in conservative rules are rounding distances up and applying variable wind as a tailwind.
 - **Open and modular.** Weather, sending and the admin GUI are optional modules.
 

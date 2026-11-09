@@ -96,6 +96,6 @@ export function massBalanceRows(a: Aircraft, r: Results) {
 export function valueSource(calc: Pick<Calculation, 'status' | 'sources' | 'changed'>, key: string): string {
 	const status = calc.status[key], from = calc.sources[key];
 	if (status === 'pre') return `From ${from}${calc.changed[key] ? `, was ${calc.changed[key]}` : ''}, not yet confirmed`;
-	if (status === 'ok') return `From ${from}, confirmed`;
+	if (status === 'ok') return from === 'aircraft data' ? 'From aircraft data' : `From ${from}, confirmed`;
 	return 'Entered by pilot';
 }

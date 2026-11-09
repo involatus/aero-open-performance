@@ -90,10 +90,25 @@ describe('fields come from the aircraft file', () => {
 describe('Prefilled Values', () => {
 	it('start unconfirmed and appear on the to-do list', () => {
 		const c = newCalculation(dr, 'x', NOW);
-		expect(c.status.flow).toBe('pre');
-		expect(toDoList(dr, c).some((t) => t.label === 'Confirm Fuel flow')).toBe(true);
-		confirmValue(c, 'flow');
-		expect(toDoList(dr, c).some((t) => t.label === 'Confirm Fuel flow')).toBe(false);
+		prefill(c, 'qnh', '1009', 'METAR');
+		expect(c.status.qnh).toBe('pre');
+		expect(toDoList(dr, c).some((t) => t.label === 'Confirm QNH')).toBe(true);
+		confirmValue(c, 'qnh');
+		expect(toDoList(dr, c).some((t) => t.label === 'Confirm QNH')).toBe(false);
+	});
+	it('take the fuel flow from the published aircraft data without asking, rounded to a tenth', () => {
+		const c = newCalculation({ ...dr, fuelFlow: { value: 25.3622589528, source: dr.fuelFlow!.source } }, 'x', NOW);
+		expect(c.values.flow).toBe('25.4');
+		expect(c.status.flow).toBe('ok');
+		expect(toDoList(dr, c).some((t) => t.key === 'flow')).toBe(false);
+	});
+	it('take a new release\'s fuel flow, but never replace what the pilot typed', () => {
+		const c = newCalculation(dr, 'x', NOW);
+		reconcileAfterInstall({ ...dr, fuelFlow: { value: 30, source: dr.fuelFlow!.source } }, c, 2);
+		expect([c.values.flow, c.status.flow]).toEqual(['30', 'ok']);
+		setByPilot(c, 'flow', '12');
+		reconcileAfterInstall({ ...dr, fuelFlow: { value: 31, source: dr.fuelFlow!.source } }, c, 3);
+		expect([c.values.flow, c.status.flow]).toEqual(['12', 'pilot']);
 	});
 	it('never replace what the pilot typed', () => {
 		const c = newCalculation(dr, 'x', NOW);
@@ -127,6 +142,14 @@ describe('reporting gate', () => {
 		const c = ready(dr);
 		c.values['load:pilot'] = '0'; c.values.place = ' '; c.values.name = ''; c.notes = {};
 		expect(toDoList(dr, c).map((t) => t.key).sort()).toEqual(['load:pilot', 'name', `note:${dr.notes[0].id}`, 'place'].sort());
+	});
+	it('counts an empty tank as empty, and asks for fuel only when every tank is empty', () => {
+		const c = ready(dr);
+		c.values['fuel:rear'] = '';
+		expect(toDoList(dr, c)).toEqual([]);
+		expect(toInput(dr, c).fuel.rear).toBe(0);
+		c.values['fuel:front'] = '';
+		expect(toDoList(dr, c).map((t) => t.label)).toEqual([`Enter ${dr.tanks[0].label}`]);
 	});
 	it('flags an implausible value', () => {
 		const c = ready(dr);

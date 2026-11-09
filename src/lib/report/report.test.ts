@@ -53,7 +53,7 @@ describe('creating a Report', () => {
 		Object.assign(c, ready(a), { sources: { flow: 'aircraft data' } });
 		c.status.flow = 'ok';
 		const d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
-		expect(d.conditions.find((x) => x.label === 'Fuel flow')!.source).toBe('From aircraft data, confirmed');
+		expect(d.conditions.find((x) => x.label === 'Fuel flow')!.source).toBe('From aircraft data');
 		expect(d.conditions.find((x) => x.label === 'QNH')!.source).toBe('Entered by pilot');
 	});
 	it('records which wind the distances use', () => {

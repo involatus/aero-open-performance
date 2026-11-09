@@ -21,7 +21,8 @@ export function limitText(a: Aircraft, limit: Limit): string {
 	if (limit.id === 'takeoffCg' || limit.id === 'landingCg') return arm(limit.value);
 	if (limit.id === 'crosswind') return `${limit.value.toFixed(0)} kt, manual figure ${limit.limit} kt`;
 	const unit = limit.id.startsWith('tank:') || limit.id === 'fuelBurn' ? a.units.volume : a.units.mass;
-	return `${limit.value.toFixed(1)} ${unit}${limit.limit !== undefined ? `, max ${limit.limit}` : ''}`;
+	// Only the text is rounded: limits converted from the manual's units, such as 889.0410452 kg, read as 889.0.
+	return `${limit.value.toFixed(1)} ${unit}${limit.limit !== undefined ? `, max ${Number(limit.limit.toFixed(1))}` : ''}`;
 }
 
 export function configurationOf(a: Aircraft, id: string) {

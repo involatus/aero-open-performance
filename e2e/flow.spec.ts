@@ -54,7 +54,7 @@ test('full flow: confirm, block on a limit, next flight, and keep it after a rel
 
 	await stepButton(page, '2 · Fuel').click();
 	await expect(page.locator('[id="w-flow"]')).toContainText('From aircraft data');
-	await page.getByRole('button', { name: 'Confirm' }).click();
+	await expect(page.locator('[id="w-flow"]').getByRole('button', { name: 'Confirm' })).toHaveCount(0);
 	await type(page, 'fuel:front', '20');
 	await type(page, 'fuel:rear', '20');
 	await type(page, 'time', '1');
@@ -165,7 +165,6 @@ test('report: created, shared, permanent, and stale after a change', async ({ pa
 	await type(page, 'load:pilot', '80');
 	await page.locator('.keys button', { hasText: 'Next field' }).click();
 	await stepButton(page, '2 · Fuel').click();
-	await page.getByRole('button', { name: 'Confirm' }).click();
 	await type(page, 'fuel:front', '20');
 	await type(page, 'fuel:rear', '20');
 	await type(page, 'time', '1');
@@ -325,24 +324,26 @@ async function realIndex(page: Page) {
 	return (await page.request.get('/data/index.json')).json();
 }
 
-test('new data: nothing changes until Install, then values need confirming again', async ({ page }) => {
+test('new data: nothing changes until Install, then the calculation is redone with it', async ({ page }) => {
 	const errors = await failOnErrors(page);
 	await page.goto('/');
 	await page.getByRole('button', { name: /^TEST-DR/ }).click();
 	await stepButton(page, '2 · Fuel').click();
-	await page.getByRole('button', { name: 'Confirm' }).click();
-	await expect(page.locator('[id="w-flow"]')).toContainText(', confirmed');
+	await type(page, 'flow', '12');
+	await expect(page.locator('#f-flow')).toHaveValue('12');
+	await expect(page.locator('[id="w-flow"]')).not.toContainText('From aircraft data');
 
 	const index = await realIndex(page);
 	await page.route('**/data/index.json', (route) => route.fulfill({ json: { ...index, release: 2, notes: 'Example update.' } }));
 	await checkForNewData(page);
 	await expect(page.getByText('New data available: Release 2. Example update.')).toBeVisible();
-	await expect(page.locator('[id="w-flow"]')).toContainText(', confirmed');
+	await expect(page.locator('#f-flow')).toHaveValue('12');
 
 	await page.getByRole('button', { name: 'Install' }).click();
 	await expect(page.getByText('New data available')).toBeHidden();
 	await expect(page.getByText('Recalculated with Release 2')).toBeVisible();
-	await expect(page.locator('[id="w-flow"]')).toContainText('From aircraft data');
+	// What the pilot typed survives an install.
+	await expect(page.locator('#f-flow')).toHaveValue('12');
 	expect(errors).toEqual([]);
 });
 

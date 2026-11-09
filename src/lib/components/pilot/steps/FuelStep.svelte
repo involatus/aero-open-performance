@@ -26,7 +26,7 @@
 
 {#snippet tankMass(key: string)}
 	{@const tank = tankOf(key)}
-	<span class="text-xs text-muted"><span class="num">{m((parse(calc.values[key]) ?? 0) * tank.density)} {massUnit}</span> at {tank.density} {massUnit}/{volume}</span>
+	<span class="text-xs text-muted"><span class="num">{m((parse(calc.values[key]) ?? 0) * tank.density)} {massUnit}</span> at {Number(tank.density.toPrecision(3))} {massUnit}/{volume}</span>
 {/snippet}
 
 <StepHeading title="Fuel and flight" subtitle="Usable fuel per tank at takeoff, and how long you fly. This sets the landing mass and CG." />
