@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import fc from 'fast-check';
 import { canonicalize, sha256 } from './canonical.ts';
-import { coverageProblems, publishChecks, unusualValues } from './publish-checks.ts';
+import { checkList, coverageProblems, publishChecks, unusualValues } from './publish-checks.ts';
 import { tableCheckProblems, tableCheckState, tableFingerprint } from './table-check.ts';
 import { ReleaseError, describeChanges, downloadRelease, isStale, offersUpdate, parseIndex, shouldCheck, verifyAircraft, verifyInstalled, withdrawalReason, type ReleaseIndex } from './release.ts';
 import { validateAircraft } from '../aircraft/validate.ts';
@@ -139,6 +139,34 @@ describe('updates', () => {
 
 describe('publish checks', () => {
 	it.each(NAMES)('%s passes everything', (n) => expect(publishChecks(raw(n)).problems).toEqual([]));
+	it.each(NAMES)('%s lists every named check as passing', (n) => {
+		const list = checkList(raw(n));
+		expect(list.checks.length).toBeGreaterThan(10);
+		expect(list.checks.every((c) => c.status === 'pass')).toBe(true);
+		expect(new Set(list.checks.map((c) => c.group))).toEqual(new Set(['Aircraft data', 'Mass and balance', 'Performance and verification']));
+	});
+	it('files each problem under the check and section that fix it, and loses none', () => {
+		for (const change of [(d: any) => { d.stations[1].arm = 'far back'; }, (d: any) => { d.tanks[0].source = 'nowhere'; }, (d: any) => { d.envelope.points = []; }]) {
+			const d = raw('test-dr-style');
+			change(d);
+			const failing = checkList(d).checks.filter((c) => c.status === 'fail');
+			expect(failing.flatMap((c) => c.problems).sort()).toEqual([...publishChecks(d).problems].sort());
+		}
+		const section = (change: (d: any) => void) => { const d = raw('test-dr-style'); change(d); return checkList(d).checks.filter((c) => c.status === 'fail').map((c) => c.section); };
+		expect(section((d) => { d.stations[1].arm = 'far back'; })).toEqual(['Load']);
+		expect(section((d) => { d.tanks[0].source = 'nowhere'; })).toEqual(['Documents']);
+		expect(section((d) => { d.envelope.points = []; })).toEqual(['Limits']);
+		// The cases can't run on an incomplete file, so they wait instead of failing.
+		const d = raw('test-dr-style'); d.stations[1].arm = 'far back';
+		expect(checkList(d).checks.find((c) => c.id === 'cases-match')?.status).toBe('blocked');
+	});
+	it('fails the matching check when a hand-calculated result is wrong', () => {
+		const d = raw('test-dr-style');
+		d.handCases[0].expected.takeoff.total += 1;
+		const failing = checkList(d).checks.filter((c) => c.status === 'fail');
+		expect(failing.map((c) => c.id)).toEqual(['cases-match']);
+		expect(failing[0].section).toBe('Test cases');
+	});
 	it('fails a wrong hand-calculated result', () => {
 		const d = raw('test-dr-style');
 		d.handCases[0].expected.takeoff.total += 1;

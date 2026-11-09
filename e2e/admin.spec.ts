@@ -196,7 +196,8 @@ test('publishing is blocked until the checks pass, then pilots get the data', as
 	await page.getByRole('navigation').getByRole('button', { name: 'Hand-calculated cases', exact: true }).click();
 	await expect(page.getByRole('status').filter({ hasText: 'cases fail' })).toBeVisible();
 	await page.getByRole('navigation').getByRole('button', { name: 'Publish checks', exact: true }).click();
-	await expect(page.getByText('still to fix')).toBeVisible();
+	await expect(page.getByRole('status').filter({ hasText: /checks? to fix/ })).toBeVisible();
+	await expect(page.getByRole('region', { name: 'Performance and verification' })).toContainText('Hand-calculated cases all match');
 	await page.getByRole('navigation').getByRole('button', { name: 'Edit as JSON', exact: true }).click();
 	await page.getByLabel('Aircraft file as JSON').fill(JSON.stringify(example));
 	await page.getByRole('button', { name: 'Apply' }).click();
@@ -243,7 +244,8 @@ test('a real aircraft needs every table compared with the manual, and a later ch
 
 	await tab('Tables');
 	await page.getByRole('button', { name: 'takeoff', exact: true }).click();
-	const first = page.getByRole('textbox', { name: `Altitude ${t.axes[0].values[0]}, Temperature ${t.axes[1].values[0]}` });
+	const outputs = Object.keys(t.outputs).length > 1 ? 'Total, ' : '';
+	const first = page.getByRole('textbox', { name: `${outputs}Altitude ${t.axes[0].values[0]}, Temperature ${t.axes[1].values[0]}`, exact: true });
 	await first.fill(String(t.outputs.total[0][0] + 1));
 	await first.blur();
 	await tab('Compare tables');
