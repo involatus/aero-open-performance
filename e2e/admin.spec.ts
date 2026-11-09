@@ -68,14 +68,15 @@ test('a deployment with no admin set up says so, and pilots are unaffected', asy
 test('forms, tables and JSON all edit the same draft, and saving survives a reload', async ({ page }) => {
 	const errors = await failOnErrors(page);
 	await page.goto('/admin');
-	await page.getByLabel('New registration').fill('HB-NEW');
 	await page.getByRole('button', { name: 'Add aircraft' }).click();
+	await page.getByLabel('New registration').fill('HB-NEW');
+	await page.getByRole('dialog').getByRole('button', { name: 'Add aircraft' }).click();
 	await expect(page.getByRole('heading', { name: 'HB-NEW' })).toBeVisible();
-	for (const tab of ['Aircraft', 'Documents', 'Weighing', 'Load', 'Fuel', 'Limits', 'Tables', 'Performance', 'Notes', 'Test cases', 'Compare tables', 'Try it', 'Check', 'JSON']) {
+	for (const tab of ['Aircraft and units', 'Documents', 'Weighing', 'Loading stations', 'Fuel', 'Limits', 'Tables', 'Steps per condition', 'Manual notes', 'Hand-calculated cases', 'Compare tables', 'Try it', 'Publish checks', 'Edit as JSON']) {
 		await page.getByRole('navigation').getByRole('button', { name: tab, exact: true }).click();
-		await expect(page.locator('section h2').first()).toBeVisible();
+		await expect(page.locator('main h2').first()).toBeVisible();
 	}
-	await page.getByRole('navigation').getByRole('button', { name: 'Aircraft', exact: true }).click();
+	await page.getByRole('navigation').getByRole('button', { name: 'Aircraft and units', exact: true }).click();
 	await page.getByLabel('Aircraft type').fill('Test type');
 	await expect(page.getByRole('button', { name: 'Save draft' })).toBeEnabled();
 
@@ -98,7 +99,7 @@ test('forms, tables and JSON all edit the same draft, and saving survives a relo
 	await page.reload();
 	await page.getByRole('button', { name: 'Edit' }).click();
 	await expect(page.getByLabel('Aircraft type')).toHaveValue('Test type');
-	await page.getByRole('navigation').getByRole('button', { name: 'JSON', exact: true }).click();
+	await page.getByRole('navigation').getByRole('button', { name: 'Edit as JSON', exact: true }).click();
 	const json = JSON.parse(await page.getByLabel('Aircraft file as JSON').inputValue());
 	expect(json.tables.takeoff.outputs.total).toEqual([[100, 110], [120.5, null]]);
 	expect(errors).toEqual([]);
@@ -111,8 +112,9 @@ test('forms, tables and JSON all edit the same draft, and saving survives a relo
 test('a US manual is typed in lb and inches, pilots get kg and cm, and the envelope is drawn', async ({ page }) => {
 	const errors = await failOnErrors(page);
 	await page.goto('/admin');
-	await page.getByLabel('New registration').fill('HB-USA');
 	await page.getByRole('button', { name: 'Add aircraft' }).click();
+	await page.getByLabel('New registration').fill('HB-USA');
+	await page.getByRole('dialog').getByRole('button', { name: 'Add aircraft' }).click();
 	const tab = (name: string) => page.getByRole('navigation').getByRole('button', { name, exact: true }).click();
 
 	await page.getByLabel('Aircraft type').fill('US type');
@@ -126,7 +128,7 @@ test('a US manual is typed in lb and inches, pilots get kg and cm, and the envel
 	await page.getByLabel('Document').first().fill('POH Test');
 	await page.getByLabel('Document').first().blur();
 
-	await tab('Load');
+	await tab('Loading stations');
 	await page.getByRole('button', { name: 'Add station' }).click();
 	await page.getByLabel('Name *', { exact: true }).fill('Pilot');
 	await page.getByRole('textbox', { name: 'Arm', exact: true }).fill('101');
@@ -151,11 +153,11 @@ test('a US manual is typed in lb and inches, pilots get kg and cm, and the envel
 	await page.getByRole('button', { name: 'Make these four corners' }).click();
 	await expect(page.getByRole('img', { name: 'CG envelope preview with 4 points' })).toBeVisible();
 
-	await tab('Performance');
+	await tab('Steps per condition');
 	await page.getByRole('button', { name: 'Add takeoff condition' }).click();
 	await page.getByLabel('Add a step').selectOption('preset:wet-grass');
 
-	await tab('JSON');
+	await tab('Edit as JSON');
 	const json = JSON.parse(await page.getByLabel('Aircraft file as JSON').inputValue());
 	const factor = json.performance.takeoff[0].steps[1];
 	expect(factor).toMatchObject({ type: 'factor', value: 1.3, applies: ['total', 'groundRoll'] });
@@ -175,6 +177,7 @@ test('a US manual is typed in lb and inches, pilots get kg and cm, and the envel
 
 test('publishing is blocked until the checks pass, then pilots get the data', async ({ page, browser }) => {
 	await page.goto('/admin');
+	await page.getByRole('button', { name: 'Settings' }).click();
 	await page.getByLabel('Name shown on reports and data').fill('Test club');
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
 	await expect(page.getByRole('status').first()).toContainText('Saved');
@@ -184,20 +187,20 @@ test('publishing is blocked until the checks pass, then pilots get the data', as
 	await importAircraft(page, broken);
 	await expect(page.getByText('Imported TEST-KF')).toBeVisible();
 	await page.getByRole('checkbox', { name: /^TEST-KF/ }).check();
-	await page.getByRole('button', { name: 'Publish new release' }).click();
+	await page.getByRole('button', { name: /^Check and publish Release/ }).click();
 	await expect(page.getByText('Nothing was published')).toBeVisible();
-	await expect(page.locator('main > ul')).toContainText('expected');
+	await expect(page.getByRole('list', { name: 'Problems' })).toContainText('expected');
 	expect(await page.getByText('Nothing is published yet').count()).toBe(1);
 
 	await page.getByRole('button', { name: 'Edit' }).click();
-	await page.getByRole('navigation').getByRole('button', { name: 'Test cases', exact: true }).click();
+	await page.getByRole('navigation').getByRole('button', { name: 'Hand-calculated cases', exact: true }).click();
 	await expect(page.getByRole('status').filter({ hasText: 'cases fail' })).toBeVisible();
-	await page.getByRole('navigation').getByRole('button', { name: 'Check', exact: true }).click();
+	await page.getByRole('navigation').getByRole('button', { name: 'Publish checks', exact: true }).click();
 	await expect(page.getByText('still to fix')).toBeVisible();
-	await page.getByRole('navigation').getByRole('button', { name: 'JSON', exact: true }).click();
+	await page.getByRole('navigation').getByRole('button', { name: 'Edit as JSON', exact: true }).click();
 	await page.getByLabel('Aircraft file as JSON').fill(JSON.stringify(example));
 	await page.getByRole('button', { name: 'Apply' }).click();
-	await page.getByRole('navigation').getByRole('button', { name: 'Check', exact: true }).click();
+	await page.getByRole('navigation').getByRole('button', { name: 'Publish checks', exact: true }).click();
 	await expect(page.getByText('This aircraft passes every check')).toBeVisible();
 	await page.getByRole('navigation').getByRole('button', { name: 'Try it', exact: true }).click();
 	await expect(page.getByText('Takeoff mass')).toBeVisible();
@@ -207,7 +210,7 @@ test('publishing is blocked until the checks pass, then pilots get the data', as
 
 	await page.getByLabel('What changed, shown to pilots').fill('First release.');
 	await page.getByRole('checkbox', { name: /^TEST-KF/ }).check();
-	await page.getByRole('button', { name: 'Publish new release' }).click();
+	await page.getByRole('button', { name: /^Check and publish Release/ }).click();
 	await expect(page.getByText('Published Release 1')).toBeVisible();
 	await expect(page.getByText('Pilots are on Release 1')).toBeVisible();
 
@@ -226,10 +229,10 @@ test('a real aircraft needs every table compared with the manual, and a later ch
 	await importAircraft(page, real);
 	await expect(page.getByText('Imported TEST-REAL')).toBeVisible();
 	await page.getByRole('checkbox', { name: /^TEST-REAL/ }).check();
-	await page.getByRole('button', { name: 'Publish new release' }).click();
-	await expect(page.locator('main > ul')).toContainText('not yet compared with the manual');
+	await page.getByRole('button', { name: /^Check and publish Release/ }).click();
+	await expect(page.getByRole('list', { name: 'Problems' })).toContainText('not yet compared with the manual');
 
-	await page.locator('div', { hasText: /^TEST-REAL/ }).getByRole('button', { name: 'Edit' }).last().click();
+	await page.getByRole('row', { name: /^TEST-REAL/ }).getByRole('button', { name: 'Edit' }).click();
 	const tab = (name: string) => page.getByRole('navigation').getByRole('button', { name, exact: true }).click();
 	await tab('Compare tables');
 	await page.getByRole('button', { name: 'takeoff', exact: true }).click();
@@ -255,13 +258,13 @@ for (const name of ['test-dr-style', 'test-sr22-style', 'test-glastar-style', 't
 		await page.goto('/admin');
 		await importAircraft(page, original);
 		await expect(page.getByText(`Imported ${original.registration}`)).toBeVisible();
-		await page.locator('div', { hasText: new RegExp(`^${original.registration}`) }).getByRole('button', { name: 'Edit' }).last().click();
-		for (const tab of ['Aircraft', 'Documents', 'Weighing', 'Load', 'Fuel', 'Limits', 'Tables', 'Performance', 'Notes', 'Test cases', 'Try it', 'Check']) {
+		await page.getByRole('row', { name: new RegExp(`^${original.registration}`) }).getByRole('button', { name: 'Edit' }).click();
+		for (const tab of ['Aircraft and units', 'Documents', 'Weighing', 'Loading stations', 'Fuel', 'Limits', 'Tables', 'Steps per condition', 'Manual notes', 'Hand-calculated cases', 'Try it', 'Publish checks']) {
 			await page.getByRole('navigation').getByRole('button', { name: tab, exact: true }).click();
 			await page.waitForTimeout(150);
 			await expect(page.getByRole('button', { name: 'Saved', exact: true }), `${tab} marked the draft as changed`).toBeDisabled();
 		}
-		await page.getByRole('navigation').getByRole('button', { name: 'JSON', exact: true }).click();
+		await page.getByRole('navigation').getByRole('button', { name: 'Edit as JSON', exact: true }).click();
 		expect(JSON.parse(await page.getByLabel('Aircraft file as JSON').inputValue())).toEqual(original);
 		await page.getByRole('button', { name: 'Back to list' }).click();
 		if (original.registration !== 'TEST-KF') await api(page, 'deleteDraft', { id: original.registration });
@@ -271,8 +274,8 @@ for (const name of ['test-dr-style', 'test-sr22-style', 'test-glastar-style', 't
 test('two admins cannot overwrite each other', async ({ page }) => {
 	await page.goto('/admin');
 	const { data, version } = await api(page, 'getDraft', { id: 'TEST-KF' });
-	await page.locator('div', { hasText: /^TEST-KF/ }).getByRole('button', { name: 'Edit' }).last().click();
-	await page.getByRole('navigation').getByRole('button', { name: 'Aircraft', exact: true }).click();
+	await page.getByRole('row', { name: /^TEST-KF/ }).getByRole('button', { name: 'Edit' }).click();
+	await page.getByRole('navigation').getByRole('button', { name: 'Aircraft and units', exact: true }).click();
 	await api(page, 'saveDraft', { id: 'TEST-KF', aircraft: data.aircraft, version });
 	await page.getByLabel('Aircraft type').fill('Changed here');
 	await page.getByRole('button', { name: 'Save draft' }).click();

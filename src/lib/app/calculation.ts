@@ -45,6 +45,8 @@ export type Field = {
 	units?: string[];
 	/** A short explanation under the value, such as the heading a runway number stands for. */
 	hint?: string;
+	/** Facts from the aircraft file beside the label, such as "arm 143.5 in · max 130". */
+	meta?: string;
 };
 export type ToDo = { key: string; label: string; step: number };
 
@@ -81,14 +83,19 @@ function runwayHint(text: string | undefined) {
 /** The numeric fields of each step, built from the aircraft file. */
 export function fieldsFor(a: Aircraft, calc: Pick<Calculation, 'elevationUnit'> & { values?: Calculation['values'] }): Field[][] {
 	const mass = a.units.mass, step = massStep(mass), maxMass = a.massLimits.maxTakeoff.value;
+	const arm = (x: number) => `arm ${x.toFixed(a.display.armDecimals)} ${a.units.arm}`;
+	const meta = (...parts: (string | false | undefined)[]) => parts.filter(Boolean).join(' · ') || undefined;
 	const load: Field[] = a.stations.map((s) => ({
 		key: `load:${s.id}`, label: s.label, unit: mass, decimals: true, negative: false,
-		range: [0, s.maxMass ? s.maxMass * 3 : maxMass], quick: [`-${step}`, `+${step}`, 'None'], required: false
+		range: [0, s.maxMass ? s.maxMass * 3 : maxMass], quick: [`-${step}`, `+${step}`, 'None'], required: false,
+		// A station with seat stops has no single arm, so only its limit is shown.
+		meta: meta(s.arm !== undefined && !s.positions && arm(s.arm), s.maxMass !== undefined && `max ${s.maxMass}`)
 	}));
 	const volume = a.units.volume, fuelStep = volume === 'USgal' ? '5' : '10';
 	const fuel: Field[] = a.tanks.map((t) => ({
 		key: `fuel:${t.id}`, label: t.label, unit: volume, decimals: true, negative: false,
-		range: [0, t.capacity * 2], quick: [`-${fuelStep}`, `+${fuelStep}`, 'Full'], capacity: t.capacity, required: true
+		range: [0, t.capacity * 2], quick: [`-${fuelStep}`, `+${fuelStep}`, 'Full'], capacity: t.capacity, required: true,
+		meta: meta(arm(t.arm), `holds ${t.capacity}`)
 	}));
 	fuel.push(
 		{ key: 'time', label: 'Flight time to landing', unit: 'h', decimals: true, negative: false, range: [0, 24], quick: ['=0.5', '=1', '=1.5', '=2'], required: true },
