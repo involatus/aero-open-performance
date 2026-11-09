@@ -58,6 +58,12 @@ export const STEP_NAMES = ['Load', 'Fuel', 'Conditions', 'Send'];
 export const VARIABLE_WIND = 'VRB';
 export const isVariableWind = (calc: Pick<Calculation, 'values'>) => calc.values.wdir === VARIABLE_WIND;
 
+/** Converted values such as 113.56235352 L read as 113.6. */
+export const tenths = (x: number) => String(Math.round(x * 10) / 10);
+
+/** Where values from the published aircraft data come from. The Data Owner checked them, so pilots don't confirm them. */
+export const AIRCRAFT_DATA = 'aircraft data';
+
 export function parse(text: string | undefined): number | null {
 	if (text === undefined || text.trim() === '' || text === '-') return null;
 	const n = Number(text.replace(',', '.'));
@@ -96,8 +102,9 @@ export function fieldsFor(a: Aircraft, calc: Pick<Calculation, 'elevationUnit'> 
 	const volume = a.units.volume, fuelStep = volume === 'USgal' ? '5' : '10';
 	const fuel: Field[] = a.tanks.map((t) => ({
 		key: `fuel:${t.id}`, label: t.label, unit: volume, decimals: true, negative: false,
-		range: [0, t.capacity * 2], quick: [`-${fuelStep}`, `+${fuelStep}`, 'Full'], capacity: t.capacity, required: true,
-		meta: meta(arm(t.arm), `holds ${t.capacity}`)
+		// An empty tank is empty. The to-do list only asks when every tank is.
+		range: [0, t.capacity * 2], quick: [`-${fuelStep}`, `+${fuelStep}`, 'Full'], capacity: t.capacity, required: false,
+		meta: meta(arm(t.arm), `holds ${tenths(t.capacity)}`)
 	}));
 	fuel.push(
 		{ key: 'time', label: 'Flight time to landing', unit: 'h', decimals: true, negative: false, range: [0, 24], quick: ['=0.5', '=1', '=1.5', '=2'], required: true },
@@ -124,8 +131,21 @@ export function newCalculation(a: Aircraft, id: string, now: number): Calculatio
 		id, created: now, aircraft: a.registration, step: 0, configuration, values: {}, status: {}, sources: {}, changed: {}, positions,
 		burnPlan: a.defaultBurnPlan, takeoffCondition: perf?.takeoff[0].id ?? '', landingCondition: perf?.landing[0].id ?? '', elevationUnit: 'm', notes: {}
 	};
-	if (a.fuelFlow) prefill(calc, 'flow', String(a.fuelFlow.value), 'aircraft data');
+	applyAircraftData(a, calc);
 	return calc;
+}
+
+/** Values from the aircraft data, such as the fuel flow. Anything the pilot typed stays. */
+function applyAircraftData(a: Aircraft, calc: Calculation) {
+	if (calc.status.flow === 'pilot') return;
+	if (!a.fuelFlow) {
+		if (calc.sources.flow === AIRCRAFT_DATA) { delete calc.values.flow; delete calc.status.flow; delete calc.sources.flow; }
+		return;
+	}
+	calc.values.flow = tenths(a.fuelFlow.value);
+	calc.status.flow = 'ok';
+	calc.sources.flow = AIRCRAFT_DATA;
+	delete calc.changed.flow;
 }
 
 /** A Prefilled Value waits for the pilot's confirmation. Anything the pilot typed is never replaced. */
@@ -216,7 +236,8 @@ export function isOldCalculation(calc: Calculation, now: number): boolean {
 
 /** After installing new data: confirmations no longer hold, and choices that no longer exist are reset. */
 export function reconcileAfterInstall(a: Aircraft, calc: Calculation, release: number) {
-	for (const key of Object.keys(calc.status)) if (calc.status[key] === 'ok') calc.status[key] = 'pre';
+	for (const key of Object.keys(calc.status)) if (calc.status[key] === 'ok' && calc.sources[key] !== AIRCRAFT_DATA) calc.status[key] = 'pre';
+	if (calc.sources.flow === AIRCRAFT_DATA || calc.values.flow === undefined) applyAircraftData(a, calc);
 	calc.notes = {};
 	if (!a.configurations.some((c) => c.id === calc.configuration)) calc.configuration = a.configurations[0].id;
 	if (!a.burnPlans.some((p) => p.id === calc.burnPlan)) calc.burnPlan = a.defaultBurnPlan;
@@ -291,6 +312,12 @@ export function toDoList(a: Aircraft, calc: Calculation): ToDo[] {
 	});
 	const anyLoad = a.stations.some((s) => (parse(calc.values[`load:${s.id}`]) ?? 0) > 0);
 	if (!anyLoad) items.unshift({ key: `load:${a.stations[0].id}`, label: `Enter ${a.stations[0].label}`, step: 0 });
+	const anyFuel = a.tanks.some((t) => (parse(calc.values[`fuel:${t.id}`]) ?? 0) > 0);
+	if (!anyFuel) {
+		// First among the Fuel step's items, so the list keeps the order of the steps.
+		const at = items.findIndex((t) => t.step >= 1);
+		items.splice(at < 0 ? items.length : at, 0, { key: `fuel:${a.tanks[0].id}`, label: `Enter ${a.tanks[0].label}`, step: 1 });
+	}
 	if (!calc.values.place?.trim()) items.push({ key: 'place', label: 'Enter departure airfield', step: 3 });
 	if (!calc.values.name?.trim()) items.push({ key: 'name', label: 'Enter pilot name', step: 3 });
 	a.notes.forEach((n) => { if (!calc.notes[n.id]) items.push({ key: `note:${n.id}`, label: 'Confirm manual note', step: 3 }); });
@@ -365,7 +392,8 @@ export function applyQuick(field: Field, current: string | undefined, op: string
 	if (op.startsWith('=')) return op.slice(1);
 	if (op === VARIABLE_WIND) return VARIABLE_WIND;
 	if (op === 'None') return '0';
-	if (op === 'Full') return String(field.capacity);
+	// Rounded down, so Full never lands just above a converted capacity such as 113.56235352.
+	if (op === 'Full') return String(Math.floor(field.capacity! * 10) / 10);
 	const n = (parse(current) ?? 0) + Number(op);
 	return String(Math.max(0, Math.round(n * 10) / 10));
 }

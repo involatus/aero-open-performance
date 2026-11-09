@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { ToggleGroup } from 'bits-ui';
-	import { isUnusual, parse, type Calculation, type Field } from '#lib/app/calculation.ts';
+	import { isUnusual, parse, tenths, type Calculation, type Field } from '#lib/app/calculation.ts';
 	import { valueSource } from '#lib/app/presentation.ts';
 	import Button from './ui/Button.svelte';
 	import Gauge from './ui/Gauge.svelte';
@@ -49,7 +49,7 @@
 			inputmode="none"
 			autocomplete="off"
 			value={text}
-			placeholder="–"
+			placeholder={field.required ? '–' : '0'}
 			onclick={onopen}
 			onfocus={onopen}
 			aria-invalid={problem || undefined}
@@ -75,7 +75,7 @@
 		<span class="text-[13px] text-good">{valueSource(calc, field.key)}</span>
 	{/if}
 	{#if unusual}<span class="text-[13px] font-semibold text-bad">Unusual value. Expected {field.range[0]} to {field.range[1]} {field.unit}.</span>{/if}
-	{#if overCapacity}<span class="text-[13px] font-semibold text-bad">Tank holds {field.capacity} {field.unit}.</span>{/if}
+	{#if overCapacity}<span class="text-[13px] font-semibold text-bad">Tank holds {tenths(field.capacity!)} {field.unit}.</span>{/if}
 	{#if field.quick.length}
 		<div class="grid auto-cols-fr grid-flow-col gap-1.5">
 			{#each field.quick as op (op)}

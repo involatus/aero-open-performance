@@ -73,7 +73,7 @@
 						<dt class="label-caps">{label}</dt>
 						<dd class="m-0">
 							<span class={['num text-[28px] font-semibold', massOver(phase) && 'text-bad']}>{mass(point.mass)}</span> <span class="text-muted">{aircraft.units.mass}</span><br />
-							<span class="text-[13px] text-ink-2">CG {armText(aircraft, point.arm)}{maxOf(`${phase}Mass`) !== undefined ? ` · max ${thousands(maxOf(`${phase}Mass`)!)}` : ''}</span>
+							<span class="text-[13px] text-ink-2">CG {armText(aircraft, point.arm)}{maxOf(`${phase}Mass`) !== undefined ? ` · max ${mass(maxOf(`${phase}Mass`)!)}` : ''}</span>
 						</dd>
 					</div>
 				{/each}
