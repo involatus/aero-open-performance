@@ -448,3 +448,22 @@ test('warns strongly after 30 days without a check, but still calculates', async
 	await expect(page.getByText('No check for new aircraft data in over 30 days')).toBeVisible();
 	await expect(summary(page)).toBeVisible();
 });
+
+test('wind for the calculation: a conservative choice changes distances, never the crosswind', async ({ page }) => {
+	const errors = await failOnErrors(page);
+	await page.goto('/');
+	await page.getByRole('button', { name: /^TEST-KF/ }).click();
+	await stepButton(page, '3 · Conditions').click();
+	for (const [id, value] of [['elev', '400'], ['rwy', '07'], ['qnh', '1013'], ['oat', '15'], ['wdir', '070'], ['wspd', '12']]) await type(page, id, value);
+	await page.getByRole('button', { name: 'Close keypad' }).click();
+	const results = page.getByRole('complementary', { name: 'Results' });
+	const takeoff = results.getByText('Takeoff · ').locator('..');
+	const withHeadwind = await takeoff.textContent();
+	await page.getByRole('radio', { name: /^No wind/ }).click();
+	await expect(results).toContainText('Distances: No wind');
+	await expect(results).toContainText('12 kt head');
+	await expect(takeoff).not.toHaveText(withHeadwind!);
+	await page.getByRole('radio', { name: /^As entered/ }).click();
+	await expect(results).not.toContainText('Distances:');
+	expect(errors).toEqual([]);
+});

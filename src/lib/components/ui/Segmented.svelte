@@ -23,7 +23,7 @@
 		onValueChange={(next) => { if (next) onchange(next); }}
 		aria-labelledby={id}
 		style={`grid-template-columns: repeat(auto-fit, minmax(${minWidth}px, 1fr))`}
-		class="grid min-w-0 flex-[1_1_440px] gap-1 rounded-[10px] bg-canvas p-1"
+		class={['grid min-w-0 gap-1 rounded-[10px] bg-canvas p-1', inline && 'flex-[1_1_440px]']}
 	>
 		{#each options as option (option.id)}
 			<ToggleGroup.Item

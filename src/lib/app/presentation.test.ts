@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { validateAircraft } from '../aircraft/validate.ts';
 import { calculate } from '../engine/index.ts';
-import { distanceText, limitBadge, massBalanceRows, runwayText, statusWord, windText, workingRows } from './presentation.ts';
+import { distanceText, enteredWindKept, limitBadge, massBalanceRows, runwayText, statusWord, windChoiceText, windText, workingRows } from './presentation.ts';
 
 const aircraft = (n: string) => {
 	const v = validateAircraft(JSON.parse(readFileSync(`aircraft-examples/${n}.json`, 'utf8')));
@@ -42,5 +42,22 @@ describe('what the pilot reads', () => {
 		const mb = massBalanceRows(a, r);
 		expect(mb.takeoff.mass).toBe(r.massBalance.takeoff.mass.toFixed(a.display.massDecimals));
 		expect(mb.rows[0]).toMatchObject({ id: 'empty', label: 'Empty' });
+	});
+});
+
+describe('wind for the distances', () => {
+	const head = { wind: { headwind: 9, crosswind: 0 }, distanceWind: { headwind: 0, crosswind: 0 } };
+	const tail = { wind: { headwind: -5, crosswind: 0 }, distanceWind: { headwind: -5, crosswind: 0 } };
+	it('names the choice', () => {
+		expect(windChoiceText(head)).toBe('As entered');
+		expect(windChoiceText(head, 'none')).toBe('No wind');
+		expect(windChoiceText({ ...head, distanceWind: { headwind: -3, crosswind: 0 } }, 'tail3')).toBe('Tailwind 3 kt');
+	});
+	it('says when a stronger entered tailwind is used instead', () => {
+		expect(enteredWindKept(tail, 'none')).toBe(true);
+		expect(enteredWindKept(tail, 'tail3')).toBe(true);
+		expect(enteredWindKept({ wind: { headwind: -3, crosswind: 0 } }, 'tail3')).toBe(false);
+		expect(enteredWindKept({ wind: { headwind: 0, crosswind: 0 } }, 'none')).toBe(false);
+		expect(windChoiceText(tail, 'none')).toBe('No wind chosen, but the entered tailwind is stronger, so it is used');
 	});
 });

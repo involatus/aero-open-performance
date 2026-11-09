@@ -150,6 +150,20 @@ describe('reporting gate', () => {
 	});
 });
 
+describe('wind for the distances', () => {
+	it('is as entered unless the pilot chooses, also for older saved calculations', () => {
+		const c = ready(dr);
+		expect(toInput(dr, c).windForDistances).toBe('entered');
+		c.windForDistances = 'tail3';
+		expect(toInput(dr, c).windForDistances).toBe('tail3');
+	});
+	it('starts as entered on the next flight, because wind belongs to the place', () => {
+		const c = ready(dr);
+		c.windForDistances = 'none';
+		expect(nextFlight(dr, c, calculate(dr, toInput(dr, c)), 'z', NOW).windForDistances).toBeUndefined();
+	});
+});
+
 describe('next flight', () => {
 	const c = ready(dr);
 	const r = calculate(dr, toInput(dr, c));

@@ -56,6 +56,14 @@ describe('creating a Report', () => {
 		expect(d.conditions.find((x) => x.label === 'Fuel flow')!.source).toBe('From aircraft data, confirmed');
 		expect(d.conditions.find((x) => x.label === 'QNH')!.source).toBe('Entered by pilot');
 	});
+	it('records which wind the distances use', () => {
+		const c = ready(a);
+		expect(createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c)).conditions.find((x) => x.label === 'Wind for distances')!.value).toBe('As entered');
+		c.windForDistances = 'tail3';
+		const d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
+		expect(d.conditions.find((x) => x.label === 'Wind for distances')).toEqual({ label: 'Wind for distances', value: 'Tailwind 3 kt', source: 'Chosen by pilot' });
+		expect(d.results.wind).toContain('Distances use: Tailwind 3 kt');
+	});
 	it('says so when a result has no data, without blocking', () => {
 		const c = ready(a); c.landingCondition = 'grass';
 		const d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));

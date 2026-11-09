@@ -2600,6 +2600,14 @@
 									}
 								]
 							},
+							"windForDistances": {
+								"enum": [
+									"entered",
+									"none",
+									"tail3"
+								],
+								"type": "string"
+							},
 							"takeoffCondition": {
 								"type": "string",
 								"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"

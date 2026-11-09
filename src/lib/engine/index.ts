@@ -1,5 +1,5 @@
 /** The calculation engine: pure functions from an aircraft file and inputs to results. */
-import type { Aircraft, CalculationInput, HandCase } from '../aircraft/schema.ts';
+import type { Aircraft, CalculationInput, HandCase, WindForDistances } from '../aircraft/schema.ts';
 import { atmosphere, type Atmosphere } from './atmosphere.ts';
 import { configurationOf, massBalance, type MassBalance } from './mass-balance.ts';
 import { runCondition, type PerformanceResult, type Wind } from './performance.ts';
@@ -8,7 +8,10 @@ import { convertLength, massArmFactors } from './units.ts';
 export type Calculation = {
 	massBalance: MassBalance;
 	atmosphere: Atmosphere | null;
+	/** The wind as entered: shown to the pilot and used for the crosswind check. */
 	wind: Wind | null;
+	/** The wind the distances use, after the pilot's choice. */
+	distanceWind: Wind | null;
 	takeoff: PerformanceResult;
 	landing: PerformanceResult;
 	exceeded: string[];
@@ -16,6 +19,18 @@ export type Calculation = {
 
 function noPerformance(label: string): PerformanceResult {
 	return { status: 'noData', conditionLabel: label, unit: null, rawTotal: null, rawGroundRoll: null, total: null, groundRoll: null, steps: [], warnings: [], reason: "No data: pilot's judgement", missing: [], windApplied: false };
+}
+
+const CHOSEN_HEADWIND: Record<WindForDistances, number | null> = { entered: null, none: 0, tail3: -3 };
+
+/**
+ * A pilot may plan with no wind or a 3 kt tailwind instead of the entered wind. The chosen wind is
+ * only used when it is the more conservative one, so the choice can never shorten a distance.
+ */
+export function windForDistances(wind: Wind | null, choice: WindForDistances = 'entered'): Wind | null {
+	const chosen = CHOSEN_HEADWIND[choice];
+	if (!wind || chosen === null) return wind;
+	return { headwind: Math.min(wind.headwind, chosen), crosswind: wind.crosswind };
 }
 
 export function calculate(a: Aircraft, input: CalculationInput): Calculation {
@@ -32,6 +47,7 @@ export function calculate(a: Aircraft, input: CalculationInput): Calculation {
 	const limits = [...mb.limits];
 	if (a.crosswind && wind && wind.crosswind > a.crosswind.value + 1e-9) limits.push({ id: 'crosswind', label: 'Crosswind', status: 'warning', value: wind.crosswind, limit: a.crosswind.value });
 	mb.limits = limits;
+	const distanceWind = windForDistances(wind, input.windForDistances);
 
 	const config = configurationOf(a, input.configuration);
 	const run = (phase: 'takeoff' | 'landing', id: string, mass: number): PerformanceResult => {
@@ -39,13 +55,14 @@ export function calculate(a: Aircraft, input: CalculationInput): Calculation {
 		const conditions = (config.performance ?? a.performance)[phase];
 		const condition = conditions.find((c) => c.id === id);
 		if (!condition) throw new Error(`Unknown ${phase} condition: ${id}`);
-		return runCondition(a, condition, { atm, oat: input.oat, elevationM, mass, massUnit: a.units.mass, wind });
+		return runCondition(a, condition, { atm, oat: input.oat, elevationM, mass, massUnit: a.units.mass, wind: distanceWind });
 	};
 
 	return {
 		massBalance: mb,
 		atmosphere: atm,
 		wind,
+		distanceWind,
 		takeoff: run('takeoff', input.takeoffCondition, mb.takeoff.mass),
 		landing: run('landing', input.landingCondition, mb.landing.mass),
 		exceeded: mb.limits.filter((l) => l.status === 'exceeded').map((l) => l.id)
