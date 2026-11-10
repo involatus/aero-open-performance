@@ -145,7 +145,7 @@ This makes an undetected error very unlikely, but can't prove there are none. An
 - Tests for exact cells, values between cells, behaviour at and beyond every limit, units and every Burn Plan.
 - A small Python calculator, written from the format documentation without reading the app's code. At least 100,000 random inputs must match within 0.001 m before rounding and exactly after it. A person resolves any difference.
 
-**Data gate, on every Data Release:** for each selectable takeoff and landing condition, one hand-calculated case on a table value and one between values, plus forward-loading, aft-loading and over-limit M&B cases. Expected results are typed by hand and must match the displayed value exactly. The GUI never copies the tool's result into them.
+**Data gate, on every Data Release:** for each selectable takeoff and landing condition, one hand-calculated case between table values, plus forward-loading, aft-loading and over-limit M&B cases. A fictional aircraft also needs one on a table value; a real aircraft's tables are compared with the manual row by row instead. Conditions that calculate the same way in several Configurations need cases once. One case can cover a takeoff, a landing, the CG and a limit. Expected results are typed by hand and must match the displayed value exactly. The GUI never copies the tool's result into them.
 
 ### Removing the pre-release label
 

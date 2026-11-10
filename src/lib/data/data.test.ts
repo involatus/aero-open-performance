@@ -179,6 +179,30 @@ describe('publish checks', () => {
 		expect(coverageProblems({ ...a, handCases: [] }).join()).toContain('exceeds a limit');
 		expect(coverageProblems({ ...a, handCases: [] }).join()).toContain('one forward and one aft');
 	});
+	it('says in one problem how many cases are still needed', () => {
+		const a = aircraft('test-kitfox-style');
+		const problems = coverageProblems({ ...a, handCases: [] });
+		expect(problems).toHaveLength(1);
+		expect(problems[0]).toMatch(/^Needs at least \d+ more hand-calculated cases?, covering: /);
+	});
+	it('needs no case on a table value in a real aircraft, whose tables are compared with the manual', () => {
+		const a = aircraft('test-kitfox-style');
+		expect(coverageProblems({ ...a, fictional: false, handCases: [] }).join()).not.toContain('exactly on a table value');
+		expect(coverageProblems({ ...a, fictional: false, handCases: [] }).join()).toContain('between table values');
+	});
+	it('needs cases only once for a Configuration whose conditions calculate the same way', () => {
+		const a = aircraft('test-kitfox-style');
+		expect(coverageProblems(a)).toEqual([]);
+		const copy = JSON.parse(JSON.stringify(a.performance));
+		for (const c of [...copy.takeoff, ...copy.landing]) c.label += ', copied';
+		const withCopy = { ...a, configurations: [...a.configurations, { ...a.configurations[0], id: 'copy', label: 'Copy', performance: copy }] };
+		expect(coverageProblems(withCopy)).toEqual([]);
+		const changed = JSON.parse(JSON.stringify(copy));
+		const step = changed.takeoff.find((c: { kind: string }) => c.kind === 'steps').steps;
+		step.push({ type: 'factor', value: 1.2, applies: ['total'] });
+		const withChanged = { ...a, configurations: [...a.configurations, { ...a.configurations[0], id: 'changed', label: 'Changed', performance: changed }] };
+		expect(coverageProblems(withChanged).join()).toContain('(Changed)');
+	});
 	it('flags a distance that shrinks with temperature or altitude, until acknowledged', () => {
 		const d = raw('test-dr-style');
 		d.tables.hard.outputs.total[1][1] = 300;

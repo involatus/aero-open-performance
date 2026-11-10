@@ -3,6 +3,7 @@ import type { Aircraft, Axis, Condition, Performance, Table } from '../aircraft/
 import { calculate, runHandCases } from '../engine/index.ts';
 import { validateAircraft } from '../aircraft/validate.ts';
 import { tableCheckProblems } from './table-check.ts';
+import { canonicalize } from './canonical.ts';
 
 export type CheckResult = { problems: string[]; unusual: string[] };
 
@@ -12,36 +13,63 @@ function performances(a: Aircraft): Array<[string, Performance]> {
 	return out;
 }
 
-/** Each selectable condition needs a case on a table value and one between values. */
+/** Conditions that calculate the same way, whatever their label or Configuration, need cases only once. */
+function sameCalculation(c: Condition & { kind: 'steps' }) {
+	return canonicalize({ distanceUnit: c.distanceUnit, steps: c.steps });
+}
+
+/**
+ * Each selectable condition needs a case between table values. One exactly on a table value is needed
+ * too, unless the aircraft is real: then every table is compared with the manual, which covers the cells.
+ * The result is one problem that says how many cases are still needed and what they must cover.
+ */
 export function coverageProblems(a: Aircraft): string[] {
-	const problems: string[] = [];
-	const usesLookup = (c: Condition) => c.kind === 'steps' && c.steps.some((s) => s.type === 'lookup');
+	const needOnValue = a.fictional === true;
+	type Group = { phase: 'takeoff' | 'landing'; name: string; lookup: boolean; onValue: number; between: number; any: number };
+	const groups = new Map<string, Group>();
 	for (const [where, performance] of performances(a)) {
 		for (const phase of ['takeoff', 'landing'] as const) {
 			for (const condition of performance[phase]) {
 				if (condition.kind === 'noData') continue;
-				let onValue = 0, between = 0, any = 0;
-				for (const hand of a.handCases) {
-					const id = phase === 'takeoff' ? hand.input.takeoffCondition : hand.input.landingCondition;
-					const want = hand.expected[phase];
-					if (id !== condition.id || want?.status !== 'ok' || (want.total === undefined && want.groundRoll === undefined)) continue;
-					const config = a.configurations.find((c) => c.id === hand.input.configuration);
-					if (!config || (config.performance ?? a.performance) !== performance) continue;
-					any++;
-					const lookup = calculate(a, hand.input)[phase].steps.find((s) => s.type === 'lookup');
-					if (lookup?.cells?.length === 1) onValue++; else if (lookup) between++;
-				}
-				const name = `${where}, ${phase}, ${condition.label}`;
-				if (usesLookup(condition)) {
-					if (!onValue) problems.push(`${name}: needs a hand-calculated case exactly on a table value`);
-					if (!between) problems.push(`${name}: needs a hand-calculated case between table values`);
-				} else if (!any) problems.push(`${name}: needs a hand-calculated case`);
+				const key = `${phase}|${sameCalculation(condition)}`;
+				if (groups.has(key)) continue;
+				const name = where === 'Standard' ? condition.label : `${condition.label} (${where})`;
+				groups.set(key, { phase, name, lookup: condition.steps.some((s) => s.type === 'lookup'), onValue: 0, between: 0, any: 0 });
 			}
 		}
 	}
-	if (a.handCases.filter((c) => c.expected.takeoffArm !== undefined).length < 2) problems.push('Needs at least two cases checking CG, one forward and one aft');
-	if (!a.handCases.some((c) => c.expected.exceeded.length > 0)) problems.push('Needs a hand-calculated case that exceeds a limit');
-	return problems;
+	for (const hand of a.handCases) {
+		const config = a.configurations.find((c) => c.id === hand.input.configuration);
+		if (!config) continue;
+		const performance = config.performance && config.performance !== 'none' ? config.performance : config.performance === 'none' ? null : a.performance;
+		if (!performance) continue;
+		for (const phase of ['takeoff', 'landing'] as const) {
+			const id = phase === 'takeoff' ? hand.input.takeoffCondition : hand.input.landingCondition;
+			const want = hand.expected[phase];
+			const condition = performance[phase].find((c) => c.id === id);
+			if (!condition || condition.kind === 'noData' || want?.status !== 'ok' || (want.total === undefined && want.groundRoll === undefined)) continue;
+			const group = groups.get(`${phase}|${sameCalculation(condition)}`);
+			if (!group) continue;
+			group.any++;
+			const lookup = calculate(a, hand.input)[phase].steps.find((s) => s.type === 'lookup');
+			if (lookup?.cells?.length === 1) group.onValue++; else if (lookup) group.between++;
+		}
+	}
+	const still = { takeoff: [] as string[], landing: [] as string[] };
+	for (const g of groups.values()) {
+		const what = `a ${g.phase} with ${g.name}`;
+		if (!g.lookup) { if (!g.any) still[g.phase].push(what); continue; }
+		if (needOnValue && !g.onValue) still[g.phase].push(`${what}, exactly on a table value`);
+		if (!g.between) still[g.phase].push(`${what}, between table values`);
+	}
+	const cgCases = a.handCases.filter((c) => c.expected.takeoffArm !== undefined).length;
+	const exceeds = a.handCases.some((c) => c.expected.exceeded.length > 0);
+	const items = [...still.takeoff, ...still.landing];
+	if (cgCases < 2) items.push('two cases checking CG, one forward and one aft');
+	if (!exceeds) items.push('a case that exceeds a limit');
+	if (!items.length) return [];
+	const count = Math.max(still.takeoff.length, still.landing.length, 2 - Math.min(cgCases, 2), exceeds ? 0 : 1);
+	return [`Needs at least ${count} more hand-calculated ${count === 1 ? 'case' : 'cases'}, covering: ${items.join('; ')}. One case can check a takeoff, a landing, the CG and a limit together.`];
 }
 
 const RISES = new Set(['pressureAltitude', 'densityAltitude', 'elevation', 'temperature', 'mass']);

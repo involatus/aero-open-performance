@@ -490,7 +490,7 @@
 									<p class={['font-semibold', failingCases ? 'text-bad' : 'text-good']} role="status">{failingCases ? `${failingCases} of ${parsed.handCases.length} cases fail.` : `${parsed.handCases.length} of ${parsed.handCases.length} match.`} <span class="font-normal text-muted">They rerun on every change.</span></p>
 									<Button onclick={() => { const c = newHandCase(parsed!, status?.name ?? '', Date.now()); editing!.aircraft.handCases.push(c); touch(); showCase(c.id); }}><Icon name="plus" />Add a case</Button>
 								</div>
-								<p class="text-sm text-muted">Each takeoff and landing condition needs one case on a table value and one between values. Also add forward CG, aft CG and over-limit cases.</p>
+								<p class="text-sm text-muted">Each takeoff and landing condition needs a case between table values, and a fictional aircraft one exactly on a table value too. Also check forward CG, aft CG and an exceeded limit. One case can check a takeoff, a landing, the CG and a limit together.</p>
 								{#if summaries.length}
 									<div class="-mx-5 overflow-x-auto border-y border-line">
 										<table class="w-full border-collapse text-sm">

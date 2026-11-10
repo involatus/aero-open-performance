@@ -219,7 +219,7 @@ Publishing fails, with no override, unless every file passes all of these:
 
 - It is valid.
 - Every hand-calculated case passes.
-- Each selectable takeoff and landing condition with a table has a case exactly on a table value and one between values. Others have at least one case.
+- Each selectable takeoff and landing condition with a table has a case between table values. In a fictional aircraft, it also has one exactly on a table value; a real aircraft's tables are compared with the manual instead. Others have at least one case. Conditions with the same `distanceUnit` and `steps` count as one, whatever their label or Configuration.
 - At least two cases check CG, and at least one exceeds a limit.
 - Any distance that shrinks as altitude, temperature or mass rises is listed in `acknowledgedUnusualValues`, using the checker's exact wording, after being compared with the manual.
 - In a non-fictional aircraft, every table has `checked` (`by`, `date`, `fingerprint`): a person compared it with the manual. The fingerprint is FNV-1a 64-bit, as 16 hex digits, of the canonical JSON of `{ axes: [{ unit, values }], outputs }`. A table changed afterwards fails, and the message gives its current fingerprint. The admin area fills this in.
