@@ -53,16 +53,22 @@ describe('creating a Report', () => {
 		Object.assign(c, ready(a), { sources: { flow: 'aircraft data' } });
 		c.status.flow = 'ok';
 		const d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
-		expect(d.conditions.find((x) => x.label === 'Fuel flow')!.source).toBe('From aircraft data');
+		expect(d.massBalance.flow!.source).toBe('From aircraft data');
 		expect(d.conditions.find((x) => x.label === 'QNH')!.source).toBe('Entered by pilot');
 	});
 	it('records which wind the distances use', () => {
 		const c = ready(a);
-		expect(createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c)).conditions.find((x) => x.label === 'Wind for distances')!.value).toBe('As entered');
+		expect(createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c)).results.windShort).toEqual({ reported: '090° 5 kt', used: 'HW 5 kt · XW 0 kt', choice: null });
 		c.windForDistances = 'tail3';
 		const d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
-		expect(d.conditions.find((x) => x.label === 'Wind for distances')).toEqual({ label: 'Wind for distances', value: 'Tailwind 3 kt', source: 'Chosen by pilot' });
+		expect(d.results.windShort).toEqual({ reported: '090° 5 kt', used: 'TW 3 kt · XW 0 kt', choice: 'TW 3 kt chosen' });
 		expect(d.results.wind).toContain('Distances use: Tailwind 3 kt');
+	});
+	it('writes a variable wind as a METAR does, applied as a tailwind', () => {
+		const c = ready(a); setByPilot(c, 'wdir', 'VRB');
+		const d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
+		expect(d.conditions.find((x) => x.label === 'Wind')!.value).toBe('VRB 5 kt');
+		expect(d.results.windShort).toMatchObject({ reported: 'VRB 5 kt', used: 'TW 5 kt' });
 	});
 	it('records the landing airfield and its conditions when landing elsewhere', () => {
 		const c = ready(a);
@@ -75,12 +81,12 @@ describe('creating a Report', () => {
 		expect(fingerprint(a, c)).not.toBe(before);
 		const d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
 		expect(d.landing).toMatchObject({ airfield: 'LSYY', runway: '25', wind: '10 kt head. Crosswind 0 kt. Distances use: No wind', rawMetar: null });
+		expect(d.landing?.windShort).toEqual({ reported: '250° 10 kt', used: 'HW 0 kt · XW 0 kt', choice: 'No wind chosen' });
 		const row = (label: string) => d.conditions.find((x) => x.label === label)!;
-		expect(row('Runway')).toEqual({ label: 'Runway', value: '09, heading 090°', source: 'Entered by pilot', landing: { value: '25, heading 250°', source: 'Entered by pilot' } });
-		expect(row('Wind for distances').landing?.value).toBe('No wind');
-		expect(row('Fuel flow').landing).toBeUndefined();
+		expect(row('Runway')).toEqual({ label: 'Runway', value: '09 (090°)', source: 'Entered by pilot', landing: { value: '25 (250°)', source: 'Entered by pilot' } });
+		expect(d.conditions.map((x) => x.label)).toEqual(['Elevation', 'Runway', 'QNH', 'OAT', 'Wind']);
 		const doc = JSON.stringify(reportDocument(d));
-		expect(doc).toContain('LSXX runway 09 → LSYY runway 25');
+		expect(doc).toContain('LSXX RWY 09 → LSYY RWY 25');
 	});
 	it('says so when a result has no data, without blocking', () => {
 		const c = ready(a); c.landingCondition = 'grass';
@@ -96,7 +102,8 @@ describe('creating a Report', () => {
 		expect(d.rawMetar).toBe('METAR LSXX 061250Z 24008KT 12/06 Q1009');
 		expect(d.conditions.find((x) => x.label === 'OAT')!.source).toBe('From METAR LSXX, confirmed');
 		const doc = JSON.stringify(reportDocument(d));
-		expect(doc).toContain('Raw METAR: ');
+		expect(doc).toContain('unmarked: entered by pilot');
+		expect(doc).not.toContain(', confirmed');
 		expect(doc).toContain('METAR LSXX 061250Z 24008KT 12/06 Q1009');
 	});
 	it('keeps warnings and cites manual sources in the working', () => {
@@ -113,9 +120,23 @@ describe('Report layout', () => {
 		const a = load(name), c = ready(a);
 		const r = calculate(a, toInput(a, c));
 		const doc = reportDocument(createReportData(a, c, r, meta(a, c, r))), all = text(doc);
-		for (const s of ['TAKEOFF', 'LANDING', 'ALTITUDE', 'WIND', 'CONDITIONS', 'MASS AND BALANCE', 'LIMITS', 'WORKING', RESPONSIBILITY, 'AOP-TEST', 'PRE-RELEASE, NOT FOR FLIGHT', 'FICTIONAL']) expect(all).toContain(s);
+		for (const s of ['Takeoff', 'Landing', 'DA', 'Wind', 'Conditions', 'Mass and balance', 'Burn plan', 'Limits', 'Working', RESPONSIBILITY, 'AOP-TEST', 'PRE-RELEASE, NOT FOR FLIGHT', 'FICTIONAL']) expect(all).toContain(s);
 		expect(all).toContain('A Pilot');
 		expect(all).toContain('LSXX');
+	});
+	it('puts fuel on its tank row and the burn on one line', () => {
+		const a = load('test-dr-style'), c = ready(a), d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
+		expect(d.massBalance.rows.filter((r) => r.fuel).map((r) => r.fuel!.value)).toEqual(a.tanks.map(() => '20 L'));
+		expect(d.massBalance.time).toEqual({ value: '1 h', source: 'Entered by pilot' });
+	});
+	it('still renders Reports made before the compact layout', () => {
+		const a = load('test-dr-style'), c = ready(a), d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
+		delete d.results.windShort; delete d.massBalance.time; delete d.massBalance.flow; delete d.results.takeoff.mass;
+		d.massBalance.rows.forEach((r) => delete r.fuel);
+		d.conditions.push({ label: 'Fuel flow', value: '20 L/h', source: 'From aircraft data' });
+		const all = text(reportDocument(d));
+		expect(all).toContain('Burned');
+		expect(all).toContain('Fuel flow');
 	});
 	it('drops the pre-release line only when asked', () => {
 		const a = { ...load('test-dr-style'), fictional: false }, c = ready(a), r = calculate(a, toInput(a, c));

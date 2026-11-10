@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { validateAircraft } from '../aircraft/validate.ts';
 import { calculate } from '../engine/index.ts';
-import { distanceText, enteredWindKept, limitBadge, massBalanceRows, runwayText, statusWord, windChoiceText, windText, workingRows } from './presentation.ts';
+import { distanceText, enteredWindKept, limitBadge, massBalanceRows, statusWord, windChoiceText, windText, workingRows } from './presentation.ts';
 
 const aircraft = (n: string) => {
 	const v = validateAircraft(JSON.parse(readFileSync(`aircraft-examples/${n}.json`, 'utf8')));
@@ -28,10 +28,6 @@ describe('what the pilot reads', () => {
 		expect(windText({ headwind: 4.6, crosswind: 2.2 }, false)).toEqual({ headline: '5 kt head', detail: 'Crosswind 2 kt' });
 		expect(windText({ headwind: -3, crosswind: 0 }, true)).toEqual({ headline: '3 kt tail', detail: 'Variable wind, applied as a tailwind' });
 		expect(windText(null, false)).toBeNull();
-	});
-	it('shows a runway number with its heading', () => {
-		expect(runwayText(80)).toBe('08, heading 080°');
-		expect(runwayText(360)).toBe('36, heading 360°');
 	});
 	it('ends the working with the rounded result, and names manual sources', () => {
 		const rows = workingRows(a, r.takeoff);

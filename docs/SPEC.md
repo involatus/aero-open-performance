@@ -101,13 +101,13 @@ Weather loads only when the pilot asks, by station code or "Nearest" with device
 
 ## Reports
 
-One standard PDF, one page where possible, in English. Sections, in order:
+One standard PDF in English: a one-page summary, then the working and footer on page 2. Sections, in order:
 
 1. **Heading:** aircraft, Configuration, UTC date and time, pilot's typed name, departure airfield as free text, and the landing airfield when it is another one.
-2. **Results,** with the same labels as on screen.
-3. **Conditions,** with each value's source and the raw METAR, for each airfield.
-4. **Mass and balance,** with Burn Plan, limit results and CG chart.
-5. **Working,** with table values and manual sources.
+2. **Results,** in the compact form of EFB summaries: each distance with its condition and mass, then each airfield's DA, PA, the wind as a METAR gives it (such as `VRB 2 kt`) and the components the distances use (such as `TW 3 kt` or `HW 8 kt · XW 6 kt`). Every page's foot defines the abbreviations, including that VRB is applied as a tailwind.
+3. **Conditions,** for each airfield, with the raw METAR. Each value's source is a mark beside it, explained once under the table; values the pilot entered are unmarked.
+4. **Mass and balance,** with each tank's fuel on its row, the Burn Plan with flight time and fuel flow on one line, limit results and CG chart.
+5. **Working,** with table values and manual sources, starting on page 2 so page 1 is the summary.
 6. **Footer:** Report ID, tool version, Data Release, aircraft revision, last data check, confirmed notes, and the statement that the pilot in command is responsible for verifying the results.
 
 A Report needs the pilot's name, every Prefilled Value and note confirmed, and no exceeded limit. An exceeded limit blocks it, with no setting to change that. A "no data" result doesn't block it, and the Report says so. The name is for traceability and isn't a signature.

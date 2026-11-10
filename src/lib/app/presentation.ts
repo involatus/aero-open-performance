@@ -69,11 +69,6 @@ export function altitudeText(r: Pick<Results, 'atmosphere'>): { pressure: string
 	return { pressure: `${Math.round(atm.pressureAltitudeFt)} ft`, density: atm.densityAltitudeFt != null ? `${Math.round(atm.densityAltitudeFt)} ft` : 'Not available' };
 }
 
-/** "08, heading 080°": a runway number alone can be misread. */
-export function runwayText(heading: number): string {
-	return `${String(heading / 10).padStart(2, '0')}, heading ${String(heading).padStart(3, '0')}°`;
-}
-
 export type WorkingRow = { step: string; total: string; groundRoll: string; source: string };
 
 /** The steps behind a distance, each with its manual source, ending with the rounded result. */

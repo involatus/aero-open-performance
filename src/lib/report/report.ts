@@ -7,13 +7,20 @@ import type { Calculation as Results } from '../engine/index.ts';
 import type { PerformanceResult } from '../engine/performance.ts';
 import type { DistanceText } from '../app/presentation.ts';
 import { limitText } from '../engine/mass-balance.ts';
-import { canReport, fieldsFor, isVariableWind, keyAt, performanceOf, toInput, type Calculation, type Place, runwayHeading, weatherAt, windChoiceAt } from '../app/calculation.ts';
-import { altitudeText, distanceText, landingConditions, utcText, valueSource, limitBadge, massBalanceRows, runwayText, windChoiceText, windText, workingRows } from '../app/presentation.ts';
+import { canReport, fieldsFor, isVariableWind, keyAt, toInput, type Calculation, type Place, runwayHeading, weatherAt, windChoiceAt } from '../app/calculation.ts';
+import { altitudeText, distanceText, enteredWindKept, landingConditions, utcText, valueSource, limitBadge, massBalanceRows, windChoiceText, windText, workingRows } from '../app/presentation.ts';
 
 export type Delivery = 'notSent' | 'sent' | 'shared';
 export type ReportWorking = { title: string; rows: { step: string; total: string; groundRoll: string; source: string }[] };
 /** Ground roll and total come apart for the results band. Reports made before this have only the headline. */
-export type ReportDistance = DistanceText & { condition?: string; groundRoll?: string | null; total?: string | null };
+export type ReportDistance = DistanceText & { condition?: string; groundRoll?: string | null; total?: string | null; mass?: string };
+/**
+ * The wind in the compact form of EFB summaries: "VRB 2 kt", then the components the distances use,
+ * such as "TW 3 kt" or "HW 8 kt · XW 6 kt", and the pilot's choice when it isn't the entered wind.
+ * Missing on Reports made before it was recorded.
+ */
+export type ReportWind = { reported: string; used: string | null; choice: string | null };
+type Sourced = { value: string; source: string };
 export type ReportData = {
 	id: string;
 	createdUtc: string;
@@ -24,16 +31,20 @@ export type ReportData = {
 	departure: string;
 	/** Missing on Reports made before it was recorded. */
 	runway?: string | null;
-	results: { takeoff: ReportDistance; landing: ReportDistance; pressureAltitude: string; densityAltitude: string; wind: string };
+	results: { takeoff: ReportDistance; landing: ReportDistance; pressureAltitude: string; densityAltitude: string; wind: string; windShort?: ReportWind };
 	/** The landing airfield's conditions, when it isn't the departure one. Missing on Reports made before it was recorded. */
-	landing?: { airfield: string; runway: string | null; pressureAltitude: string; densityAltitude: string; wind: string; rawMetar: string | null } | null;
+	landing?: { airfield: string; runway: string | null; pressureAltitude: string; densityAltitude: string; wind: string; windShort?: ReportWind; rawMetar: string | null } | null;
 	/** With a landing elsewhere, the place values also carry the landing airfield's value beside the departure one. */
 	conditions: { label: string; value: string; source: string; landing?: { value: string; source: string } }[];
 	rawMetar: string | null;
 	massBalance: {
-		rows: { label: string; mass: string; arm: string; moment: string }[];
+		/** A tank's row carries its fuel volume, as on loading forms. */
+		rows: { label: string; mass: string; arm: string; moment: string; fuel?: Sourced }[];
 		takeoff: { mass: string; arm: string; moment: string };
 		landing: { mass: string; arm: string; moment: string };
+		/** Flight time and fuel flow sit with the burn. Reports made before this have them under conditions. */
+		time?: Sourced;
+		flow?: Sourced;
 		burnPlan: string;
 		burned: string;
 		units: { mass: string; arm: string; volume: string };
@@ -95,17 +106,35 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 	const allFields = fieldsFor(a, calc).flat();
 	const shown = (key: string) => {
 		const f = allFields.find((x) => x.key === key)!;
-		// A runway number alone can be misread, so the report also gives the heading it stands for.
+		// A runway number alone can be misread, so the report also gives the heading it stands for: "08 (080°)".
 		const h = key === keyAt('departure', 'rwy') || key === keyAt('landing', 'rwy') ? runwayHeading(calc.values[key]) : null;
-		const value = h !== null ? runwayText(h) : `${calc.values[key] ?? ''} ${f.unit}`.trim();
+		const value = h !== null ? `${String(h / 10).padStart(2, '0')} (${String(h).padStart(3, '0')}°)` : `${calc.values[key] ?? ''} ${f.unit}`.trim();
 		return { label: f.label, value, source: valueSource(calc, key) };
 	};
-	const perf = performanceOf(a, calc.configuration);
-	const conditionLabel = (phase: 'takeoff' | 'landing', id: string) => perf?.[phase].find((c) => c.id === id)?.label ?? id;
+	const sourced = (key: string): Sourced => (({ value, source }) => ({ value, source }))(shown(key));
+	/** Direction and speed in one value, as a METAR gives them: "VRB 2 kt", "250° 10 kt". */
+	const windRow = (place: Place) => {
+		const dir = keyAt(place, 'wdir'), spd = keyAt(place, 'wspd');
+		const direction = isVariableWind(calc, place) ? 'VRB' : `${calc.values[dir].trim().padStart(3, '0')}°`;
+		const [from, speed] = [valueSource(calc, dir), valueSource(calc, spd)];
+		return { label: 'Wind', value: `${direction} ${calc.values[spd].trim()} kt`, source: from === speed ? from : `Direction: ${from}; speed: ${speed}` };
+	};
+	const kt = (x: number) => `${Math.abs(x).toFixed(0)} kt`;
+	const CHOICE_SHORT = { entered: '', none: 'No wind', tail3: 'TW 3 kt' };
+	const windShort = (place: Place): ReportWind => {
+		const at = place === 'landing' ? landingConditions(r) : r, choice = windChoiceAt(calc, place), w = at.distanceWind;
+		const used = !w ? null : isVariableWind(calc, place) ? `TW ${kt(w.headwind)}` : `${w.headwind >= 0 ? 'HW' : 'TW'} ${kt(w.headwind)} · XW ${kt(w.crosswind)}`;
+		return {
+			reported: windRow(place).value,
+			used,
+			choice: choice === 'entered' ? null : `${CHOICE_SHORT[choice]} chosen${enteredWindKept(at, choice) ? ', stronger entered TW used' : ''}`
+		};
+	};
 	const thousands = (x: number | null, unit: string | null) => (x === null ? null : `${x.toLocaleString('en')} ${unit ?? ''}`.trim());
 	const distance = (title: string, p: PerformanceResult, m: number): ReportDistance => ({
 		...distanceText(title, p, `${mass(m)} ${u.mass}`),
 		condition: p.conditionLabel,
+		mass: `${mass(m)} ${u.mass}`,
 		...(p.status === 'ok' ? { groundRoll: thousands(p.groundRoll, p.unit), total: thousands(p.total, p.unit) } : {})
 	});
 	// Each airfield's altitude and wind, worded the same way.
@@ -124,10 +153,8 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 		const h = runwayHeading(calc.values[keyAt(place, 'rwy')]);
 		return h === null ? null : String(h / 10).padStart(2, '0');
 	};
-	const placeRows = (place: Place) => [
-		...['elev', 'rwy', 'qnh', 'oat', 'wdir', 'wspd'].map((k) => shown(keyAt(place, k))),
-		{ label: 'Wind for distances', value: placeText(place).used, source: 'Chosen by pilot' }
-	];
+	// The wind the distances use and the pilot's choice are in the results band, not repeated here.
+	const placeRows = (place: Place) => [...['elev', 'rwy', 'qnh', 'oat'].map((k) => shown(keyAt(place, k))), windRow(place)];
 	const landingRows = calc.landingElsewhere ? placeRows('landing') : null;
 	const data: ReportData = {
 		id: meta.id,
@@ -143,21 +170,25 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 			landing: distance('Landing', r.landing, r.massBalance.landing.mass),
 			pressureAltitude: departure.pressureAltitude,
 			densityAltitude: departure.densityAltitude,
-			wind: departure.wind
+			wind: departure.wind,
+			windShort: windShort('departure')
 		},
 		landing: calc.landingElsewhere ? (({ used: _, ...at }) => ({
-			airfield: calc.values['land:place'].trim(), runway: runwayOf('landing'), ...at, rawMetar: weatherAt(calc, 'landing')?.raw ?? null
+			airfield: calc.values['land:place'].trim(), runway: runwayOf('landing'), ...at, windShort: windShort('landing'), rawMetar: weatherAt(calc, 'landing')?.raw ?? null
 		}))(placeText('landing')) : null,
-		conditions: [
-			...placeRows('departure').map((row, i) => (landingRows ? { ...row, landing: { value: landingRows[i].value, source: landingRows[i].source } } : row)),
-			...['time', 'flow'].map(shown),
-			...a.tanks.map((t) => shown(`fuel:${t.id}`)),
-			{ label: 'Takeoff condition', value: conditionLabel('takeoff', calc.takeoffCondition), source: 'Chosen by pilot' },
-			{ label: 'Landing condition', value: conditionLabel('landing', calc.landingCondition), source: 'Chosen by pilot' }
-		],
+		// The takeoff and landing conditions are in the results band, and the fuel with the mass and balance.
+		conditions: placeRows('departure').map((row, i) => (landingRows ? { ...row, landing: { value: landingRows[i].value, source: landingRows[i].source } } : row)),
 		rawMetar: calc.weather?.raw ?? null,
 		massBalance: {
-			...(({ rows, takeoff, landing }) => ({ rows: rows.map(({ id: _, ...row }) => row), takeoff, landing }))(massBalanceRows(a, r)),
+			...(({ rows, takeoff, landing }) => ({
+				rows: rows.map(({ id, ...row }) => {
+					const tank = a.tanks.find((t) => id === `tank:${t.id}`);
+					return tank ? { ...row, fuel: sourced(`fuel:${tank.id}`) } : row;
+				}),
+				takeoff, landing
+			}))(massBalanceRows(a, r)),
+			time: sourced('time'),
+			flow: sourced('flow'),
 			burnPlan: plan.label,
 			burned: `${r.massBalance.burned.toFixed(1)} ${u.volume}`,
 			units: { mass: u.mass, arm: u.arm, volume: u.volume }
@@ -180,29 +211,90 @@ const INK = '#13202D', INK2 = '#3E4C59', MUTED = '#5A6876', LINE = '#E1E6EB', DI
 /** IBM Plex, as on screen. The complete fonts cover every European Latin letter a name may use. */
 export const SANS = 'PlexSans', MONO = 'PlexMono';
 const small = 7.5;
+/** The abbreviations the Report uses, defined once at the foot of every page, as EFB summaries do. */
+export const ABBREVIATIONS = 'DA/PA density/pressure altitude · HW/TW head/tailwind · XW crosswind · VRB variable, applied as TW at full speed';
 const num = (text: string, extra: Record<string, unknown> = {}) => ({ text, font: MONO, ...extra });
 const heading = (text: string) => ({
-	table: { widths: ['*'], body: [[{ text: text.toUpperCase(), bold: true, fontSize: 8.6, characterSpacing: 0.7, color: INK }]] },
-	layout: { hLineWidth: (i: number) => (i === 1 ? 1.2 : 0), vLineWidth: () => 0, hLineColor: () => INK, paddingLeft: () => 0, paddingRight: () => 0, paddingTop: () => 0, paddingBottom: () => 3 },
-	margin: [0, 0, 0, 4]
+	table: { widths: ['*'], body: [[{ text, bold: true, fontSize: 9.5, color: INK }]] },
+	layout: { hLineWidth: (i: number) => (i === 1 ? 1.2 : 0), vLineWidth: () => 0, hLineColor: () => INK, paddingLeft: () => 0, paddingRight: () => 0, paddingTop: () => 0, paddingBottom: () => 2 },
+	margin: [0, 0, 0, 3]
 });
-const rows = { hLineWidth: (i: number) => (i === 0 ? 0 : 0.75), vLineWidth: () => 0, hLineColor: () => LINE, paddingTop: () => 2.2, paddingBottom: () => 2.2, paddingLeft: () => 3.5, paddingRight: () => 3.5 };
-const th = (text: string, alignment = 'left') => ({ text, bold: true, color: MUTED, fontSize: 8, alignment });
-const caps = (text: string) => ({ text: text.toUpperCase(), bold: true, fontSize: 8, characterSpacing: 0.5, color: MUTED });
+const rows = { hLineWidth: (i: number) => (i === 0 ? 0 : 0.75), vLineWidth: () => 0, hLineColor: () => LINE, paddingTop: () => 2, paddingBottom: () => 2, paddingLeft: () => 3.5, paddingRight: () => 3.5 };
+const th = (text: string, alignment = 'left') => ({ text, bold: true, color: MUTED, fontSize: 7.5, alignment });
+const sup = (mark: string) => (mark ? [{ text: mark, sup: true, font: SANS, bold: false, color: MUTED }] : []);
 
+/**
+ * Sources as marks instead of a line under every value, as EFB load summaries state them once.
+ * "Entered by pilot" is unmarked. Airfield list and METAR sources differ per airfield, so each airfield
+ * has its own legend; a choice by the pilot and the aircraft data are the same everywhere.
+ */
+function sourceMarks() {
+	const KINDS: [RegExp, string][] = [[/^Chosen by pilot$/, 'P'], [/^From aircraft data$/, 'D'], [/^From airfield list /, 'A'], [/^From METAR /, 'M']];
+	const scopes = new Map<string, Map<string, string>>();
+	return {
+		mark(scope: string, source: string): string {
+			const text = source.replace(/, confirmed$/, '');
+			if (text === 'Entered by pilot') return '';
+			const kind = KINDS.find(([re]) => re.test(text))?.[1] ?? 'S';
+			const at = kind === 'P' || kind === 'D' ? '' : scope;
+			if (!scopes.has(at)) scopes.set(at, new Map());
+			const known = scopes.get(at)!;
+			if (!known.has(text)) {
+				const n = [...known.values()].filter((m) => m[0] === kind).length;
+				known.set(text, n ? `${kind}${n + 1}` : kind);
+			}
+			return known.get(text)!;
+		},
+		/** One line per airfield, then the marks that mean the same everywhere. */
+		legend(order: string[]) {
+			const describe = (t: string) => { const s = t.replace(/^From /, ''); return s[1] === s[1]?.toLowerCase() ? s[0].toLowerCase() + s.slice(1) : s; };
+			const line = (scope: string, extra: string[] = []) => {
+				const marks = [...(scopes.get(scope) ?? [])].map(([text, m]) => [{ text: m, sup: true }, ` ${describe(text)}`]);
+				const parts = [...marks, ...extra.map((e) => [e])];
+				return parts.length ? { text: [...(scope ? [{ text: `${scope}: `, bold: true }] : []), ...parts.flatMap((p, i) => (i ? [' · ', ...p] : p))], fontSize: 7, color: INK2, margin: [0, 1, 0, 0] } : null;
+			};
+			return [...order.filter((s) => s).map((s) => line(s)), line('', ['unmarked: entered by pilot'])].filter(Boolean);
+		}
+	};
+}
+
+/** "Takeoff", the condition, ground roll and distance over or from 50 ft, and the mass. */
 function distanceCell(d: ReportDistance, totalLabel: string) {
-	const label = caps(d.condition ? `${d.title} · ${d.condition}` : d.title);
-	if (d.status !== 'ok') return { stack: [label, { text: d.headline, bold: true, fontSize: 10, color: AMBER, margin: [0, 4, 0, 0] }] };
+	const title = { text: d.title, bold: true, fontSize: 9.5 };
+	const condition = d.condition ? [{ text: [d.condition, ...sup('P')], fontSize: small, color: INK2 }] : [];
+	if (d.status !== 'ok') return { stack: [title, ...condition, { text: d.headline, bold: true, fontSize: 10, color: AMBER, margin: [0, 4, 0, 0] }] };
 	// The unit is smaller, so a four-digit distance still fits on one line.
 	const big = (v: string) => {
 		const at = v.lastIndexOf(' ');
 		return at < 0 ? num(v, { fontSize: 15, bold: true }) : { text: [{ text: v.slice(0, at), fontSize: 15, bold: true }, { text: v.slice(at), fontSize: 8.5, color: INK2 }], font: MONO, noWrap: true };
 	};
-	const value = (title: string, v: string | null | undefined) => ({ stack: [{ text: title, color: INK2 }, big(v ?? '–')] });
+	const value = (label: string, v: string | null | undefined) => ({ stack: [{ text: label, fontSize: small, color: INK2 }, big(v ?? '–')] });
 	const pair = d.groundRoll !== undefined
-		? { columns: [value('Ground roll', d.groundRoll), value(totalLabel, d.total)], columnGap: 8, margin: [0, 3, 0, 0] }
+		? { columns: [value('Ground roll', d.groundRoll), value(totalLabel, d.total)], columnGap: 6, margin: [0, 3, 0, 0] }
 		: { ...big(d.headline), margin: [0, 3, 0, 0] };
-	return { stack: [label, pair, ...d.warnings.map((w) => ({ text: w, fontSize: small, bold: true, color: AMBER, margin: [0, 2, 0, 0] }))] };
+	return { stack: [
+		title, ...condition, pair,
+		...(d.mass ? [{ text: [{ text: 'at ' }, { text: d.mass, font: MONO }], fontSize: small, color: INK2, margin: [0, 1, 0, 0] }] : []),
+		...d.warnings.map((w) => ({ text: w, fontSize: small, bold: true, color: AMBER, margin: [0, 2, 0, 0] }))
+	] };
+}
+
+type BandPlace = { pressureAltitude: string; densityAltitude: string; wind: string; windShort?: ReportWind };
+/** Altitude and wind for one or both airfields, a value per column. */
+function atmosphereCell(dep: BandPlace, land: BandPlace | null) {
+	const places = land ? [dep, land] : [dep];
+	const reported = (p: BandPlace) => p.windShort?.reported ?? p.wind.split('. ')[0];
+	const used = (p: BandPlace) => (p.windShort?.used ? { stack: [num(p.windShort.used, { bold: true, fontSize: 8 }), ...(p.windShort.choice ? [{ text: [p.windShort.choice, ...sup('P')], fontSize: 6.5, color: INK2 }] : [])] } : { text: p.windShort ? 'Not available' : p.wind.split('. ').slice(1).join('. '), fontSize: 6.5, color: INK2 });
+	const row = (label: string, cell: (p: BandPlace) => unknown) => [{ text: label, color: INK2, fontSize: small }, ...places.map(cell)];
+	return { stack: [
+		{ table: { widths: [land ? 26 : 30, ...places.map(() => '*')], body: [
+			...(land ? [['', th('Departure'), th('Landing')]] : []),
+			row('DA', (p) => num(p.densityAltitude, { bold: true, fontSize: 10.5 })),
+			row('PA', (p) => num(p.pressureAltitude)),
+			row('Wind', (p) => num(reported(p))),
+			row('Used', used)
+		] }, layout: { hLineWidth: () => 0, vLineWidth: () => 0, paddingLeft: () => 0, paddingRight: () => 4, paddingTop: () => 1, paddingBottom: () => 1 } }
+	] };
 }
 
 /** The one standard Report layout. Returns a pdfmake document definition. */
@@ -211,24 +303,49 @@ export function reportDocument(data: ReportData) {
 	const d = JSON.parse(JSON.stringify(data)) as ReportData;
 	const m = d.massBalance;
 	const L = d.landing;
-	/** One airfield's altitude or wind in the results band, headed by its name when there are two. */
-	const bandPart = (title: string | null, head: string, rest: string[]) => [
-		...(title ? [{ text: title, bold: true, fontSize: small, color: INK2, margin: [0, 4, 0, 0] }] : []),
-		num(head, { bold: true, fontSize: L ? 11 : 12.75, margin: [0, title ? 0 : 4, 0, 0] }),
-		...rest.map((t) => ({ text: t, fontSize: small, color: INK2 }))
-	];
-	const windPart = (title: string | null, wind: string) => { const [head, ...rest] = wind.split('. '); return bandPart(title, head, rest); };
-	const altitudePart = (title: string | null, at: { densityAltitude: string; pressureAltitude: string }) => [
-		...bandPart(title, `DA ${at.densityAltitude}`, []),
-		{ text: [{ text: 'PA ' }, { text: at.pressureAltitude, font: MONO }] }
-	];
-	const place = (airfield: string, runway: string | null | undefined) => `${airfield}${runway ? ` runway ${runway}` : ''}`;
+	const marks = sourceMarks();
+	// The band marks the conditions and wind choices as chosen by the pilot, so that mark leads the legend.
+	marks.mark('', 'Chosen by pilot');
+	const [DEP, LAND] = ['Departure', 'Landing'];
+	const place = (airfield: string, runway: string | null | undefined) => `${airfield}${runway ? ` RWY ${runway}` : ''}`;
 	const warning = [d.preRelease && 'PRE-RELEASE, NOT FOR FLIGHT', d.fictional && 'FICTIONAL AIRCRAFT WITH INVENTED DATA'].filter(Boolean).join(' · ');
+
+	// A value, then its source's mark in a narrow column of its own, so the numbers stay aligned.
+	const valueCells = (v: { value: string; source: string } | undefined, scope: string) =>
+		v ? [num(v.value, { alignment: 'right', fontSize: 8.5 }), { text: marks.mark(scope, v.source), fontSize: 6.5, color: MUTED }] : ['', ''];
+	const conditions = { table: L
+		? { widths: [52, '*', 9, '*', 9], headerRows: 1, body: [
+			['', th(DEP, 'right'), '', th(LAND, 'right'), ''],
+			...d.conditions.map((c) => [c.label, ...valueCells(c, DEP), ...valueCells(c.landing, LAND)])
+		] }
+		: { widths: [60, '*', 9], body: d.conditions.map((c) => [c.label, ...valueCells(c, '')]) },
+	layout: { ...rows, paddingLeft: (i: number) => (i > 0 && (L ? i % 2 === 0 : i === 2) ? 1 : 3.5), paddingRight: (i: number) => (i > 0 && (L ? i % 2 === 1 : i === 1) ? 0 : 3.5) } };
+
+	// Fuel on its tank's row and the burn in one line, as on loading forms.
+	const mbLabel = (r: ReportData['massBalance']['rows'][number]) => (r.fuel ? { text: [r.label, ' ', { text: `(${r.fuel.value})`, font: MONO, color: INK2 }, ...sup(marks.mark('', r.fuel.source))] } : r.label);
+	const burn = m.time && m.flow
+		? { text: [
+			{ text: 'Burn plan ', color: MUTED }, m.burnPlan, ' · ',
+			{ text: m.time.value, font: MONO }, ...sup(marks.mark('', m.time.source)), ' × ',
+			{ text: m.flow.value, font: MONO }, ...sup(marks.mark('', m.flow.source)), ' = ',
+			{ text: m.burned, font: MONO, bold: true }
+		] }
+		: { text: `Burn plan: ${m.burnPlan}. Burned ${m.burned}.` };
+	const massBalance = { table: { widths: ['*', 'auto', 'auto', 'auto'], headerRows: 1, body: [
+		[th('Item'), th(m.units.mass, 'right'), th(m.units.arm, 'right'), th('Moment', 'right')],
+		...m.rows.map((r) => [mbLabel(r), num(r.mass, { alignment: 'right' }), num(r.arm, { alignment: 'right' }), num(r.moment, { alignment: 'right' })]),
+		...([['Takeoff', m.takeoff], ['Landing', m.landing]] as const).map(([label, t]) => [{ text: label, bold: true }, num(t.mass, { alignment: 'right', bold: true }), num(t.arm, { alignment: 'right', bold: true }), num(t.moment, { alignment: 'right', bold: true })])
+	] }, layout: { ...rows, hLineColor: (i: number, node: { table: { body: unknown[] } }) => (i >= node.table.body.length - 2 ? TOTAL : LINE) } };
+
+	const metars = [[L ? `${DEP}: ` : '', d.rawMetar], [`${LAND}: `, L?.rawMetar ?? null]].filter(([, raw]) => raw);
 	return {
-		pageSize: 'A4', pageMargins: [30, 25, 30, 28],
+		pageSize: 'A4', pageMargins: [30, 25, 30, 34],
 		info: { title: `Performance report ${d.id}`, subject: `${d.aircraft.registration} ${d.departure}${L ? ` to ${L.airfield}` : ''}` },
-		defaultStyle: { font: SANS, fontSize: 9, lineHeight: 1.15, color: INK },
-		footer: (page: number, pages: number) => ({ text: `${d.id} · Page ${page} of ${pages}`, font: MONO, alignment: 'right', fontSize: 7, margin: [30, 8, 30, 0], color: MUTED }),
+		defaultStyle: { font: SANS, fontSize: 8.5, lineHeight: 1.12, color: INK },
+		footer: (page: number, pages: number) => ({ columns: [
+			{ text: ABBREVIATIONS, fontSize: 6.5, color: MUTED },
+			{ width: 'auto', text: `${d.id} · Page ${page} of ${pages}`, font: MONO, fontSize: 6.5, color: MUTED }
+		], columnGap: 12, margin: [30, 12, 30, 0] }),
 		content: [
 			...(warning ? [{
 				table: { widths: ['*'], body: [[{ text: warning, bold: true, fontSize: 7.5, characterSpacing: 0.45, color: RED, alignment: 'center' }]] },
@@ -237,75 +354,56 @@ export function reportDocument(data: ReportData) {
 			}] : []),
 			{ columns: [
 				{ width: '*', stack: [
-					caps('Performance report'),
-					{ text: [{ text: d.aircraft.registration, bold: true }, { text: ` · ${place(d.departure, d.runway)}${L ? ` → ${place(L.airfield, L.runway)}` : ''}`, color: INK2 }], fontSize: L ? 15 : 19.5, margin: [0, 2, 0, 0] },
-					{ text: `${d.aircraft.type} · ${d.aircraft.configuration} · Data revision ${d.aircraft.revision}`, color: INK2, margin: [0, 2, 0, 0] }
+					{ text: 'Performance report', bold: true, fontSize: 8, color: MUTED },
+					{ text: [{ text: d.aircraft.registration, bold: true, fontSize: 16 }, { text: `  ${d.aircraft.type} · ${d.aircraft.configuration} · Data revision ${d.aircraft.revision}`, color: INK2 }], margin: [0, 1, 0, 0] },
+					{ text: `${place(d.departure, d.runway)}${L ? ` → ${place(L.airfield, L.runway)}` : ''}`, fontSize: 11.5, margin: [0, 1, 0, 0] }
 				] },
-				{ width: 'auto', alignment: 'right', stack: [num(d.createdUtc, { bold: true, fontSize: 9.75 }), { text: `Pilot: ${d.pilot}`, color: INK2 }, num(d.id, { fontSize: 7.5, color: MUTED })], margin: [0, 8, 0, 0] }
-			], columnGap: 15, margin: [0, 0, 0, 10] },
+				{ width: 'auto', alignment: 'right', stack: [num(d.createdUtc, { bold: true, fontSize: 9.5, noWrap: true }), { text: `Pilot: ${d.pilot}`, color: INK2 }, num(d.id, { fontSize: 7, color: MUTED, noWrap: true })], margin: [0, 6, 0, 0] }
+			], columnGap: 15, margin: [0, 0, 0, 8] },
 			{
-				table: { widths: ['*', '*', 84, 84], body: [[
+				table: { widths: ['*', '*', L ? 205 : 150], body: [[
 					distanceCell(d.results.takeoff, 'Over 50 ft'),
 					distanceCell(d.results.landing, 'From 50 ft'),
-					{ stack: [caps('Altitude'), ...altitudePart(L ? 'Departure' : null, d.results), ...(L ? altitudePart('Landing', L) : [])] },
-					{ stack: [caps('Wind'), ...windPart(L ? 'Departure' : null, d.results.wind), ...(L ? windPart('Landing', L.wind) : [])] }
+					atmosphereCell(d.results, L ?? null)
 				]] },
 				layout: {
 					hLineWidth: () => 1.1, vLineWidth: (i: number, node: { table: { widths: unknown[] } }) => (i === 0 || i === node.table.widths.length ? 1.1 : 0.75),
 					hLineColor: () => INK, vLineColor: (i: number, node: { table: { widths: unknown[] } }) => (i === 0 || i === node.table.widths.length ? INK : DIVIDER),
-					paddingLeft: () => 9, paddingRight: () => 9, paddingTop: () => 7, paddingBottom: () => 7
+					paddingLeft: () => 8, paddingRight: () => 8, paddingTop: () => 6, paddingBottom: () => 6
 				},
 				margin: [0, 0, 0, 12]
 			},
+			// The left column has a fixed width. Two star columns would both grow to fit the widest value, and push mass and balance off the page.
 			{ columns: [
-				{ width: '*', stack: [
-					heading('Conditions'),
-					L ? { table: { widths: [72, '*', '*'], headerRows: 1, body: [
-						// Departure and landing side by side, each value with its source under it.
-						[th('Item'), th('Departure', 'right'), th('Landing', 'right')],
-						...d.conditions.map((c) => {
-							const cell = (v: { value: string; source: string }, extra = {}) => ({ stack: [num(v.value, { noWrap: true, fontSize: 8.5 }), { text: v.source, color: MUTED, fontSize: 7 }], alignment: 'right', ...extra });
-							return c.landing ? [c.label, cell(c), cell(c.landing)] : [c.label, cell(c, { colSpan: 2 }), {}];
-						})
-					] }, layout: rows } : { table: { widths: ['auto', 'auto', '*'], headerRows: 1, body: [
-						[th('Item'), th('Value', 'right'), th('Source')],
-						...d.conditions.map((c) => [c.label, num(c.value, { alignment: 'right' }), { text: c.source, color: MUTED, fontSize: 8 }])
-					] }, layout: rows },
-					...[[L ? 'Raw METAR, departure: ' : 'Raw METAR: ', d.rawMetar], ['Raw METAR, landing: ', L?.rawMetar ?? null]].filter(([, raw]) => raw).map(([label, raw]) => ({ text: [label, { text: raw, font: MONO }], fontSize: 7, color: INK2, margin: [0, 5, 0, 0] }))
+				{ width: 250, stack: [
+					heading('Conditions'), conditions,
+					...marks.legend(L ? [DEP, LAND] : []),
+					...metars.map(([label, raw]) => ({ text: [label!, { text: raw!, font: MONO }], fontSize: 6.5, color: INK2, margin: [0, 3, 0, 0] }))
 				] },
-				{ width: '*', stack: [
-					heading('Mass and balance'),
-					{ table: { widths: ['*', 'auto', 'auto', 'auto'], headerRows: 1, body: [
-						[th('Item'), th(m.units.mass, 'right'), th(m.units.arm, 'right'), th('Moment', 'right')],
-						...m.rows.map((r) => [r.label, num(r.mass, { alignment: 'right' }), num(r.arm, { alignment: 'right' }), num(r.moment, { alignment: 'right' })]),
-						...([['Takeoff', m.takeoff], ['Landing', m.landing]] as const).map(([label, t]) => [{ text: label, bold: true }, num(t.mass, { alignment: 'right', bold: true }), num(t.arm, { alignment: 'right', bold: true }), num(t.moment, { alignment: 'right', bold: true })])
-					] }, layout: { ...rows, hLineColor: (i: number, node: { table: { body: unknown[] } }) => (i >= node.table.body.length - 2 ? TOTAL : LINE) } },
-					{ text: `Burn plan: ${m.burnPlan}. Burned ${m.burned}.`, fontSize: small, color: INK2, margin: [0, 3, 0, 6] },
-					{ svg: d.chartSvg, fit: [252, 150] }
-				] }
-			], columnGap: 18, margin: [0, 0, 0, 12] },
+				{ width: '*', stack: [heading('Mass and balance'), massBalance, { ...burn, fontSize: small, color: INK2, margin: [0, 3, 0, 4] }, { svg: d.chartSvg, fit: [255, 140] }] }
+			], columnGap: 18, margin: [0, 0, 0, 10] },
 			heading('Limits'),
-			{ columns: chunk(d.limits, 2).map((part) => ({ table: { widths: [26, '*', 'auto'], body: part.map((l) => [
+			{ columns: chunk(d.limits, 2).map((part) => ({ table: { widths: [30, '*', 'auto'], body: part.map((l) => [
 				{ text: l.status, bold: true, color: l.status === 'OK' ? GOOD : l.status === 'CHECK' ? AMBER : RED },
 				l.label,
 				num(l.detail, { alignment: 'right' })
-			]) }, layout: rows })), columnGap: 18, margin: [0, 0, 0, 12] },
-			// The heading moves to the next page with the first table, rather than sit alone at the foot.
+			]) }, layout: rows })), columnGap: 18, margin: [0, 0, 0, 10] },
+			// The working is supplemental, so it starts page 2 and page 1 stays the summary.
 			...d.working.map((w, i) => ({ stack: [...(i === 0 ? [heading('Working')] : []), {
 				table: { widths: ['*', 50, 50, 112], headerRows: 1, keepWithHeaderRows: 1, dontBreakRows: true, body: [
-					[th(w.title), th('Gr. roll', 'right'), th('50 ft', 'right'), th('Source')],
+					[th(w.title), th('Ground roll', 'right'), th('50 ft', 'right'), th('Source')],
 					...w.rows.map((r, i) => {
 						const last = i === w.rows.length - 1 && r.step.startsWith('Rounded');
-						return [{ text: r.step, bold: last }, num(r.groundRoll, { alignment: 'right', bold: last }), num(r.total, { alignment: 'right', bold: last }), { text: r.source, color: MUTED, fontSize: 8 }];
+						return [{ text: r.step, bold: last }, num(r.groundRoll, { alignment: 'right', bold: last }), num(r.total, { alignment: 'right', bold: last }), { text: r.source, color: MUTED, fontSize: 7.5 }];
 					})
 				] },
 				layout: rows, margin: [0, 0, 0, 8]
-			}], unbreakable: i === 0 })),
+			}], ...(i === 0 ? { pageBreak: 'before', unbreakable: true } : {}) })),
 			{
 				table: { widths: ['*'], body: [[{ stack: [
 					...d.notes.map((n) => ({ columns: [{ width: 12, svg: '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10" fill="none" stroke="#1B6B44" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>', fit: [9, 9], margin: [0, 1.5, 0, 0] }, { text: `Manual note confirmed by the pilot: ${n}` }], margin: [0, 0, 0, 3] })),
 					{ text: RESPONSIBILITY, bold: true, fontSize: 9, margin: [0, 2, 0, 3] },
-					{ text: `Tool ${d.footer.toolVersion} · ${d.footer.dataRelease} · Aircraft revision ${d.aircraft.revision} · Last data check ${d.footer.lastDataCheck}. The pilot's name is for traceability and is not a signature.`, fontSize: 7, color: MUTED }
+					{ text: `Report ${d.id} · Tool ${d.footer.toolVersion} · ${d.footer.dataRelease} · Aircraft revision ${d.aircraft.revision} · Last data check ${d.footer.lastDataCheck}. The pilot's name is for traceability and is not a signature.`, fontSize: 7, color: MUTED }
 				] }]] },
 				layout: { hLineWidth: (i: number) => (i === 0 ? 1.1 : 0), vLineWidth: () => 0, hLineColor: () => INK, paddingLeft: () => 0, paddingRight: () => 0, paddingTop: () => 8, paddingBottom: () => 0 },
 				unbreakable: true, margin: [0, 6, 0, 0]
@@ -319,4 +417,3 @@ function chunk<T>(list: T[], parts: number): T[][] {
 	for (let i = 0; i < parts; i++) out.push(list.slice(i * size, (i + 1) * size));
 	return out.filter((p) => p.length);
 }
-
