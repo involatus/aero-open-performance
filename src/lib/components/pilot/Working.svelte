@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { Aircraft } from '#lib/aircraft/schema.ts';
 	import type { Calculation as Results } from '#lib/engine/index.ts';
-	import { massBalanceRows, workingRows } from '#lib/app/presentation.ts';
+	import { massBalanceRows, sourceText, workingRows } from '#lib/app/presentation.ts';
+	import { lookupView } from '#lib/app/lookup-grid.ts';
+	import LookupTable from './LookupTable.svelte';
 
 	let { aircraft, results }: { aircraft: Aircraft; results: Results } = $props();
 	let mb = $derived(massBalanceRows(aircraft, results));
@@ -32,6 +34,10 @@
 					<tbody>{#each rows as row, k (k)}<tr><td class={td}>{row.step}{#if row.source}<br /><span class="text-muted">{row.source}</span>{/if}</td><td class={[td, 'num text-right']}>{row.total}</td><td class={[td, 'num text-right']}>{row.groundRoll}</td></tr>{/each}</tbody>
 				</table>
 			</div>
+			{#each result.steps as step, k (k)}
+				{@const view = step.lookup && lookupView(aircraft, step.lookup)}
+				{#if view}<LookupTable {view} unit={result.unit} source={sourceText(aircraft, step.source)} />{/if}
+			{/each}
 		{/if}
 	{/each}
 </div>

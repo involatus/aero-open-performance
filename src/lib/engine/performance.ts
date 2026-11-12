@@ -5,7 +5,9 @@ import { EPSILON, bracket, interpolate, surroundingCells, type Bracket } from '.
 import type { Atmosphere } from './atmosphere.ts';
 
 export type Wind = { headwind: number; crosswind: number };
-export type StepTrace = { type: string; detail: string; total: number | null; groundRoll: number | null; cells?: number[]; source?: string };
+/** Where a lookup read its table: the input on each axis, in the axis unit, and where it fell. */
+export type LookupTrace = { table: string; at: number[]; brackets: Bracket[] };
+export type StepTrace = { type: string; detail: string; total: number | null; groundRoll: number | null; cells?: number[]; lookup?: LookupTrace; source?: string };
 export type PerformanceResult = {
 	status: 'ok' | 'noData' | 'noResult' | 'needsInput';
 	conditionLabel: string;
@@ -72,7 +74,7 @@ export function runCondition(a: Aircraft, condition: Condition, ctx: Context): P
 		if (step.type === 'lookup') {
 			const table: Table = a.tables[step.table];
 			const brackets: Bracket[] = [];
-			const parts: string[] = [];
+			const parts: string[] = [], at: number[] = [];
 			for (const axis of table.axes as Axis[]) {
 				const x = inputFor(axis, ctx);
 				if (x === null) return stop('needsInput', `Enter ${INPUT_NAMES[axis.input]}`, [INPUT_NAMES[axis.input]]);
@@ -81,11 +83,12 @@ export function runCondition(a: Aircraft, condition: Condition, ctx: Context): P
 				if (b.warn) result.warnings.push(`${axis.name} ${x.toFixed(1)} ${showUnit(axis.unit)} is outside the table: uses the nearest value`);
 				parts.push(`${axis.name} ${x.toFixed(1)} ${showUnit(axis.unit)}`);
 				brackets.push(b);
+				at.push(x);
 			}
 			if (table.outputs.total) total = interpolate(table.outputs.total, brackets);
 			if (table.outputs.groundRoll) groundRoll = interpolate(table.outputs.groundRoll, brackets);
 			const cells = surroundingCells(table.outputs.total ?? table.outputs.groundRoll, brackets);
-			trace('lookup', `Table at ${parts.join(', ')}`, { cells, source: table.source });
+			trace('lookup', `Table at ${parts.join(', ')}`, { cells, lookup: { table: step.table, at, brackets }, source: table.source });
 		} else if (step.type === 'fixed') {
 			if (step.total !== undefined) total = step.total;
 			if (step.groundRoll !== undefined) groundRoll = step.groundRoll;
