@@ -129,6 +129,23 @@ describe('Report layout', () => {
 		expect(d.massBalance.rows.filter((r) => r.fuel).map((r) => r.fuel!.value)).toEqual(a.tanks.map(() => '20 L'));
 		expect(d.massBalance.time).toEqual({ value: '1 h', source: 'Entered by pilot' });
 	});
+	it('shows each table a result read, with where the result falls', () => {
+		const a = load('test-sr22-style'), c = ready(a), d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
+		const takeoff = d.working[0].tables!;
+		expect(takeoff).toHaveLength(1);
+		expect(takeoff[0].caption).toMatch(/^Total distance, ft, as printed in /);
+		expect(takeoff[0].view.grids.length).toBeGreaterThan(0);
+		const all = text(reportDocument(d));
+		expect(all).toContain('printed values used');
+		expect(all).toContain('#1D5C96');
+	});
+	it('still renders Reports made before the lookup tables', () => {
+		const a = load('test-dr-style'), c = ready(a), d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
+		d.working.forEach((w) => delete w.tables);
+		const all = text(reportDocument(d));
+		expect(all).toContain('Working');
+		expect(all).not.toContain('printed values used');
+	});
 	it('still renders Reports made before the compact layout', () => {
 		const a = load('test-dr-style'), c = ready(a), d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
 		delete d.results.windShort; delete d.massBalance.time; delete d.massBalance.flow; delete d.results.takeoff.mass;

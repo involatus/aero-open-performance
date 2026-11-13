@@ -8,10 +8,13 @@ import type { PerformanceResult } from '../engine/performance.ts';
 import type { DistanceText } from '../app/presentation.ts';
 import { limitText } from '../engine/mass-balance.ts';
 import { canReport, fieldsFor, isVariableWind, keyAt, toInput, type Calculation, type Place, runwayHeading, weatherAt, windChoiceAt } from '../app/calculation.ts';
-import { altitudeText, distanceText, enteredWindKept, landingConditions, utcText, valueSource, limitBadge, massBalanceRows, windChoiceText, windText, workingRows } from '../app/presentation.ts';
+import { altitudeText, distanceText, enteredWindKept, landingConditions, sourceText, utcText, valueSource, limitBadge, massBalanceRows, windChoiceText, windText, workingRows } from '../app/presentation.ts';
+import { lookupView, type LookupView } from '../app/lookup-grid.ts';
 
 export type Delivery = 'notSent' | 'sent' | 'shared';
-export type ReportWorking = { title: string; rows: { step: string; total: string; groundRoll: string; source: string }[] };
+/** The manual's table each lookup read, with where the result falls. Missing on Reports made before it was recorded. */
+export type ReportLookup = { caption: string; view: LookupView };
+export type ReportWorking = { title: string; rows: { step: string; total: string; groundRoll: string; source: string }[]; tables?: ReportLookup[] };
 /** Ground roll and total come apart for the results band. Reports made before this have only the headline. */
 export type ReportDistance = DistanceText & { condition?: string; groundRoll?: string | null; total?: string | null; mass?: string };
 /**
@@ -91,7 +94,13 @@ export function isExpired(report: Pick<StoredReport, 'created' | 'delivery'>, no
 
 
 function working(a: Aircraft, title: string, r: PerformanceResult): ReportWorking {
-	return { title: `${title}, ${r.conditionLabel}`, rows: workingRows(a, r) };
+	const tables = r.steps.flatMap((step) => {
+		const view = step.lookup && lookupView(a, step.lookup);
+		if (!view) return [];
+		const source = sourceText(a, step.source);
+		return [{ caption: `${view.output}${r.unit ? `, ${r.unit}` : ''}, as printed${source ? ` in ${source}` : ''}`, view }];
+	});
+	return { title: `${title}, ${r.conditionLabel}`, rows: workingRows(a, r), tables };
 }
 
 export type ReportMeta = { id: string; now: number; toolVersion: string; dataRelease: string; lastDataCheck: string; preRelease: boolean; chartSvg: string };
@@ -207,6 +216,7 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 }
 
 /* Print colours, from the design. A Report is printed or archived, so it has no dark version. */
+const HIT = '#FCF0D2', HIT_INK = '#6B4400', MARK = '#EAF2FA', MARK_INK = '#134574', RESULT = '#1D5C96', HEAD = '#F3F5F7';
 const INK = '#13202D', INK2 = '#3E4C59', MUTED = '#5A6876', LINE = '#E1E6EB', DIVIDER = '#C6CFD8', TOTAL = '#B5C0CA', RED = '#A12222', GOOD = '#1B6B44', AMBER = '#7A4D00';
 /** IBM Plex, as on screen. The complete fonts cover every European Latin letter a name may use. */
 export const SANS = 'PlexSans', MONO = 'PlexMono';
@@ -295,6 +305,27 @@ function atmosphereCell(dep: BandPlace, land: BandPlace | null) {
 			row('Used', used)
 		] }, layout: { hLineWidth: () => 0, vLineWidth: () => 0, paddingLeft: () => 0, paddingRight: () => 4, paddingTop: () => 1, paddingBottom: () => 1 } }
 	] };
+}
+
+/** A lookup's table as printed, with the values used shaded and a crosshair where the result falls, as on screen. */
+function lookupTable(t: ReportLookup) {
+	const cell = { fontSize: 7, alignment: 'right' };
+	const grid = (g: LookupView['grids'][number]) => ({ stack: [
+		...(g.title ? [{ text: g.title, bold: true, fontSize: 7.5, margin: [0, 0, 0, 2] }] : []),
+		{ table: { headerRows: 1, dontBreakRows: true, body: [
+			[{ text: g.rowAxis ? `${g.rowAxis} ↓ ${g.colAxis} →` : `${g.colAxis} →`, fontSize: 6, color: MUTED, fillColor: HEAD }, ...g.colHeads.map((h) => num(h.text, { ...cell, bold: true, color: h.marker ? MARK_INK : INK, fillColor: h.marker ? MARK : HEAD }))],
+			...g.rows.map((row) => [
+				num(row.head.text, { ...cell, bold: true, color: row.head.marker ? MARK_INK : INK, fillColor: row.head.marker ? MARK : HEAD }),
+				...row.cells.map((c) => num(c.text, { ...cell, bold: c.hit || c.result, color: c.result ? '#FFFFFF' : c.hit ? HIT_INK : INK, fillColor: c.result ? RESULT : c.hit ? HIT : c.marker ? MARK : undefined }))
+			])
+		] }, layout: { hLineWidth: () => 0.5, vLineWidth: () => 0.5, hLineColor: () => DIVIDER, vLineColor: () => DIVIDER, paddingLeft: () => 3, paddingRight: () => 3, paddingTop: () => 1.5, paddingBottom: () => 1.5 } },
+		...[...g.colHeads, ...g.rows.map((r) => r.head)].filter((h) => h.note).map((h) => ({ text: h.note, fontSize: 6.5, color: MUTED, margin: [0, 2, 0, 0] }))
+	] });
+	return { stack: [
+		{ text: [t.caption, '. ', { text: ' Amber ', color: HIT_INK, background: HIT, bold: true }, ': printed values used. ', { text: ' Blue ', color: MARK_INK, background: MARK, bold: true }, ': your conditions, before corrections.'], fontSize: 7, color: INK2, margin: [0, 0, 0, 3] },
+		{ columns: t.view.grids.map((g) => ({ width: 'auto', ...grid(g) })), columnGap: 12 },
+		...(t.view.between ? [{ text: t.view.between, bold: true, fontSize: 7.5, margin: [0, 3, 0, 0] }] : [])
+	], margin: [0, 0, 0, 8], unbreakable: true };
 }
 
 /** The one standard Report layout. Returns a pdfmake document definition. */
@@ -398,7 +429,7 @@ export function reportDocument(data: ReportData) {
 					})
 				] },
 				layout: rows, margin: [0, 0, 0, 8]
-			}], ...(i === 0 ? { pageBreak: 'before', unbreakable: true } : {}) })),
+			}, ...(w.tables ?? []).map(lookupTable)], ...(i === 0 ? { pageBreak: 'before' } : {}) })),
 			{
 				table: { widths: ['*'], body: [[{ stack: [
 					...d.notes.map((n) => ({ columns: [{ width: 12, svg: '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10" fill="none" stroke="#1B6B44" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>', fit: [9, 9], margin: [0, 1.5, 0, 0] }, { text: `Manual note confirmed by the pilot: ${n}` }], margin: [0, 0, 0, 3] })),
