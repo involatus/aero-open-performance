@@ -133,11 +133,23 @@ describe('Report layout', () => {
 		const a = load('test-sr22-style'), c = ready(a), d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
 		const takeoff = d.working[0].tables!;
 		expect(takeoff).toHaveLength(1);
-		expect(takeoff[0].caption).toMatch(/^Total distance, ft, as printed in /);
+		expect(takeoff[0].caption).toBe('Total distance, ft, as printed');
+		expect(takeoff[0].source).toBeTruthy();
 		expect(takeoff[0].view.grids.length).toBeGreaterThan(0);
 		const all = text(reportDocument(d));
 		expect(all).toContain('printed values used');
 		expect(all).toContain('#1D5C96');
+	});
+	it('marks manual sources in the working and lists each one once', () => {
+		const a = load('test-dr-style'), c = ready(a), d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
+		const source = d.working[0].rows[0].source, all = text(reportDocument(d));
+		expect(all.split(JSON.stringify(` ${source}`)).length - 1).toBe(1);
+		expect(all).not.toContain('"text":"Source"');
+	});
+	it('still renders lookup tables whose caption names the source', () => {
+		const a = load('test-dr-style'), c = ready(a), d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
+		d.working.forEach((w) => w.tables?.forEach((t) => { t.caption = `${t.caption} in ${t.source}`; delete t.source; }));
+		expect(text(reportDocument(d))).toContain('as printed in Fictional test manual');
 	});
 	it('still renders Reports made before the lookup tables', () => {
 		const a = load('test-dr-style'), c = ready(a), d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));

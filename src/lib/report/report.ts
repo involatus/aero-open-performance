@@ -13,7 +13,8 @@ import { lookupView, type LookupView } from '../app/lookup-grid.ts';
 
 export type Delivery = 'notSent' | 'sent' | 'shared';
 /** The manual's table each lookup read, with where the result falls. Missing on Reports made before it was recorded. */
-export type ReportLookup = { caption: string; view: LookupView };
+/** `source` is kept apart so the PDF can mark it. Reports made before then have it inside the caption. */
+export type ReportLookup = { caption: string; source?: string; view: LookupView };
 export type ReportWorking = { title: string; rows: { step: string; total: string; groundRoll: string; source: string }[]; tables?: ReportLookup[] };
 /** Ground roll and total come apart for the results band. Reports made before this have only the headline. */
 export type ReportDistance = DistanceText & { condition?: string; groundRoll?: string | null; total?: string | null; mass?: string };
@@ -98,7 +99,7 @@ function working(a: Aircraft, title: string, r: PerformanceResult): ReportWorkin
 		const view = step.lookup && lookupView(a, step.lookup);
 		if (!view) return [];
 		const source = sourceText(a, step.source);
-		return [{ caption: `${view.output}${r.unit ? `, ${r.unit}` : ''}, as printed${source ? ` in ${source}` : ''}`, view }];
+		return [{ caption: `${view.output}${r.unit ? `, ${r.unit}` : ''}, as printed`, source, view }];
 	});
 	return { title: `${title}, ${r.conditionLabel}`, rows: workingRows(a, r), tables };
 }
@@ -268,6 +269,21 @@ function sourceMarks() {
 	};
 }
 
+/** The working's manual pages as numbered marks, each listed once, in the order the working first cites them. */
+function manualMarks(working: ReportWorking[]) {
+	const known = new Map<string, string>();
+	const mark = (source: string) => {
+		if (!known.has(source)) known.set(source, String(known.size + 1));
+		return known.get(source)!;
+	};
+	// Numbered in reading order, before the document is laid out.
+	for (const w of working) {
+		w.rows.forEach((r) => r.source && mark(r.source));
+		(w.tables ?? []).forEach((t) => t.source && mark(t.source));
+	}
+	return { mark, used: [...known] };
+}
+
 /** "Takeoff", the condition, ground roll and distance over or from 50 ft, and the mass. */
 function distanceCell(d: ReportDistance, totalLabel: string) {
 	const title = { text: d.title, bold: true, fontSize: 9.5 };
@@ -308,7 +324,7 @@ function atmosphereCell(dep: BandPlace, land: BandPlace | null) {
 }
 
 /** A lookup's table as printed, with the values used shaded and a crosshair where the result falls, as on screen. */
-function lookupTable(t: ReportLookup) {
+function lookupTable(t: ReportLookup, mark: (source: string) => string) {
 	const cell = { fontSize: 7, alignment: 'right' };
 	const grid = (g: LookupView['grids'][number]) => ({ stack: [
 		...(g.title ? [{ text: g.title, bold: true, fontSize: 7.5, margin: [0, 0, 0, 2] }] : []),
@@ -322,7 +338,7 @@ function lookupTable(t: ReportLookup) {
 		...[...g.colHeads, ...g.rows.map((r) => r.head)].filter((h) => h.note).map((h) => ({ text: h.note, fontSize: 6.5, color: MUTED, margin: [0, 2, 0, 0] }))
 	] });
 	return { stack: [
-		{ text: [t.caption, '. ', { text: ' Amber ', color: HIT_INK, background: HIT, bold: true }, ': printed values used. ', { text: ' Blue ', color: MARK_INK, background: MARK, bold: true }, ': your conditions, before corrections.'], fontSize: 7, color: INK2, margin: [0, 0, 0, 3] },
+		{ text: [t.caption, ...(t.source ? sup(mark(t.source)) : []), '. ', { text: ' Amber ', color: HIT_INK, background: HIT, bold: true }, ': printed values used. ', { text: ' Blue ', color: MARK_INK, background: MARK, bold: true }, ': your conditions, before corrections.'], fontSize: 7, color: INK2, margin: [0, 0, 0, 3] },
 		{ columns: t.view.grids.map((g) => ({ width: 'auto', ...grid(g) })), columnGap: 12 },
 		...(t.view.between ? [{ text: t.view.between, bold: true, fontSize: 7.5, margin: [0, 3, 0, 0] }] : [])
 	], margin: [0, 0, 0, 8], unbreakable: true };
@@ -335,6 +351,7 @@ export function reportDocument(data: ReportData) {
 	const m = d.massBalance;
 	const L = d.landing;
 	const marks = sourceMarks();
+	const manual = manualMarks(d.working);
 	// The band marks the conditions and wind choices as chosen by the pilot, so that mark leads the legend.
 	marks.mark('', 'Chosen by pilot');
 	const [DEP, LAND] = ['Departure', 'Landing'];
@@ -421,15 +438,16 @@ export function reportDocument(data: ReportData) {
 			]) }, layout: rows })), columnGap: 18, margin: [0, 0, 0, 10] },
 			// The working is supplemental, so it starts page 2 and page 1 stays the summary.
 			...d.working.map((w, i) => ({ stack: [...(i === 0 ? [heading('Working')] : []), {
-				table: { widths: ['*', 50, 50, 112], headerRows: 1, keepWithHeaderRows: 1, dontBreakRows: true, body: [
-					[th(w.title), th('Ground roll', 'right'), th('50 ft', 'right'), th('Source')],
+				table: { widths: ['*', 60, 60], headerRows: 1, keepWithHeaderRows: 1, dontBreakRows: true, body: [
+					[th(w.title), th('Ground roll', 'right'), th('50 ft', 'right')],
 					...w.rows.map((r, i) => {
 						const last = i === w.rows.length - 1 && r.step.startsWith('Rounded');
-						return [{ text: r.step, bold: last }, num(r.groundRoll, { alignment: 'right', bold: last }), num(r.total, { alignment: 'right', bold: last }), { text: r.source, color: MUTED, fontSize: 7.5 }];
+						return [{ text: [r.step, ...(r.source ? sup(manual.mark(r.source)) : [])], bold: last }, num(r.groundRoll, { alignment: 'right', bold: last }), num(r.total, { alignment: 'right', bold: last })];
 					})
 				] },
 				layout: rows, margin: [0, 0, 0, 8]
-			}, ...(w.tables ?? []).map(lookupTable)], ...(i === 0 ? { pageBreak: 'before' } : {}) })),
+			}, ...(w.tables ?? []).map((t) => lookupTable(t, manual.mark))], ...(i === 0 ? { pageBreak: 'before' } : {}) })),
+			...(manual.used.length ? [{ stack: manual.used.map(([source, m]) => ({ text: [{ text: m, sup: true, color: MUTED }, ` ${source}`], fontSize: 7, color: INK2 })), margin: [0, 0, 0, 8] }] : []),
 			{
 				table: { widths: ['*'], body: [[{ stack: [
 					...d.notes.map((n) => ({ columns: [{ width: 12, svg: '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10" fill="none" stroke="#1B6B44" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>', fit: [9, 9], margin: [0, 1.5, 0, 0] }, { text: `Manual note confirmed by the pilot: ${n}` }], margin: [0, 0, 0, 3] })),
