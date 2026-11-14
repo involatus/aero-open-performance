@@ -63,10 +63,18 @@ export function landingConditions(r: Results): Pick<Results, 'atmosphere' | 'win
 	return r.landingAt ?? r;
 }
 
-export function altitudeText(r: Pick<Results, 'atmosphere'>): { pressure: string; density: string } | null {
+/** The exact altitudes, then the rule of thumb in short for beside them and in full for its info tip. */
+export function altitudeText(r: Pick<Results, 'atmosphere'>): { pressure: string; density: string; ruleOfThumb: string; ruleOfThumbTip: string } | null {
 	const atm = r.atmosphere;
 	if (!atm) return null;
-	return { pressure: `${Math.round(atm.pressureAltitudeFt)} ft`, density: atm.densityAltitudeFt != null ? `${Math.round(atm.densityAltitudeFt)} ft` : 'Not available' };
+	const ft = (x: number) => `${Math.round(x)} ft`, rule = atm.ruleOfThumb;
+	const both = `${rule.densityAltitudeFt != null ? `DA ${ft(rule.densityAltitudeFt)}, ` : ''}PA ${ft(rule.pressureAltitudeFt)}`;
+	return {
+		pressure: ft(atm.pressureAltitudeFt),
+		density: atm.densityAltitudeFt != null ? ft(atm.densityAltitudeFt) : 'Not available',
+		ruleOfThumb: rule.densityAltitudeFt != null ? `DA ${ft(rule.densityAltitudeFt)}` : `PA ${ft(rule.pressureAltitudeFt)}`,
+		ruleOfThumbTip: `Rule of thumb: ${both}, as worked on paper: 27 ft per hPa from 1013 hPa, ISA falls 2 °C per 1000 ft from 15 °C, and 120 ft per °C off ISA. For comparing with your own working only. The distances use the exact values.`
+	};
 }
 
 export type WorkingRow = { step: string; total: string; groundRoll: string; source: string };

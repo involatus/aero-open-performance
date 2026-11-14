@@ -7,7 +7,7 @@
 		close: 'M6 6l12 12M18 6L6 18',
 		list: 'M4 6h16M4 12h16M4 18h10',
 		slope: 'M4 18L20 6',
-		info: 'M12 8v5M12 16h.01'
+		info: 'M12 11v5M12 8h.01'
 	} as const;
 	export type IconName = keyof typeof PATHS | 'more' | 'info';
 </script>

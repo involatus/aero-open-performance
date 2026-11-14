@@ -4,6 +4,7 @@
 	import { massBalanceRows, sourceText, workingRows } from '#lib/app/presentation.ts';
 	import { lookupView } from '#lib/app/lookup-grid.ts';
 	import LookupTable from './LookupTable.svelte';
+	import InfoTip from '../ui/InfoTip.svelte';
 
 	let { aircraft, results }: { aircraft: Aircraft; results: Results } = $props();
 	let mb = $derived(massBalanceRows(aircraft, results));
@@ -31,7 +32,7 @@
 				<table class="w-full border-collapse">
 					<caption class="pb-1 text-left font-semibold">{title}, {result.conditionLabel}</caption>
 					<thead><tr><th class={th}>Step</th><th class={[th, 'text-right']}>Total</th><th class={[th, 'text-right']}>Ground roll</th></tr></thead>
-					<tbody>{#each rows as row, k (k)}<tr><td class={td}>{row.step}{#if row.source}<br /><span class="text-muted">{row.source}</span>{/if}</td><td class={[td, 'num text-right']}>{row.total}</td><td class={[td, 'num text-right']}>{row.groundRoll}</td></tr>{/each}</tbody>
+					<tbody>{#each rows as row, k (k)}<tr><td class={td}>{row.step}{#if row.source} <InfoTip label={`Source: ${row.source}`}>{row.source}</InfoTip>{/if}</td><td class={[td, 'num text-right']}>{row.total}</td><td class={[td, 'num text-right']}>{row.groundRoll}</td></tr>{/each}</tbody>
 				</table>
 			</div>
 			{#each result.steps as step, k (k)}

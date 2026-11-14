@@ -1,12 +1,13 @@
 <script lang="ts">
 	import type { LookupView } from '#lib/app/lookup-grid.ts';
+	import InfoTip from '../ui/InfoTip.svelte';
 
 	let { view, unit, source }: { view: LookupView; unit: string | null; source: string } = $props();
 	const cell = 'border border-divider px-1.5 py-1 text-right';
 </script>
 
 <figure class="flex flex-col gap-2">
-	<figcaption class="text-muted">{view.output}{unit ? `, ${unit}` : ''}, as printed{source ? ` in ${source}` : ''}. <span class="rounded bg-amber-bg px-1 font-semibold text-amber-ink">Amber</span>: printed values used. <span class="rounded bg-accent-soft px-1 font-semibold text-accent-strong">Blue</span>: your conditions, before corrections.</figcaption>
+	<figcaption class="text-muted">{view.output}{unit ? `, ${unit}` : ''}, as printed{#if source} <InfoTip label={`Source: ${source}`}>{source}</InfoTip>{/if} · <span class="rounded bg-amber-bg px-1 font-semibold text-amber-ink">Amber</span>: printed values used. <span class="rounded bg-accent-soft px-1 font-semibold text-accent-strong">Blue</span>: your conditions, before corrections.</figcaption>
 	{#each view.grids as g, gi (gi)}
 		{@const notes = [...g.colHeads, ...g.rows.map((r) => r.head)].filter((h) => h.note).map((h) => h.note)}
 		<div class="overflow-x-auto">

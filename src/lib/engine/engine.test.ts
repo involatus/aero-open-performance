@@ -7,7 +7,7 @@ import { calculate, runHandCases } from './index.ts';
 import { burnFuel, insideEnvelope } from './mass-balance.ts';
 import { bracket, interpolate, type AxisLike } from './interpolate.ts';
 import { roundUp } from './performance.ts';
-import { atmosphere } from './atmosphere.ts';
+import { atmosphere, ruleOfThumb } from './atmosphere.ts';
 import { convertLength, convertMass, convertTemperature } from './units.ts';
 
 const DIR = 'aircraft-examples';
@@ -251,6 +251,13 @@ describe('atmosphere', () => {
 	it('matches pressure altitude at ISA temperature', () => {
 		const a = atmosphere(1000, 1013.25, null), isa = atmosphere(1000, 1013.25, a.isaC);
 		expect(Math.abs(isa.densityAltitudeFt! - isa.pressureAltitudeFt)).toBeLessThan(30);
+	});
+	it('gives the rule of thumb as the flight-school sheet works it: Samedan, 1030 hPa, 22 °C', () => {
+		const r = ruleOfThumb(5600, 1030, 22);
+		expect(r.pressureAltitudeFt).toBe(5141);
+		expect(r.isaC).toBeCloseTo(4.718, 9);
+		expect(r.densityAltitudeFt!).toBeCloseTo(7214.84, 2);
+		expect(ruleOfThumb(5600, 1030, null).densityAltitudeFt).toBeNull();
 	});
 	it('rises with temperature', () => expect(atmosphere(500, 1013.25, 30).densityAltitudeFt!).toBeGreaterThan(atmosphere(500, 1013.25, 10).densityAltitudeFt!));
 });

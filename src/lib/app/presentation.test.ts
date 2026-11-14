@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { validateAircraft } from '../aircraft/validate.ts';
 import { calculate } from '../engine/index.ts';
-import { distanceText, enteredWindKept, limitBadge, massBalanceRows, statusWord, windChoiceText, windText, workingRows } from './presentation.ts';
+import { atmosphere } from '../engine/atmosphere.ts';
+import { altitudeText, distanceText, enteredWindKept, limitBadge, massBalanceRows, statusWord, windChoiceText, windText, workingRows } from './presentation.ts';
 
 const aircraft = (n: string) => {
 	const v = validateAircraft(JSON.parse(readFileSync(`aircraft-examples/${n}.json`, 'utf8')));
@@ -38,6 +39,15 @@ describe('what the pilot reads', () => {
 		const mb = massBalanceRows(a, r);
 		expect(mb.takeoff.mass).toBe(r.massBalance.takeoff.mass.toFixed(a.display.massDecimals));
 		expect(mb.rows[0]).toMatchObject({ id: 'empty', label: 'Empty' });
+	});
+});
+
+describe('altitudes', () => {
+	it('gives the rule of thumb beside the exact values, as the paper sheet works Samedan at 1030 hPa and 22 °C', () => {
+		const t = altitudeText({ atmosphere: atmosphere(5600 * 0.3048, 1030, 22) })!;
+		expect(t).toMatchObject({ pressure: '5146 ft', density: '7113 ft', ruleOfThumb: 'DA 7215 ft' });
+		expect(t.ruleOfThumbTip).toMatch(/^Rule of thumb: DA 7215 ft, PA 5141 ft, as worked on paper/);
+		expect(altitudeText({ atmosphere: atmosphere(5600 * 0.3048, 1030, null) })!.ruleOfThumb).toBe('PA 5141 ft');
 	});
 });
 

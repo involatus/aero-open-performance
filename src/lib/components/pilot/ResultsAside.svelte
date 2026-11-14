@@ -11,6 +11,7 @@
 	import CgChart from '../CgChart.svelte';
 	import Badge from '../ui/Badge.svelte';
 	import Icon from '../ui/Icon.svelte';
+	import InfoTip from '../ui/InfoTip.svelte';
 	import Working from './Working.svelte';
 
 	let { aircraft, results, calc, todo, exceeded, dataLine, onproblem }: {
@@ -96,7 +97,7 @@
 					{@const altitude = altitudeText(p.at)}
 					{@const wind = windText(p.at.wind, p.variable)}
 					{@const named = (label: string) => (p.title ? `${p.title} ${label.toLowerCase()}` : label)}
-					<div class="border-t border-r border-divider px-5 py-3"><dt class="label-caps text-[11px]">{named('Density alt.')}</dt><dd class="m-0">{#if altitude}<span class="num font-semibold">{altitude.density}</span><br /><span class="text-xs text-muted">PA {altitude.pressure}</span>{:else}<span class="text-[13px] font-semibold text-amber">Enter elevation and QNH</span>{/if}</dd></div>
+					<div class="border-t border-r border-divider px-5 py-3"><dt class="label-caps text-[11px]">{named('Density alt.')}</dt><dd class="m-0">{#if altitude}<span class="num font-semibold">{altitude.density}</span><br /><span class="text-xs text-muted">PA {altitude.pressure}</span><br /><span class="text-xs text-muted">Rule of thumb {altitude.ruleOfThumb} <InfoTip label="About the rule of thumb">{altitude.ruleOfThumbTip}</InfoTip></span>{:else}<span class="text-[13px] font-semibold text-amber">Enter elevation and QNH</span>{/if}</dd></div>
 					<div class="border-t border-divider px-5 py-3"><dt class="label-caps text-[11px]">{named('Wind')}</dt><dd class="m-0">{#if wind}<span class="num font-semibold">{wind.headline}</span><br /><span class="text-xs text-muted">{wind.detail}</span>{#if p.choice !== 'entered'}<br /><span class="text-xs font-semibold text-ink-2">Distances: {windChoiceText(p.at, p.choice)}</span>{/if}{:else}<span class="text-[13px] font-semibold text-amber">Enter wind and runway</span>{/if}</dd></div>
 				{/each}
 			</dl>
