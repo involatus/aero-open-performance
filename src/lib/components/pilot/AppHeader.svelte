@@ -7,14 +7,14 @@
 
 	let {
 		tabs, labels, current, inCalculation, canNextFlight, reportCount, reportsOpen, checking, isDemo, version, dataLine,
-		onclosetab, onnextflight, onnew, onreports, oncheck
+		onclosetab, onnextflight, onnew, onreports, oncheck, onsavedvalues
 	}: {
 		tabs: Calculation[]; labels: string[]; current: number;
 		/** False while the aircraft list or Reports are shown, so no tab looks chosen. */
 		inCalculation: boolean;
 		canNextFlight: boolean; reportCount: number; reportsOpen: boolean; checking: boolean; isDemo: boolean;
 		version: string; dataLine: string;
-		onclosetab: (i: number) => void; onnextflight: () => void; onnew: () => void; onreports: () => void; oncheck: () => void;
+		onclosetab: (i: number) => void; onnextflight: () => void; onnew: () => void; onreports: () => void; oncheck: () => void; onsavedvalues: () => void;
 	} = $props();
 
 	const item = 'flex min-h-11 cursor-pointer items-center gap-2 rounded-md px-3 text-ink no-underline outline-none select-none data-highlighted:bg-subtle data-disabled:cursor-not-allowed data-disabled:text-muted';
@@ -72,6 +72,7 @@
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Portal>
 					<DropdownMenu.Content align="end" sideOffset={6} class={menu}>
+						<DropdownMenu.Item onSelect={onsavedvalues} class={item}>My saved values</DropdownMenu.Item>
 						<DropdownMenu.Item disabled={checking} onSelect={oncheck} class={item}>{checking ? 'Checking' : 'Check for new data'}</DropdownMenu.Item>
 						<DropdownMenu.Item class={item}>
 							{#snippet child({ props })}<a {...props} href={resolve('/device-test')}>Device test</a>{/snippet}

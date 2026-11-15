@@ -13,6 +13,7 @@
 	import ReportsView from '#lib/components/pilot/ReportsView.svelte';
 	import ChooseAircraft from '#lib/components/pilot/ChooseAircraft.svelte';
 	import LoadStep from '#lib/components/pilot/steps/LoadStep.svelte';
+	import SavedValues from '#lib/components/pilot/SavedValues.svelte';
 	import FuelStep from '#lib/components/pilot/steps/FuelStep.svelte';
 	import ConditionsStep from '#lib/components/pilot/steps/ConditionsStep.svelte';
 	import SendStep from '#lib/components/pilot/steps/SendStep.svelte';
@@ -36,6 +37,7 @@
 	let appUpdateReady = $state(false);
 	let appUpdating = false;
 	let showReports = $state(false);
+	let showSaved = $state(false);
 	let now = $state(Date.now());
 	let creating = $state(false);
 	let reportError = $state('');
@@ -272,6 +274,7 @@
 		onnew={() => { choosing = true; showReports = false; closePad(); }}
 		onreports={() => { showReports = !showReports; reportError = ''; closePad(); }}
 		oncheck={checkNow}
+		onsavedvalues={() => { showSaved = true; closePad(); }}
 	/>
 
 	<main class="mx-auto flex w-full max-w-[1240px] flex-1 flex-col gap-4 px-4 pt-5 pb-[calc(32px+env(safe-area-inset-bottom,0px))] sm:px-5">
@@ -333,7 +336,7 @@
 							<StepNav step={calc.step} left={leftPerStep} over={overPerStep} ongo={goStep} />
 
 							{#if calc.step === 0}
-								<LoadStep {aircraft} {calc} {results} fields={fields[0]} {numberField} saved={app.saved} onsaved={(list) => app.setSaved(list)} />
+								<LoadStep {aircraft} {calc} {results} fields={fields[0]} {numberField} saved={app.saved} onsaved={(list) => app.setSaved(list)} onmanage={() => (showSaved = true)} />
 							{:else if calc.step === 1}
 								<FuelStep {aircraft} {calc} {results} fields={fields[1]} {numberField} />
 							{:else if calc.step === 2}
@@ -367,3 +370,4 @@
 		{/if}
 	</main>
 </Tabs.Root>
+<SavedValues bind:open={showSaved} saved={app.saved} onsaved={(list) => app.setSaved(list)} />

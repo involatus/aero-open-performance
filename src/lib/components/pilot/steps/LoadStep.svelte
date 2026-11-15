@@ -3,17 +3,17 @@
 	import type { Aircraft } from '#lib/aircraft/schema.ts';
 	import type { Calculation as Results } from '#lib/engine/index.ts';
 	import { changeConfiguration, parse, setByPilot, type Calculation, type Field } from '#lib/app/calculation.ts';
-	import { massIn, removeMass, saveMass, savedFor, stationKind, type SavedMass } from '#lib/app/my-values.ts';
+	import { massIn, saveMass, savedFor, stationKind, type SavedMass } from '#lib/app/my-values.ts';
 	import Button from '../../ui/Button.svelte';
 	import Card from '../../ui/Card.svelte';
 	import Gauge from '../../ui/Gauge.svelte';
 	import Segmented from '../../ui/Segmented.svelte';
 	import StepHeading from './StepHeading.svelte';
 
-	let { aircraft, calc, results, fields, numberField, saved, onsaved }: {
+	let { aircraft, calc, results, fields, numberField, saved, onsaved, onmanage }: {
 		aircraft: Aircraft; calc: Calculation; results: Results; fields: Field[]; numberField: Snippet<[Field, Snippet?]>;
 		/** The pilot's own values on this device, offered under each seat and baggage field. */
-		saved: SavedMass[]; onsaved: (list: SavedMass[]) => void;
+		saved: SavedMass[]; onsaved: (list: SavedMass[]) => void; onmanage: () => void;
 	} = $props();
 
 	const unit = $derived(aircraft.units.mass), decimals = $derived(aircraft.display.massDecimals);
@@ -52,6 +52,7 @@
 							{@const v = massIn(s, unit, decimals)}
 							<button type="button" tabindex="-1" onclick={() => setByPilot(calc, field.key, v)} class={['min-h-9 rounded-full border px-3 text-sm', calc.values[field.key] === v ? 'border-accent bg-accent-soft font-semibold text-accent-strong' : 'border-line-strong bg-surface text-ink']}>{s.label} <span class="num text-muted">{v}</span></button>
 						{/each}
+						<button type="button" tabindex="-1" class="min-h-9 border-0 bg-transparent px-1 text-[13px] font-semibold text-accent" onclick={onmanage}>Edit</button>
 					</div>
 				{/if}
 				{#if naming === field.key}
@@ -80,15 +81,3 @@
 	{/each}
 </Card>
 
-{#if saved.length}
-	<Card title="Saved on this device" description="People are offered on seats, things in baggage areas. They stay on this device and are never filled in by themselves.">
-		<ul class="m-0 flex list-none flex-col p-0">
-			{#each saved as s (s.id)}
-				<li class="flex min-h-11 items-center justify-between gap-3 border-b border-divider last:border-b-0">
-					<span><strong>{s.label}</strong> <span class="num text-ink-2">{massIn(s, unit, decimals)} {unit}</span> <span class="text-[13px] text-muted">{(s.kind ?? 'person') === 'item' ? 'baggage' : 'person'}</span></span>
-					<Button size="sm" variant="danger-quiet" onclick={() => onsaved(removeMass(saved, s.id))}>Delete</Button>
-				</li>
-			{/each}
-		</ul>
-	</Card>
-{/if}
