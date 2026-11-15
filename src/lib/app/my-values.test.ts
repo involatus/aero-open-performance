@@ -32,6 +32,10 @@ describe('people on seats, things in baggage', () => {
 		for (const label of ['Baggage', 'Baggage area 2', 'Hat rack', 'Gepäck', 'Cargo pod', 'Aft compartment']) expect(stationKind({ id: 'x', label })).toBe('item');
 		for (const label of ['Pilot', 'Front passenger', 'Rear seats', 'Co-pilot']) expect(stationKind({ id: 'x', label })).toBe('person');
 	});
+	it('follows the aircraft data before the name', () => {
+		expect(stationKind({ id: 'x', label: 'Aft area', carries: 'baggage' })).toBe('item');
+		expect(stationKind({ id: 'x', label: 'Baggage bench', carries: 'people' })).toBe('person');
+	});
 	it('offers each saved value only on its kind, and keeps a person and a bag of the same name apart', () => {
 		let list = saveMass([], 'Anna', 55, 'kg', 1, 'person');
 		list = saveMass(list, 'Bag', 8, 'kg', 2, 'item');

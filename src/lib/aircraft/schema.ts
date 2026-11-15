@@ -37,6 +37,8 @@ const Station = v.strictObject({
 	positions: v.optional(v.pipe(v.array(Position), v.minLength(1))),
 	defaultPosition: v.optional(Id),
 	maxMass: v.optional(Positive),
+	// People or baggage, so a pilot's saved values are offered only where they fit.
+	carries: v.optional(v.picklist(['people', 'baggage'])),
 	source: SourceRef
 });
 const Tank = v.strictObject({ id: Id, label: Text, arm: Num, capacity: Positive, density: Positive, source: SourceRef });

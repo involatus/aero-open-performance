@@ -5,12 +5,13 @@
 	import Num from './Num.svelte';
 	import SourcePick from './SourcePick.svelte';
 	import AdmItem from './AdmItem.svelte';
+	import { guessKind } from '#lib/app/my-values.ts';
 
 	let { a, touch }: { a: Aircraft; touch: () => void } = $props();
 	// Cards present when the editor opened start closed; ones added since start open.
 	const known = untrack(() => new Set([...a.stations, ...a.combinedLimits].map((x) => x.id)));
 	const val = (kind: Kind, v: number) => `${Number(shown(a, kind, v).toPrecision(6))} ${unitLabel(entryUnits(a), kind)}`;
-	const stationSummary = (s: Aircraft['stations'][number]) => [s.positions ? `${s.positions.length} positions` : s.arm !== undefined && `Arm ${val('arm', s.arm)}`, s.maxMass !== undefined && `max ${val('mass', s.maxMass)}`].filter(Boolean).join(' · ');
+	const stationSummary = (s: Aircraft['stations'][number]) => [s.carries === 'baggage' ? 'Baggage' : s.carries === 'people' ? 'Seat' : '', s.positions ? `${s.positions.length} positions` : s.arm !== undefined && `Arm ${val('arm', s.arm)}`, s.maxMass !== undefined && `max ${val('mass', s.maxMass)}`].filter(Boolean).join(' · ');
 	const limitSummary = (l: Aircraft['combinedLimits'][number]) => `Max ${val('mass', l.maxMass)} for ${l.stations.map((id) => a.stations.find((s) => s.id === id)?.label ?? id).join(', ') || 'no stations yet'}`;
 
 	function addStation() {
@@ -59,6 +60,7 @@
 		<div class="adm-row">
 			<label class="adm-field">Name *<input class="adm" placeholder="e.g. Pilot" value={s.label} oninput={(e) => { s.label = e.currentTarget.value; touch(); }} /></label>
 			{#if !s.positions}<Num label="Arm" aircraft={a} kind="arm" value={s.arm} onchange={(v) => { s.arm = v ?? 0; touch(); }} />{/if}
+			<label class="adm-field">Carries<select class="adm" value={s.carries ?? guessKind(s).replace('person', 'people').replace('item', 'baggage')} onchange={(e) => { s.carries = e.currentTarget.value as 'people' | 'baggage'; touch(); }}><option value="people">People, a seat</option><option value="baggage">Baggage or cargo</option></select>{#if !s.carries}<span class="adm-hint">Guessed from the name. Choose to confirm.</span>{/if}</label>
 			<Num label="Maximum load" optional aircraft={a} kind="mass" value={s.maxMass} onchange={(v) => { if (v === undefined) delete s.maxMass; else s.maxMass = v; touch(); }} />
 			<SourcePick aircraft={a} value={s.source} onchange={(id) => { s.source = id; touch(); }} />
 		</div>

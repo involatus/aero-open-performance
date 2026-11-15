@@ -10,8 +10,11 @@ export type SavedKind = 'person' | 'item';
 export type SavedMass = { id: string; label: string; kg: number; kind?: SavedKind };
 
 const BAGGAGE = /bag|gep(ä|ae)ck|luggage|cargo|freight|hat ?rack|hutablage|compartment|locker|fret|soute|stauraum/i;
-/** Whether a Loading Station carries people or things, from its name: baggage, cargo, hat rack and the like are for things. */
-export const stationKind = (station: { id: string; label: string }): SavedKind => (BAGGAGE.test(`${station.label} ${station.id}`) ? 'item' : 'person');
+/** Whether a Loading Station carries people or things: as the aircraft data says, else guessed from its name. */
+export const stationKind = (station: { id: string; label: string; carries?: 'people' | 'baggage' }): SavedKind =>
+	station.carries ? (station.carries === 'baggage' ? 'item' : 'person') : guessKind(station);
+/** For stations the Data Owner hasn't set yet: baggage, cargo, hat rack and the like are for things. */
+export const guessKind = (station: { id: string; label: string }): SavedKind => (BAGGAGE.test(`${station.label} ${station.id}`) ? 'item' : 'person');
 /** The saved values for a station of this kind. Older entries without a kind count as people. */
 export const savedFor = (list: SavedMass[], kind: SavedKind) => list.filter((s) => (s.kind ?? 'person') === kind);
 
