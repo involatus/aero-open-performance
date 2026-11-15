@@ -82,7 +82,7 @@ export function altitudeSteps(atm: Atmosphere, input: 'pressureAltitude' | 'dens
 	const elev = u(atm.elevationFt), pa = u(atm.pressureAltitudeFt), qnh = atm.qnhHpa;
 	if (qnh === undefined) return [];
 	const both = (ft: number) => `${shown1(u(ft))} ${name}${metres ? ` (${Math.round(ft)} ft)` : ''}`;
-	const lines = [`Pressure altitude from elevation ${shown1(elev)} ${name} and QNH ${shown1(qnh)} hPa: ${shown1(elev)} + ${metres ? '44,307.7' : '145,366.45'} × (1 − (${shown1(qnh)} ÷ 1013.25)^0.190284) = ${both(atm.pressureAltitudeFt)}. Rule of thumb: ${shown1(elev)} + (1013 − ${shown1(qnh)}) × ${metres ? '8.23' : '27'} = ${shown1(u(atm.ruleOfThumb.pressureAltitudeFt))} ${name}`];
+	const lines = [`Pressure altitude from elevation ${shown1(elev)} ${name} and QNH ${shown1(qnh)} hPa: ${shown1(elev)} + ${metres ? '44,307.7' : '145,366.45'} × (1 − (${shown1(qnh)} ÷ 1013.25)^0.190284) = ${both(atm.pressureAltitudeFt)}. Rule of thumb: ${Math.round(atm.elevationFt)} ft + (1013 − ${shown1(qnh)}) × 27 ft = ${Math.round(atm.ruleOfThumb.pressureAltitudeFt)} ft${metres ? ` (${shown1(u(atm.ruleOfThumb.pressureAltitudeFt))} m)` : ''}`];
 	if (input === 'densityAltitude' && atm.densityAltitudeFt !== null && atm.oatC != null && atm.ruleOfThumb.densityAltitudeFt !== null) {
 		lines.push(`Density altitude from pressure altitude ${shown1(pa)} ${name}, OAT ${shown1(atm.oatC)} °C and ISA ${shown1(atm.isaC)} °C, by the ISA formula: ${both(atm.densityAltitudeFt)}. Rule of thumb: ${Math.round(atm.ruleOfThumb.pressureAltitudeFt)} + 120 × (${shown1(atm.oatC)} − ${shown1(atm.ruleOfThumb.isaC)}) = ${Math.round(atm.ruleOfThumb.densityAltitudeFt)} ft`);
 	}

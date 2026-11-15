@@ -240,7 +240,7 @@ describe('how the altitude was worked out', () => {
 		const steps = r.takeoff.steps.map((s) => s.type);
 		expect(steps.indexOf('altitude')).toBe(0);
 		expect(steps.indexOf('altitude')).toBeLessThan(steps.indexOf('lookup'));
-		expect(r.takeoff.steps[0].detail).toMatch(/^Pressure altitude from elevation .* QNH .*\^0\.190284\) = .*Rule of thumb: /);
+		expect(r.takeoff.steps[0].detail).toMatch(/^Pressure altitude from elevation .* QNH .*\^0\.190284\) = .*Rule of thumb: \d+ ft \+ \(1013 − [\d.]+\) × 27 ft = \d+ ft \([\d.]+ m\)$/);
 		expect(r.takeoff.steps.find((s) => s.lookup)!.detail).toContain('Table at Pressure altitude');
 		expect(r.landing.steps.some((s) => s.type === 'altitude')).toBe(false);
 	});
