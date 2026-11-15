@@ -44,7 +44,7 @@ const num = (s: string) => (s === '' ? null : Math.round(Number(s)));
 const list = airports
 	.filter((a) => KINDS.has(a.type) && byAirport.has(a.id))
 	.map((a) => [a.ident, a.name, num(a.elevation_ft), Number(Number(a.latitude_deg).toFixed(3)), Number(Number(a.longitude_deg).toFixed(3)),
-		byAirport.get(a.id)!.map((r) => [r.le_ident, r.he_ident, r.surface, num(r.length_ft)])]);
+		byAirport.get(a.id)!.map((r) => [r.le_ident, r.he_ident, r.surface, num(r.length_ft), num(r.le_heading_degT), num(r.he_heading_degT)])]);
 
 if (list.length < 1000) throw new Error(`Only ${list.length} airfields: not replacing static/airports.json`);
 writeFileSync('static/airports.json', JSON.stringify({ source: 'OurAirports, public domain', date: new Date().toISOString().slice(0, 10), airports: list }));

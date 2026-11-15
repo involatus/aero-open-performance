@@ -3,7 +3,7 @@
  * Everything aircraft-specific comes from the aircraft file.
  */
 import type { Aircraft, CalculationInput, Condition, Performance, WindForDistances } from '../aircraft/schema.ts';
-import type { Airfield, RunwayEnd } from '../airfield/airfields.ts';
+import { magneticHeading, runwayNumber, type Airfield, type RunwayEnd } from '../airfield/airfields.ts';
 import type { Calculation as Results } from '../engine/index.ts';
 import { M_PER_FT } from '../engine/units.ts';
 import { toMagnetic } from '../weather/variation.ts';
@@ -13,7 +13,8 @@ import type { WeatherReport } from '../weather/provider.ts';
 export type FieldStatus = 'pre' | 'ok' | 'pilot';
 /** The airfield a value belongs to. Landing is at the departure airfield unless the pilot chooses another. */
 export type Place = 'departure' | 'landing';
-export type ChosenAirfield = { ident: string; name: string; date: string; runway: { designator: string; surface: string; lengthM: number | null } | null };
+/** `runway.heading`: its magnetic heading from the list's measured one; absent in older calculations. */
+export type ChosenAirfield = { ident: string; name: string; date: string; runway: { designator: string; surface: string; lengthM: number | null; heading?: number } | null };
 export type Calculation = {
 	id: string;
 	created: number;
@@ -120,13 +121,13 @@ export type RunwayWind = { headwind: number; crosswind: number; variable: boolea
  * doesn't know the active runway yet can see the choice. Variable wind counts as a tailwind on every runway,
  * as in the calculation, so no runway is "into wind" then. Runway numbers stand for the heading, as elsewhere.
  */
-export function runwayWinds(runways: Array<{ designator: string; number: number }>, wdir: string | undefined, wspd: string | undefined) {
+export function runwayWinds(runways: Array<{ designator: string; number: number; heading?: number }>, wdir: string | undefined, wspd: string | undefined) {
 	const speed = parse(wspd), variable = wdir === VARIABLE_WIND, direction = variable ? null : parse(wdir);
 	const winds = new Map<string, RunwayWind>();
 	if (speed === null || (!variable && direction === null)) return { winds, intoWind: null as string | null };
 	for (const r of runways) {
 		if (variable) { winds.set(r.designator, { headwind: -speed, crosswind: 0, variable }); continue; }
-		const angle = ((direction! - r.number * 10) * Math.PI) / 180;
+		const angle = ((direction! - (r.heading ?? r.number * 10)) * Math.PI) / 180;
 		winds.set(r.designator, { headwind: speed * Math.cos(angle), crosswind: Math.abs(speed * Math.sin(angle)), variable });
 	}
 	let intoWind: string | null = null, best = 0.5;
@@ -157,13 +158,26 @@ function magneticHint(calc: Parameters<typeof magneticWind>[0], place: Place): s
 }
 /** The Loading Station a load field belongs to, so callers don't rebuild the field key. */
 export const stationOfField = (a: Aircraft, key: string) => a.stations.find((s) => `load:${s.id}` === key);
-function runwayHint(text: string | undefined) {
-	const h = runwayHeading(text);
-	return h === null ? 'Runway number, such as 08 for 080°' : `Runway ${String(h / 10).padStart(2, '0')}, heading ${String(h).padStart(3, '0')}°`;
+/**
+ * The runway a place uses: its number, and its heading, magnetic. The measured heading from the airfield
+ * list when this runway was chosen there; otherwise the number stands for it.
+ */
+export function runwayAt(calc: Partial<Pick<Calculation, 'values' | 'airfield' | 'landingAirfield'>>, place: Place): { number: number; heading: number; measured: boolean } | null {
+	const number = parse(calc.values?.[keyAt(place, 'rwy')]);
+	if (number === null) return null;
+	const chosen = (place === 'landing' ? calc.landingAirfield : calc.airfield)?.runway;
+	const measured = chosen?.heading !== undefined && runwayNumber(chosen.designator) === number ? chosen.heading : null;
+	return { number, heading: measured ?? number * 10, measured: measured !== null };
+}
+export const runwayText = (number: number) => String(number).padStart(2, '0');
+function runwayHint(calc: Parameters<typeof runwayAt>[0], place: Place) {
+	const r = runwayAt(calc, place);
+	if (!r) return 'Runway number, such as 08 for 080°';
+	return `Runway ${runwayText(r.number)}, heading ${degrees(r.heading)}${r.measured ? ' magnetic, measured' : ''}`;
 }
 
 /** The numeric fields of each step, built from the aircraft file. */
-export function fieldsFor(a: Aircraft, calc: Pick<Calculation, 'elevationUnit'> & Partial<Pick<Calculation, 'values' | 'landingElsewhere' | 'weather' | 'landingWeather' | 'sources' | 'status'>>): Field[][] {
+export function fieldsFor(a: Aircraft, calc: Pick<Calculation, 'elevationUnit'> & Partial<Pick<Calculation, 'values' | 'landingElsewhere' | 'weather' | 'landingWeather' | 'sources' | 'status' | 'airfield' | 'landingAirfield'>>): Field[][] {
 	const mass = a.units.mass, step = massStep(mass), maxMass = a.massLimits.maxTakeoff.value;
 	const arm = (x: number) => `arm ${x.toFixed(a.display.armDecimals)} ${a.units.arm}`;
 	const meta = (...parts: (string | false | undefined)[]) => parts.filter(Boolean).join(' · ') || undefined;
@@ -191,7 +205,7 @@ export function fieldsFor(a: Aircraft, calc: Pick<Calculation, 'elevationUnit'> 
 		const name = (label: string) => (place === 'landing' ? `Landing ${/^[A-Z]{2,}/.test(label) ? label : label.toLowerCase()}` : label);
 		return [
 			{ key: k('elev'), label: name('Elevation'), unit: calc.elevationUnit, units: ['m', 'ft'], decimals: false, negative: true, range: [-500, elevMax], quick: [], required: true },
-			{ key: k('rwy'), label: name('Runway'), unit: '', decimals: false, negative: false, range: [1, 36], quick: [], required: true, hint: runwayHint(calc.values?.[k('rwy')]) },
+			{ key: k('rwy'), label: name('Runway'), unit: '', decimals: false, negative: false, range: [1, 36], quick: [], required: true, hint: runwayHint(calc, place) },
 			{ key: k('qnh'), label: name('QNH'), unit: 'hPa', decimals: false, negative: false, range: [900, 1100], quick: [], required: true },
 			{ key: k('oat'), label: name('OAT'), unit: '°C', decimals: true, negative: true, range: [-60, 60], quick: [], required: true },
 			{ key: k('wdir'), label: name('Wind from'), unit: '°', decimals: false, negative: false, range: [0, 360], quick: [VARIABLE_WIND], required: true, hint: magneticHint(calc, place) },
@@ -293,11 +307,12 @@ export function applyAirfield(calc: Calculation, airfield: Airfield, date: strin
 	if (place === 'landing') calc.landingAirfield = chosen; else calc.airfield = chosen;
 }
 
-export function applyRunway(calc: Calculation, end: RunwayEnd, place: Place = 'departure') {
+/** `variation`: the airfield's, so the runway's measured true heading is kept as magnetic. */
+export function applyRunway(calc: Calculation, end: RunwayEnd, place: Place = 'departure', variation: number | null = null) {
 	const airfield = airfieldAt(calc, place);
 	if (!airfield) return;
 	prefill(calc, keyAt(place, 'rwy'), String(end.number).padStart(2, '0'), `airfield list ${airfield.ident}, ${airfield.date}`);
-	airfield.runway = { designator: end.designator, surface: end.surface, lengthM: end.lengthM };
+	airfield.runway = { designator: end.designator, surface: end.surface, lengthM: end.lengthM, ...(end.headingTrue !== null ? { heading: magneticHeading(end, variation) } : {}) };
 	// Tapping the runway is the pilot's choice of this airfield and runway, so its elevation from the list counts as checked too.
 	confirmValue(calc, keyAt(place, 'rwy'));
 	if (calc.sources[keyAt(place, 'elev')]?.startsWith('airfield list')) confirmValue(calc, keyAt(place, 'elev'));
@@ -382,7 +397,7 @@ function placeInput(calc: Calculation, place: Place): NonNullable<CalculationInp
 	const v = (key: string) => calc.values[keyAt(place, key)];
 	const elevation = parse(v('elev')), qnh = parse(v('qnh')), speed = parse(v('wspd'));
 	// Older saved calculations still have a heading instead of a runway number.
-	const heading = v('rwy') !== undefined && v('rwy') !== '' ? runwayHeading(v('rwy')) : place === 'departure' ? parse(calc.values.hdg) : null;
+	const heading = v('rwy') !== undefined && v('rwy') !== '' ? runwayAt(calc, place)?.heading ?? null : place === 'departure' ? parse(calc.values.hdg) : null;
 	// Blowing from straight behind is how the engine sees a tailwind.
 	const direction = isVariableWind(calc, place) ? (heading === null ? null : (heading + 180) % 360) : parse(v('wdir'));
 	return {

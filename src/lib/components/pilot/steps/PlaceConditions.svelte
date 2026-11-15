@@ -4,7 +4,7 @@
 	import type { WindForDistances } from '#lib/aircraft/schema.ts';
 	import type { Calculation as Results } from '#lib/engine/index.ts';
 	import { WIND_CHOICES, ignoresEnteredTailwind, landingConditions, windText } from '#lib/app/presentation.ts';
-	import { findAirfields, loadAirfields, type Airfield, type RunwayEnd } from '#lib/airfield/airfields.ts';
+	import { findAirfields, loadAirfields, magneticHeading, type Airfield, type RunwayEnd } from '#lib/airfield/airfields.ts';
 	import { lookUpWeather } from '#lib/weather/lookup.ts';
 	import { nearestFrom, stationLine, variationFor, weatherOnReturn } from '#lib/app/place-weather.ts';
 	import type { WeatherQuery } from '#lib/weather/provider.ts';
@@ -91,7 +91,9 @@
 	let weatherConfirmed = $derived(!weatherToConfirm && WEATHER_KEYS.some((w) => calc.status[k(w)] === 'ok' && isFromMetar(calc, k(w))));
 	let showRunways = $derived(airfieldFound !== null && chosen?.ident === airfieldFound.ident);
 	let showPlaceFields = $derived(changingPlace || !showRunways || !placeSet);
-	let runwayWind = $derived(airfieldFound ? runwayWinds(airfieldFound.runways, calc.values[k('wdir')], calc.values[k('wspd')]) : null);
+	/** The airfield's variation: the METAR's true wind and the runways' measured true headings both become magnetic. */
+	let fieldVariation = $derived(airfieldFound ? variationFor(airfieldFound, now) : null);
+	let runwayWind = $derived(airfieldFound ? runwayWinds(airfieldFound.runways.map((r) => ({ ...r, heading: magneticHeading(r, fieldVariation) })), calc.values[k('wdir')], calc.values[k('wspd')]) : null);
 
 	// The runway list isn't saved with the calculation, so it is looked up again on return to this step.
 	onMount(() => {
@@ -128,7 +130,7 @@
 	}
 	function chooseRunway(designator: string) {
 		const end = airfieldFound?.runways.find((r) => r.designator === designator);
-		if (end) applyRunway(calc, end, place);
+		if (end) applyRunway(calc, end, place, fieldVariation);
 	}
 	function chooseWind(id: WindForDistances) {
 		setWindChoice(calc, place, id);
@@ -165,7 +167,7 @@
 		const text = end.surfaceKind === 'unknown' ? end.surface || 'Surface unknown' : end.surfaceKind;
 		return text.charAt(0).toUpperCase() + text.slice(1);
 	};
-	const heading = (end: RunwayEnd) => `${String(end.number * 10).padStart(3, '0')}°`;
+	const heading = (end: RunwayEnd) => `${String(magneticHeading(end, fieldVariation)).padStart(3, '0')}°`;
 	const textInput = 'min-h-[52px] w-full rounded-lg border border-line-strong bg-surface px-3.5 text-ink outline-none focus:border-accent focus:ring-[3px] focus:ring-accent-ring';
 	const enter = (action: () => void) => (e: KeyboardEvent) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur(); action(); } };
 </script>

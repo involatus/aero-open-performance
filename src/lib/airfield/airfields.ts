@@ -3,12 +3,14 @@
  * Every value it gives is a Prefilled Value the pilot checks against official sources.
  */
 import { M_PER_FT } from '../engine/units.ts';
-export type RunwayEnd = { designator: string; number: number; surface: string; surfaceKind: SurfaceKind; lengthM: number | null };
+/** `headingTrue`: the runway's measured heading from OurAirports, true north; null where it has none. */
+export type RunwayEnd = { designator: string; number: number; surface: string; surfaceKind: SurfaceKind; lengthM: number | null; headingTrue: number | null };
 export type Airfield = { ident: string; name: string; elevationFt: number | null; lat: number; lon: number; runways: RunwayEnd[] };
 export type AirfieldData = { source: string; date: string; airfields: Airfield[] };
 export type SurfaceKind = 'paved' | 'grass' | 'gravel' | 'water' | 'unknown';
 
-type Raw = { source: string; date: string; airports: [string, string, number | null, number, number, [string, string, string, number | null][]][] };
+// Each runway: both ends, surface, length in ft, then each end's true heading (lists made before carry no headings).
+type Raw = { source: string; date: string; airports: [string, string, number | null, number, number, [string, string, string, number | null, (number | null)?, (number | null)?][]][] };
 
 const KIND: [RegExp, SurfaceKind][] = [
 	[/^(asp|asph|bit|con|conc|pem|tar|tarmac|paved|asphalt|concrete)/i, 'paved'],
@@ -30,12 +32,27 @@ export function runwayNumber(designator: string): number | null {
 export function parseAirfields(raw: Raw): AirfieldData {
 	const airfields = raw.airports.map(([ident, name, elevationFt, lat, lon, rws]) => ({
 		ident, name, elevationFt, lat, lon,
-		runways: rws.flatMap(([le, he, surface, lengthFt]) => [le, he].flatMap((d) => {
-			const number = runwayNumber(d);
-			return number === null ? [] : [{ designator: d, number, surface, surfaceKind: surfaceKind(surface), lengthM: lengthFt === null ? null : Math.round(lengthFt * M_PER_FT) }];
-		}))
+		runways: rws.flatMap(([le, he, surface, lengthFt, leHdg = null, heHdg = null]) => {
+			// One end's heading gives the other's: the opposite direction.
+			const opposite = (h: number | null) => (h === null ? null : (h + 180) % 360);
+			const headings = [leHdg ?? opposite(heHdg), heHdg ?? opposite(leHdg)];
+			return [le, he].flatMap((d, i) => {
+				const number = runwayNumber(d);
+				return number === null ? [] : [{ designator: d, number, surface, surfaceKind: surfaceKind(surface), lengthM: lengthFt === null ? null : Math.round(lengthFt * M_PER_FT), headingTrue: headings[i] }];
+			});
+		})
 	}));
 	return { source: raw.source, date: raw.date, airfields };
+}
+
+/**
+ * The runway's magnetic heading, as runways are named and ATIS gives wind: its measured true heading
+ * less the variation. Without a measured heading, the runway number stands for it (28 is 280°).
+ */
+export function magneticHeading(end: Pick<RunwayEnd, 'number' | 'headingTrue'>, variation: number | null): number {
+	if (end.headingTrue === null) return end.number * 10;
+	const m = Math.round(end.headingTrue - (variation ?? 0)) % 360;
+	return m <= 0 ? m + 360 : m;
 }
 
 /** The exact identifier first, then names containing the text. */

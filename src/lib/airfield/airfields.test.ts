@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { findAirfields, parseAirfields, runwayNumber, surfaceKind } from './airfields.ts';
-import { applyAirfield, applyRunway, conditionCorrections, newCalculation, setByPilot, toInput } from '../app/calculation.ts';
+import { findAirfields, magneticHeading, parseAirfields, runwayNumber, surfaceKind } from './airfields.ts';
+import { applyAirfield, applyRunway, conditionCorrections, fieldsFor, newCalculation, setByPilot, toInput } from '../app/calculation.ts';
 import { validateAircraft } from '../aircraft/validate.ts';
 
 const data = parseAirfields({
@@ -78,5 +78,36 @@ describe('corrections shown for a condition', () => {
 		expect(conditionCorrections(gl.performance.takeoff.find((c) => c.id === 'hard'))).toEqual([]);
 		expect(conditionCorrections({ kind: 'steps', id: 'w', label: 'Wet grass', distanceUnit: 'm', steps: [{ type: 'lookup', table: 't' }, { type: 'factor', value: 1.3, applies: ['total', 'groundRoll'], reason: 'Wet grass (UK CAA)', source: 's' }] }))
 			.toEqual(['× 1.3 both distances (Wet grass (UK CAA))']);
+	});
+});
+
+describe('measured runway headings', () => {
+	const raw = { source: 'test', date: '2026-11-15', airports: [
+		['LSZH', 'Zurich', 1416, 47.46, 8.55, [['10', '28', 'CON', 8202, 96, 276], ['16', '34', 'CON', 12139, null, 335]]],
+		['LSZK', 'Speck', 1745, 47.38, 8.65, [['12', '30', 'GRASS', 2051]]]
+	] } as Parameters<typeof parseAirfields>[0];
+	const headed = parseAirfields(raw);
+	const end = (ident: string, d: string) => headed.airfields.find((a) => a.ident === ident)!.runways.find((r) => r.designator === d)!;
+	it('keeps each end\'s true heading, and takes the opposite end\'s when one is missing', () => {
+		expect(end('LSZH', '28').headingTrue).toBe(276);
+		expect(end('LSZH', '16').headingTrue).toBe(155);
+		expect(end('LSZK', '30').headingTrue).toBeNull();
+	});
+	it('gives the magnetic heading, or the runway number where nothing was measured', () => {
+		expect(magneticHeading(end('LSZH', '28'), 3.4)).toBe(273);
+		expect(magneticHeading(end('LSZK', '30'), 3.4)).toBe(300);
+		expect(magneticHeading({ number: 36, headingTrue: 2 }, 3.4)).toBe(359);
+	});
+	it('is used for the calculation and the hint once the runway is chosen from the list', () => {
+		const v = validateAircraft(JSON.parse(readFileSync('aircraft-examples/test-glastar-style.json', 'utf8')));
+		if (!v.ok) throw new Error('example');
+		const a = v.aircraft, c = newCalculation(a, 'x', Date.UTC(2026, 10, 15));
+		applyAirfield(c, headed.airfields[0], headed.date);
+		applyRunway(c, end('LSZH', '28'), 'departure', 3.4);
+		expect(c.airfield?.runway?.heading).toBe(273);
+		expect(toInput(a, c).runwayHeading).toBe(273);
+		expect(fieldsFor(a, c).flat().find((f) => f.key === 'rwy')!.hint).toBe('Runway 28, heading 273° magnetic, measured');
+		setByPilot(c, 'rwy', '10');
+		expect(toInput(a, c).runwayHeading).toBe(100);
 	});
 });

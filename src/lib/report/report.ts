@@ -7,7 +7,7 @@ import type { Calculation as Results } from '../engine/index.ts';
 import type { PerformanceResult } from '../engine/performance.ts';
 import type { DistanceText } from '../app/presentation.ts';
 import { limitText } from '../engine/mass-balance.ts';
-import { baseKey, canReport, fieldsFor, magneticWind, notesFor, isVariableWind, keyAt, toInput, type Calculation, type Place, runwayHeading, weatherAt, windChoiceAt } from '../app/calculation.ts';
+import { baseKey, canReport, fieldsFor, magneticWind, notesFor, placeOfKey, runwayAt, runwayText, isVariableWind, keyAt, toInput, type Calculation, type Place, runwayHeading, weatherAt, windChoiceAt } from '../app/calculation.ts';
 import { altitudeText, distanceText, ignoresEnteredTailwind, landingConditions, sourceText, utcText, valueSource, limitBadge, massBalanceRows, windChoiceText, windText, workingRows } from '../app/presentation.ts';
 import { lookupView, type LookupView } from '../app/lookup-grid.ts';
 
@@ -118,8 +118,8 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 	const shown = (key: string) => {
 		const f = allFields.find((x) => x.key === key)!;
 		// A runway number alone can be misread, so the report also gives the heading it stands for: "08 (080°)".
-		const h = baseKey(key) === 'rwy' ? runwayHeading(calc.values[key]) : null;
-		const value = h !== null ? `${String(h / 10).padStart(2, '0')} (${String(h).padStart(3, '0')}°)` : `${calc.values[key] ?? ''} ${f.unit}`.trim();
+		const rwy = baseKey(key) === 'rwy' ? runwayAt(calc, placeOfKey(key)) : null;
+		const value = rwy ? `${runwayText(rwy.number)} (${String(rwy.heading).padStart(3, '0')}°${rwy.measured ? ' magnetic' : ''})` : `${calc.values[key] ?? ''} ${f.unit}`.trim();
 		return { label: f.label, value, source: valueSource(calc, key) };
 	};
 	const sourced = (key: string): Sourced => (({ value, source }) => ({ value, source }))(shown(key));
@@ -163,8 +163,8 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 	};
 	const departure = placeText('departure');
 	const runwayOf = (place: Place) => {
-		const h = runwayHeading(calc.values[keyAt(place, 'rwy')]);
-		return h === null ? null : String(h / 10).padStart(2, '0');
+		const r = runwayAt(calc, place);
+		return r ? runwayText(r.number) : null;
 	};
 	// The wind the distances use and the pilot's choice are in the results band, not repeated here.
 	const placeRows = (place: Place) => [...['elev', 'rwy', 'qnh', 'oat'].map((k) => shown(keyAt(place, k))), windRow(place)];
