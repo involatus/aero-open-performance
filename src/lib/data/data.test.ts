@@ -292,3 +292,22 @@ describe('command-line tool', () => {
 		expect(r.stderr).toContain('not yet compared with the manual');
 	});
 });
+
+describe('checks run the aircraft as pilots get it', () => {
+	const rules = { aboveTable: { takeoffPercentPer1000ft: 10, landingPercentPer1000ft: 5, alertAboveM: 500 } };
+	const file = () => JSON.parse(readFileSync('aircraft-examples/test-dr-style.json', 'utf8'));
+	it('validates once and hands back the aircraft with the release\'s rules', () => {
+		const r = checkList(file(), rules);
+		expect(r.invalid).toEqual([]);
+		expect(r.aircraft?.operatorRules).toEqual(rules);
+	});
+	it('checks the hand-calculated cases with the rules: one expecting no result above the table now fails', () => {
+		expect(checkList(file()).problems).toEqual([]);
+		expect(checkList(file(), rules).problems.join()).toContain('dr-outside, takeoff.status: expected noResult, got ok');
+	});
+	it('says what makes a file invalid', () => {
+		const bad = file(); delete bad.stations;
+		expect(checkList(bad, rules).invalid.length).toBeGreaterThan(0);
+		expect(checkList(bad, rules).aircraft).toBeNull();
+	});
+});

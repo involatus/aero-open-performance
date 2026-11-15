@@ -1,8 +1,7 @@
 /** The checks every aircraft file must pass before it can be published. There is no override. */
-import { withRules, type OperatorRules } from '../aircraft/operator-rules.ts';
+import { prepareAircraft, type OperatorRules } from '../aircraft/operator-rules.ts';
 import type { Aircraft, Axis, Condition, Performance, Table } from '../aircraft/schema.ts';
 import { calculate, runHandCases } from '../engine/index.ts';
-import { validateAircraft } from '../aircraft/validate.ts';
 import { tableCheckProblems } from './table-check.ts';
 import { canonicalize } from './canonical.ts';
 
@@ -163,10 +162,11 @@ function checkOfProblem(problem: string): string {
 }
 
 /** All named checks, passing or not, so the admin can show what is done as well as what is left. */
-export function checkList(data: unknown, rules?: OperatorRules): CheckResult & { aircraft: Aircraft | null; checks: Check[] } {
+/** `aircraft` comes back with the rules, as the engine runs it; `invalid` holds the file's validation problems. */
+export function checkList(data: unknown, rules?: OperatorRules): CheckResult & { aircraft: Aircraft | null; invalid: string[]; checks: Check[] } {
 	const found = new Map<string, string[]>();
 	const add = (id: string, problem: string) => found.set(id, [...(found.get(id) ?? []), problem]);
-	const v = validateAircraft(data);
+	const v = prepareAircraft(data, rules);
 	let unusual: string[] = [], problems: string[];
 	if (!v.ok) {
 		problems = v.problems;
@@ -174,7 +174,7 @@ export function checkList(data: unknown, rules?: OperatorRules): CheckResult & {
 	} else {
 		const a = v.aircraft;
 		try {
-			runHandCases(withRules(a, rules)).forEach((f) => add('cases-match', `Case ${f.caseId}, ${f.field}: expected ${String(f.expected)}, got ${String(f.actual)}`));
+			runHandCases(a).forEach((f) => add('cases-match', `Case ${f.caseId}, ${f.field}: expected ${String(f.expected)}, got ${String(f.actual)}`));
 			coverageProblems(a).forEach((p) => add('cases-cover', p));
 			tableCheckProblems(a).forEach((p) => add('tables-compared', p));
 		} catch (error) {
@@ -189,7 +189,7 @@ export function checkList(data: unknown, rules?: OperatorRules): CheckResult & {
 		const list = found.get(c.id) ?? [];
 		return { ...c, problems: list, status: list.length ? 'fail' : !v.ok && NEEDS_VALID.has(c.id) ? 'blocked' : 'pass' };
 	});
-	return { problems, unusual, aircraft: v.ok ? v.aircraft : null, checks };
+	return { problems, unusual, aircraft: v.ok ? v.aircraft : null, invalid: v.ok ? [] : v.problems, checks };
 }
 
 /** `rules`: the Operator Rules the release will carry, so the hand-calculated cases are checked with them. */

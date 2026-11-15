@@ -219,6 +219,12 @@ export const WEATHER_KEYS = ['qnh', 'oat', 'wdir', 'wspd'];
 export const OLD_REPORT_MINUTES = 60;
 export const OLD_CALCULATION_DAYS = 7;
 
+/** The source a METAR value carries, and the one test for it, so writing and reading can't drift apart. */
+const metarSource = (station: string) => `METAR ${station}`;
+export function isFromMetar(calc: Pick<Calculation, 'sources'>, key: string): boolean {
+	return calc.sources[key]?.startsWith(metarSource('')) ?? false;
+}
+
 /**
  * Prefills only what the report clearly states. A value it doesn't state is left empty,
  * and anything the pilot typed is never touched.
@@ -226,7 +232,7 @@ export const OLD_CALCULATION_DAYS = 7;
 export function applyWeather(calc: Calculation, report: WeatherReport, now: number, place: Place = 'departure') {
 	const m = parseMetar(report.raw, now);
 	const values: Record<string, number | string | null> = { qnh: m.qnh, oat: m.oat, wdir: m.windVariable ? VARIABLE_WIND : m.windDirection, wspd: m.windSpeed };
-	const source = `METAR ${report.station}`;
+	const source = metarSource(report.station);
 	for (const base of WEATHER_KEYS) {
 		const value = values[base], key = keyAt(place, base);
 		if (value !== null) prefill(calc, key, String(value), source);

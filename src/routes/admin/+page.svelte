@@ -19,14 +19,13 @@
 	import { blankInput, caseCoverage, caseSummaries, newHandCase } from '#lib/admin/hand-cases.ts';
 	import { defaultSource, draftId, makeId } from '#lib/admin/editing.ts';
 	import type { AdminStatus, Overview } from '#lib/server/admin-requests.ts';
-	import { withRules, type OperatorRules } from '#lib/aircraft/operator-rules.ts';
+	import type { OperatorRules } from '#lib/aircraft/operator-rules.ts';
 	import OperatorRulesEditor from '#lib/components/admin/OperatorRulesEditor.svelte';
 	import { NEW_AIRCRAFT, copyForNewAircraft, emptyCells } from '#lib/admin/table-grid.ts';
 	import TableVerify from '#lib/components/admin/TableVerify.svelte';
 	import { tableCheckState } from '#lib/data/table-check.ts';
 	import { checkList, type Check } from '#lib/data/publish-checks.ts';
 	import { sha256 } from '#lib/data/canonical.ts';
-	import { validateAircraft } from '#lib/aircraft/validate.ts';
 	import type { Aircraft, CalculationInput, HandCase , Axis } from '#lib/aircraft/schema.ts';
 	import { calculate, runHandCases } from '#lib/engine/index.ts';
 
@@ -128,8 +127,9 @@
 	let nextRelease = $derived((overview?.index?.release ?? 0) + 1);
 	// Pilots can only lose an aircraft through a withdrawal, so every published one can be withdrawn.
 	let withdrawable = $derived([...new Set([...(overview?.index?.aircraft.filter((e) => !e.withdrawn).map((e) => e.registration) ?? []), ...(overview?.drafts.map((d) => d.registration).filter(Boolean) ?? [])])]);
-	let parsed = $derived.by(() => { if (!editing) return null; const v = validateAircraft($state.snapshot(editing.aircraft)); return v.ok ? withRules(v.aircraft, savedRules) : null; });
-	let validationProblems = $derived.by(() => { if (!editing) return []; const v = validateAircraft($state.snapshot(editing.aircraft)); return v.ok ? [] : v.problems; });
+	// Validated once per change, with the rules the next release carries, by the same checks publishing runs.
+	let parsed = $derived(liveChecks?.aircraft ?? null);
+	let validationProblems = $derived(liveChecks?.invalid ?? []);
 	let isFictional = $derived(editing?.aircraft?.fictional === true);
 	let tableIds = $derived(editing ? Object.keys(editing.aircraft.tables ?? {}) : []);
 	let caseFailures = $derived.by(() => { if (!parsed) return []; try { return runHandCases(parsed); } catch { return []; } });

@@ -5,6 +5,7 @@
  */
 import * as v from 'valibot';
 import type { Aircraft } from './schema.ts';
+import { validateAircraft } from './validate.ts';
 
 const Positive = v.pipe(v.number(), v.finite(), v.gtValue(0));
 const PerKnots = v.strictObject({ percent: Positive, perKnots: Positive });
@@ -44,6 +45,15 @@ export function parseRules(data: unknown): { ok: true; rules: OperatorRules | un
 	if (!r.success) return { ok: false, problem: `Operator rules are not valid: ${r.issues[0].message}` };
 	const empty = !r.output.wind && !r.output.aboveTable;
 	return { ok: true, rules: empty ? undefined : r.output };
+}
+
+/**
+ * A draft or file as the engine runs it: validated once, with the release's rules. Publish checks and
+ * the admin editor both go through here, so no check can run an aircraft without the rules pilots get.
+ */
+export function prepareAircraft(data: unknown, rules: OperatorRules | undefined): { ok: true; aircraft: Aircraft; problems: [] } | { ok: false; problems: string[] } {
+	const v = validateAircraft(data);
+	return v.ok ? { ok: true, aircraft: withRules(v.aircraft, rules), problems: [] } : v;
 }
 
 /** The aircraft as the engine runs it, with the release's rules. Rules never come from the aircraft file itself. */

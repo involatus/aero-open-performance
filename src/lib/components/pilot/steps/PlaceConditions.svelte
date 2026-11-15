@@ -6,10 +6,11 @@
 	import { WIND_CHOICES, enteredWindKept, landingConditions, windText } from '#lib/app/presentation.ts';
 	import { findAirfields, loadAirfields, type Airfield, type RunwayEnd } from '#lib/airfield/airfields.ts';
 	import { lookUpWeather } from '#lib/weather/lookup.ts';
+	import { nearestFrom, stationLine, weatherOnReturn } from '#lib/app/place-weather.ts';
 	import type { WeatherQuery } from '#lib/weather/provider.ts';
 	import {
 		OLD_REPORT_MINUTES, WEATHER_KEYS, airfieldAt, applyAirfield, applyRunway, applyWeather, confirmWeather, isVariableWind, keyAt,
-		parse, reportAgeMinutes, runwayHeading, runwayWindText, runwayWinds, weatherAt, windChoiceAt, type Calculation, type Field, type Place
+		isFromMetar, parse, reportAgeMinutes, runwayHeading, runwayWindText, runwayWinds, weatherAt, windChoiceAt, type Calculation, type Field, type Place
 	} from '#lib/app/calculation.ts';
 	import Button from '../../ui/Button.svelte';
 	import Card from '../../ui/Card.svelte';
@@ -70,10 +71,8 @@
 		loadAirfields().then((data) => {
 			airfieldFound = data.airfields.find((a) => a.ident === ident) ?? null;
 			if (!airfieldFound) return;
-			// Back on this step: no report yet, or an old one nobody has confirmed, is fetched again.
-			const age = reportAgeMinutes(weather, Date.now());
-			if (!weather) autoWeather(airfieldFound, '');
-			else if (age !== null && age > OLD_REPORT_MINUTES && weatherToConfirm) autoWeather(airfieldFound, `Weather refreshed: the earlier report was ${age} minutes old.`);
+			const plan = weatherOnReturn(weather, weatherToConfirm, Date.now());
+			if (plan.fetch) autoWeather(airfieldFound, plan.note);
 		}).catch(() => {});
 	});
 
@@ -120,10 +119,9 @@
 	/** From the chosen airfield when there is one, so a field without a METAR gets its nearest station. */
 	function getNearestWeather() {
 		weatherMessage = '';
-		if (airfieldFound && chosen?.ident === airfieldFound.ident) { loadWeather({ lat: airfieldFound.lat, lon: airfieldFound.lon }); return; }
-		// The device is at the departure, not where it will land.
-		if (place === 'landing') { weatherMessage = 'Find the landing airfield first, or enter its weather station.'; return; }
-		if (!navigator.geolocation) { weatherMessage = 'This device can\'t share its location. Enter a station code instead.'; return; }
+		const from = nearestFrom(place, airfieldFound && chosen?.ident === airfieldFound.ident ? airfieldFound : null, !!navigator.geolocation);
+		if (from.from === 'airfield') { loadWeather({ lat: from.lat, lon: from.lon }); return; }
+		if (from.from === 'none') { weatherMessage = from.message; return; }
 		weatherBusy = true;
 		navigator.geolocation.getCurrentPosition(
 			(p) => { weatherBusy = false; loadWeather({ lat: p.coords.latitude, lon: p.coords.longitude }); },
@@ -132,13 +130,6 @@
 		);
 	}
 
-	/** The station, plus how far away it is when it isn't this airfield. */
-	function stationLine(w: NonNullable<typeof weather>) {
-		const name = `${w.station}${w.stationName ? ` ${w.stationName}` : ''}`;
-		if ((chosen && w.station === chosen.ident) || (w.distanceKm !== null && w.distanceKm < 1)) return name;
-		if (w.distanceKm !== null) return `${name}, ${w.distanceKm.toFixed(1)} km away`;
-		return chosen ? `${name}, not ${chosen.ident}` : name;
-	}
 	const surfaceText = (end: RunwayEnd) => {
 		const text = end.surfaceKind === 'unknown' ? end.surface || 'Surface unknown' : end.surfaceKind;
 		return text.charAt(0).toUpperCase() + text.slice(1);
@@ -179,7 +170,7 @@
 			<div class="metar flex flex-col gap-1 rounded-lg bg-subtle px-3.5 py-3">
 				<span class="label-caps text-[11px]">Weather{place === 'landing' ? ' now, not at your arrival' : ''}</span>
 				<code class="raw num text-sm break-words">{weather.raw}</code>
-				<span class="text-[13px] text-muted">{stationLine(weather)}{metarAge !== null ? ` · ${metarAge} minutes old` : ''}</span>
+				<span class="text-[13px] text-muted">{stationLine(weather, chosen?.ident ?? null)}{metarAge !== null ? ` · ${metarAge} minutes old` : ''}</span>
 				{#if weatherNote}<p class="text-[13px] font-semibold text-ink-2">{weatherNote}</p>{/if}
 				{#if metarAge !== null && metarAge > OLD_REPORT_MINUTES}<div class="banner notsent mt-1" role="alert">This report is {metarAge} minutes old. Check it is still valid, or enter current values.</div>{/if}
 				{#each weather.flags as flag (flag)}<p class="flag text-sm font-semibold text-amber">{flag}</p>{/each}
@@ -223,7 +214,7 @@
 					</ToggleGroup.Item>
 				{/each}
 			</ToggleGroup.Root>
-			{#if runwayWind?.winds.size}<p class="text-[13px] text-muted">Wind from {weather && calc.sources[k('wdir')]?.startsWith('METAR') ? `the ${weather.station} METAR` : 'your entry below'}. Use the runway in use: ATIS or the tower may differ.</p>{/if}
+			{#if runwayWind?.winds.size}<p class="text-[13px] text-muted">Wind from {weather && isFromMetar(calc, k('wdir')) ? `the ${weather.station} METAR` : 'your entry below'}. Use the runway in use: ATIS or the tower may differ.</p>{/if}
 		</div>
 	{/if}
 	<div class="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
