@@ -14,7 +14,8 @@ import { lookupView, type LookupView } from '../app/lookup-grid.ts';
 export type Delivery = 'notSent' | 'sent' | 'shared';
 /** The manual's table each lookup read, with where the result falls. Missing on Reports made before it was recorded. */
 /** `source` is kept apart so the PDF can mark it. Reports made before then have it inside the caption. */
-export type ReportLookup = { caption: string; source?: string; view: LookupView };
+/** `step`: the working row the table belongs under. Reports made before it have none and show the table after the steps. */
+export type ReportLookup = { caption: string; source?: string; view: LookupView; step?: number };
 export type ReportWorking = { title: string; rows: { step: string; total: string; groundRoll: string; source: string }[]; tables?: ReportLookup[] };
 /** Ground roll and total come apart for the results band. Reports made before this have only the headline. */
 export type ReportDistance = DistanceText & { condition?: string; groundRoll?: string | null; total?: string | null; mass?: string };
@@ -95,11 +96,11 @@ export function isExpired(report: Pick<StoredReport, 'created' | 'delivery'>, no
 
 
 function working(a: Aircraft, title: string, r: PerformanceResult): ReportWorking {
-	const tables = r.steps.flatMap((step) => {
+	const tables = r.steps.flatMap((step, i) => {
 		const view = step.lookup && lookupView(a, step.lookup);
 		if (!view) return [];
 		const source = sourceText(a, step.source);
-		return [{ caption: `${view.output}${r.unit ? `, ${r.unit}` : ''}, as printed`, source, view }];
+		return [{ caption: `${view.output}${r.unit ? `, ${r.unit}` : ''}, as printed`, source, view, step: i }];
 	});
 	return { title: `${title}, ${r.conditionLabel}`, rows: workingRows(a, r), tables };
 }
@@ -442,13 +443,16 @@ export function reportDocument(data: ReportData) {
 			...d.working.map((w, i) => ({ stack: [...(i === 0 ? [heading('Calculation steps')] : []), {
 				table: { widths: ['*', 60, 60], headerRows: 1, keepWithHeaderRows: 1, dontBreakRows: true, body: [
 					[th(w.title), th('Ground roll', 'right'), th('50 ft', 'right')],
-					...w.rows.map((r, i) => {
+					...w.rows.flatMap((r, i) => {
 						const last = i === w.rows.length - 1 && r.step.startsWith('Rounded');
-						return [{ text: [r.step, ...(r.source ? sup(manual.mark(r.source)) : [])], bold: last }, num(r.groundRoll, { alignment: 'right', bold: last }), num(r.total, { alignment: 'right', bold: last })];
+						const row = [{ text: [r.step, ...(r.source ? sup(manual.mark(r.source)) : [])], bold: last }, num(r.groundRoll, { alignment: 'right', bold: last }), num(r.total, { alignment: 'right', bold: last })];
+						// The manual's table sits right under the step that reads it.
+						const under = (w.tables ?? []).filter((t) => t.step === i).map((t) => [{ colSpan: 3, ...lookupTable(t, manual.mark), margin: [10, 2, 0, 4] }, {}, {}]);
+						return [row, ...under];
 					})
 				] },
 				layout: rows, margin: [0, 0, 0, 8]
-			}, ...(w.tables ?? []).map((t) => lookupTable(t, manual.mark))], ...(i === 0 ? { pageBreak: 'before' } : {}) })),
+			}, ...(w.tables ?? []).filter((t) => t.step === undefined).map((t) => lookupTable(t, manual.mark))], ...(i === 0 ? { pageBreak: 'before' } : {}) })),
 			...(manual.used.length ? [{ stack: manual.used.map(([source, m]) => ({ text: [{ text: m, sup: true, color: MUTED }, ` ${source}`], fontSize: 7, color: INK2 })), margin: [0, 0, 0, 8] }] : []),
 			{
 				table: { widths: ['*'], body: [[{ stack: [

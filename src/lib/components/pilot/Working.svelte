@@ -32,13 +32,17 @@
 				<table class="w-full border-collapse">
 					<caption class="pb-1 text-left font-semibold">{title}, {result.conditionLabel}</caption>
 					<thead><tr><th class={th}>Step</th><th class={[th, 'text-right']}>Total</th><th class={[th, 'text-right']}>Ground roll</th></tr></thead>
-					<tbody>{#each rows as row, k (k)}<tr><td class={td}>{row.step}{#if row.source} <InfoTip label={`Source: ${row.source}`}>{row.source}</InfoTip>{/if}</td><td class={[td, 'num text-right']}>{row.total}</td><td class={[td, 'num text-right']}>{row.groundRoll}</td></tr>{/each}</tbody>
+					<tbody>
+						{#each rows as row, k (k)}
+							<tr><td class={td}>{row.step}{#if row.source} <InfoTip label={`Source: ${row.source}`}>{row.source}</InfoTip>{/if}</td><td class={[td, 'num text-right']}>{row.total}</td><td class={[td, 'num text-right']}>{row.groundRoll}</td></tr>
+							<!-- The manual's table right under the step that reads it. -->
+							{@const step = result.steps[k]}
+							{@const view = step?.lookup && lookupView(aircraft, step.lookup)}
+							{#if view}<tr><td colspan="3" class="border-b border-divider py-2 pl-4"><LookupTable {view} unit={result.unit} source={sourceText(aircraft, step.source)} /></td></tr>{/if}
+						{/each}
+					</tbody>
 				</table>
 			</div>
-			{#each result.steps as step, k (k)}
-				{@const view = step.lookup && lookupView(aircraft, step.lookup)}
-				{#if view}<LookupTable {view} unit={result.unit} source={sourceText(aircraft, step.source)} />{/if}
-			{/each}
 		{/if}
 	{/each}
 </div>

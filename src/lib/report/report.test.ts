@@ -151,6 +151,20 @@ describe('Report layout', () => {
 		d.working.forEach((w) => w.tables?.forEach((t) => { t.caption = `${t.caption} in ${t.source}`; delete t.source; }));
 		expect(text(reportDocument(d))).toContain('as printed in Fictional test manual');
 	});
+	it('puts each manual table right under the step that reads it', () => {
+		const a = load('test-dr-style'), c = ready(a), d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
+		expect(d.working[0].tables?.[0].step).toBe(0);
+		const doc = JSON.stringify(reportDocument(d));
+		const lookupRow = doc.indexOf('1. Table at'), table = doc.indexOf('printed values used'), secondStep = doc.indexOf('"2. ');
+		expect(lookupRow).toBeGreaterThan(-1);
+		expect(table).toBeGreaterThan(lookupRow);
+		expect(secondStep).toBeGreaterThan(table);
+	});
+	it('shows tables after the steps for Reports made before tables had a step', () => {
+		const a = load('test-dr-style'), c = ready(a), d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
+		d.working.forEach((w) => w.tables?.forEach((t) => delete t.step));
+		expect(text(reportDocument(d))).toContain('printed values used');
+	});
 	it('still renders Reports made before the lookup tables', () => {
 		const a = load('test-dr-style'), c = ready(a), d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
 		d.working.forEach((w) => delete w.tables);
