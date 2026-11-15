@@ -277,7 +277,7 @@
 	<Dialog.Root {open} onOpenChange={setOpen}>
 		<Dialog.Portal>
 			<Dialog.Overlay class="fixed inset-0 z-40 bg-ink/40" />
-			<Dialog.Content class="fixed top-1/2 left-1/2 z-50 flex w-[min(480px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-xl border border-line bg-surface p-6 shadow-menu">
+			<Dialog.Content class="fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-32px)] w-[min(520px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-xl border border-line bg-surface p-6 shadow-menu">
 				<div>
 					<Dialog.Title class="text-[19px] font-bold">{title}</Dialog.Title>
 					<Dialog.Description class="mt-1 text-sm text-muted">{description}</Dialog.Description>
