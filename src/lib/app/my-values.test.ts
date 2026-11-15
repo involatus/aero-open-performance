@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { massIn, readSaved, removeMass, saveMass } from './my-values.ts';
+import { massIn, readSaved, removeMass, saveMass, savedFor, stationKind } from './my-values.ts';
 
 describe('values saved on this device', () => {
 	it('keeps one value per name, newest first, in kg', () => {
@@ -24,5 +24,20 @@ describe('values saved on this device', () => {
 	it('drops damaged stored entries', () => {
 		expect(readSaved([{ id: 'a', label: 'Me', kg: 80 }, { id: 'b', label: '', kg: 70 }, { id: 'c', label: 'X', kg: -1 }, null, 'x'])).toEqual([{ id: 'a', label: 'Me', kg: 80 }]);
 		expect(readSaved(undefined)).toEqual([]);
+	});
+});
+
+describe('people on seats, things in baggage', () => {
+	it('tells baggage areas from seats by name', () => {
+		for (const label of ['Baggage', 'Baggage area 2', 'Hat rack', 'Gepäck', 'Cargo pod', 'Aft compartment']) expect(stationKind({ id: 'x', label })).toBe('item');
+		for (const label of ['Pilot', 'Front passenger', 'Rear seats', 'Co-pilot']) expect(stationKind({ id: 'x', label })).toBe('person');
+	});
+	it('offers each saved value only on its kind, and keeps a person and a bag of the same name apart', () => {
+		let list = saveMass([], 'Anna', 55, 'kg', 1, 'person');
+		list = saveMass(list, 'Bag', 8, 'kg', 2, 'item');
+		list = saveMass(list, 'Anna', 6, 'kg', 3, 'item');
+		expect(savedFor(list, 'person').map((s) => s.label)).toEqual(['Anna']);
+		expect(savedFor(list, 'item').map((s) => `${s.label} ${s.kg}`)).toEqual(['Anna 6', 'Bag 8']);
+		expect(savedFor([{ id: 'a', label: 'Old', kg: 70 }], 'person')).toHaveLength(1);
 	});
 });

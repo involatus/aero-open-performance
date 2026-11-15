@@ -3,7 +3,7 @@
 	import type { Aircraft } from '#lib/aircraft/schema.ts';
 	import type { Calculation as Results } from '#lib/engine/index.ts';
 	import { changeConfiguration, parse, setByPilot, type Calculation, type Field } from '#lib/app/calculation.ts';
-	import { massIn, removeMass, saveMass, type SavedMass } from '#lib/app/my-values.ts';
+	import { massIn, removeMass, saveMass, savedFor, stationKind, type SavedMass } from '#lib/app/my-values.ts';
 	import Button from '../../ui/Button.svelte';
 	import Card from '../../ui/Card.svelte';
 	import Gauge from '../../ui/Gauge.svelte';
@@ -20,9 +20,11 @@
 	/** The field whose value is being given a name, and the name typed so far. */
 	let naming = $state<string | null>(null);
 	let name = $state('');
+	/** People for seats, things for baggage areas, from the station the field belongs to. */
+	const kindOf = (field: Field) => { const s = aircraft.stations.find((x) => `load:${x.id}` === field.key); return s ? stationKind(s) : 'person'; };
 	function remember(field: Field) {
 		const value = parse(calc.values[field.key]);
-		if (value !== null) onsaved(saveMass(saved, name, value, unit, Date.now()));
+		if (value !== null) onsaved(saveMass(saved, name, value, unit, Date.now(), kindOf(field)));
 		naming = null; name = '';
 	}
 
@@ -43,9 +45,10 @@
 		{#each fields as field (field.key)}
 			{#snippet mine()}
 				{@const value = parse(calc.values[field.key])}
-				{#if saved.length}
+				{@const offered = savedFor(saved, kindOf(field))}
+				{#if offered.length}
 					<div class="flex flex-wrap gap-1.5" role="group" aria-label={`Saved values for ${field.label}`}>
-						{#each saved as s (s.id)}
+						{#each offered as s (s.id)}
 							{@const v = massIn(s, unit, decimals)}
 							<button type="button" tabindex="-1" onclick={() => setByPilot(calc, field.key, v)} class={['min-h-9 rounded-full border px-3 text-sm', calc.values[field.key] === v ? 'border-accent bg-accent-soft font-semibold text-accent-strong' : 'border-line-strong bg-surface text-ink']}>{s.label} <span class="num text-muted">{v}</span></button>
 						{/each}
@@ -54,11 +57,11 @@
 				{#if naming === field.key}
 					<form class="flex flex-wrap items-center gap-1.5" onsubmit={(e) => { e.preventDefault(); remember(field); }}>
 						<!-- svelte-ignore a11y_autofocus -->
-						<input class="min-h-9 min-w-0 flex-[1_1_120px] rounded-lg border border-line-strong bg-surface px-2.5 text-sm" placeholder="Name, e.g. Me" maxlength="30" autofocus bind:value={name} aria-label={`Name for ${value} ${unit}`} />
+						<input class="min-h-9 min-w-0 flex-[1_1_120px] rounded-lg border border-line-strong bg-surface px-2.5 text-sm" placeholder={kindOf(field) === 'item' ? 'Name, e.g. Flight bag' : 'Name, e.g. Me'} maxlength="30" autofocus bind:value={name} aria-label={`Name for ${value} ${unit}`} />
 						<Button size="sm" variant="primary" type="submit" disabled={!name.trim()}>Save {value} {unit}</Button>
 						<Button size="sm" onclick={() => { naming = null; name = ''; }}>Cancel</Button>
 					</form>
-				{:else if value !== null && value > 0 && !saved.some((s) => massIn(s, unit, decimals) === calc.values[field.key])}
+				{:else if value !== null && value > 0 && !offered.some((s) => massIn(s, unit, decimals) === calc.values[field.key])}
 					<button type="button" tabindex="-1" class="min-h-8 justify-self-start border-0 bg-transparent p-0 text-left text-[13px] font-semibold text-accent" onclick={() => { naming = field.key; name = ''; }}>Remember {value} {unit} on this device</button>
 				{/if}
 			{/snippet}
@@ -78,11 +81,11 @@
 </Card>
 
 {#if saved.length}
-	<Card title="Saved on this device" description="Your values, offered under each seat and baggage field. They stay on this device and are never filled in by themselves.">
+	<Card title="Saved on this device" description="People are offered on seats, things in baggage areas. They stay on this device and are never filled in by themselves.">
 		<ul class="m-0 flex list-none flex-col p-0">
 			{#each saved as s (s.id)}
 				<li class="flex min-h-11 items-center justify-between gap-3 border-b border-divider last:border-b-0">
-					<span><strong>{s.label}</strong> <span class="num text-ink-2">{massIn(s, unit, decimals)} {unit}</span></span>
+					<span><strong>{s.label}</strong> <span class="num text-ink-2">{massIn(s, unit, decimals)} {unit}</span> <span class="text-[13px] text-muted">{(s.kind ?? 'person') === 'item' ? 'baggage' : 'person'}</span></span>
 					<Button size="sm" variant="danger-quiet" onclick={() => onsaved(removeMass(saved, s.id))}>Delete</Button>
 				</li>
 			{/each}
