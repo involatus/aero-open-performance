@@ -31,3 +31,11 @@ describe('weather for an airfield', () => {
 		expect(isFromMetar({ sources: {} }, 'wdir')).toBe(false);
 	});
 });
+
+describe('variation for an airfield', () => {
+	it('uses the chosen airfield\'s, and none without one', async () => {
+		const { variationFor } = await import('./place-weather.ts');
+		expect(variationFor(null, NOW)).toBeNull();
+		expect(variationFor({ lat: 47.38, lon: 8.65 }, NOW)!).toBeGreaterThan(2);
+	});
+});

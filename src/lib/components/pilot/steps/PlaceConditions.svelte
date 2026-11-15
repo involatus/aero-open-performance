@@ -6,8 +6,7 @@
 	import { WIND_CHOICES, enteredWindKept, landingConditions, windText } from '#lib/app/presentation.ts';
 	import { findAirfields, loadAirfields, type Airfield, type RunwayEnd } from '#lib/airfield/airfields.ts';
 	import { lookUpWeather } from '#lib/weather/lookup.ts';
-	import { nearestFrom, stationLine, weatherOnReturn } from '#lib/app/place-weather.ts';
-	import { variationAt } from '#lib/weather/variation.ts';
+	import { nearestFrom, stationLine, variationFor, weatherOnReturn } from '#lib/app/place-weather.ts';
 	import type { WeatherQuery } from '#lib/weather/provider.ts';
 	import {
 		OLD_REPORT_MINUTES, WEATHER_KEYS, airfieldAt, applyAirfield, applyRunway, applyWeather, confirmWeather, isVariableWind, keyAt,
@@ -114,7 +113,7 @@
 		const result = await lookUpWeather(query);
 		// The chosen airfield's variation turns the METAR's true wind magnetic, like its runways and ATIS.
 		const field = airfieldFound && chosen?.ident === airfieldFound.ident ? airfieldFound : null;
-		if (result.ok) { now = Date.now(); applyWeather(target, result.report, now, place, field ? variationAt(field.lat, field.lon, new Date(now)) : null); } else weatherMessage = result.message;
+		if (result.ok) { now = Date.now(); applyWeather(target, result.report, now, place, variationFor(field, now)); } else weatherMessage = result.message;
 		weatherBusy = false;
 		return result.ok;
 	}
@@ -162,7 +161,7 @@
 		</div>
 	{/if}
 	{#if showRunways && airfieldFound}
-		<p id={idOf('airfield-found')} class="text-[13px] text-ink-2"><strong>{airfieldFound.ident} {airfieldFound.name}</strong>{#if airfieldFound.elevationFt !== null}{' · '}<span class="num">{airfieldFound.elevationFt} ft</span>{/if} · list of {airfieldDate}</p>
+		<p id={idOf('airfield-found')} class="text-[13px] text-ink-2"><strong>{airfieldFound.ident} {airfieldFound.name}</strong>{#if airfieldFound.elevationFt !== null} · <span class="num">{airfieldFound.elevationFt} ft</span>{/if} · list of {airfieldDate}</p>
 	{/if}
 
 	<!-- The weather comes with the airfield, so the runway can be chosen with the wind in view. -->

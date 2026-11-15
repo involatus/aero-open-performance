@@ -3,6 +3,10 @@
  * looks, and how the report's station is described. The component only renders and calls these.
  */
 import { OLD_REPORT_MINUTES, reportAgeMinutes, type AppliedWeather, type Place } from './calculation.ts';
+import { variationAt } from '../weather/variation.ts';
+
+/** The variation that turns a METAR's true wind magnetic: the chosen airfield's. None without an airfield. */
+export const variationFor = (airfield: { lat: number; lon: number } | null, now: number) => (airfield ? variationAt(airfield.lat, airfield.lon, new Date(now)) : null);
 
 export type Fetch = { fetch: false } | { fetch: true; note: string };
 

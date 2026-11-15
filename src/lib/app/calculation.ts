@@ -141,11 +141,22 @@ export function runwayWindText(w: RunwayWind): string {
 	return [along ? `${w.headwind > 0 ? 'Headwind' : 'Tailwind'} ${along} kt` : '', cross ? `cross ${cross} kt` : ''].filter(Boolean).join(' · ');
 }
 /** Under the wind field, only when the METAR's true wind was turned magnetic and the pilot hasn't changed it. */
-function magneticHint(calc: Partial<Pick<Calculation, 'weather' | 'landingWeather' | 'sources' | 'status'>>, place: Place): string | undefined {
+/**
+ * The METAR's true wind and the variation used, while the wind shown is still that converted value.
+ * Null once the pilot typed their own, or when nothing was converted. The field hint and the Report both ask here.
+ */
+export function magneticWind(calc: Partial<Pick<Calculation, 'weather' | 'landingWeather' | 'sources' | 'status'>>, place: Place): { trueDirection: number; variation: number } | null {
 	const w = place === 'landing' ? calc.landingWeather : calc.weather, key = keyAt(place, 'wdir');
-	if (!w || w.trueDirection === undefined || w.variation === undefined || !calc.sources || !isFromMetar({ sources: calc.sources }, key) || calc.status?.[key] === 'pilot') return undefined;
-	return `Magnetic: METAR ${String(w.trueDirection).padStart(3, '0')}° true, variation ${Math.abs(w.variation).toFixed(0)}° ${w.variation >= 0 ? 'E' : 'W'}`;
+	if (!w || w.trueDirection === undefined || w.variation === undefined || !calc.sources || !isFromMetar({ sources: calc.sources }, key) || calc.status?.[key] === 'pilot') return null;
+	return { trueDirection: w.trueDirection, variation: w.variation };
 }
+const degrees = (x: number) => `${String(x).padStart(3, '0')}°`;
+function magneticHint(calc: Parameters<typeof magneticWind>[0], place: Place): string | undefined {
+	const m = magneticWind(calc, place);
+	return m ? `Magnetic: METAR ${degrees(m.trueDirection)} true, variation ${Math.abs(m.variation).toFixed(0)}° ${m.variation >= 0 ? 'E' : 'W'}` : undefined;
+}
+/** The Loading Station a load field belongs to, so callers don't rebuild the field key. */
+export const stationOfField = (a: Aircraft, key: string) => a.stations.find((s) => `load:${s.id}` === key);
 function runwayHint(text: string | undefined) {
 	const h = runwayHeading(text);
 	return h === null ? 'Runway number, such as 08 for 080°' : `Runway ${String(h / 10).padStart(2, '0')}, heading ${String(h).padStart(3, '0')}°`;

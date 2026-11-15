@@ -2,7 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import type { Aircraft } from '#lib/aircraft/schema.ts';
 	import type { Calculation as Results } from '#lib/engine/index.ts';
-	import { changeConfiguration, parse, setByPilot, type Calculation, type Field } from '#lib/app/calculation.ts';
+	import { changeConfiguration, parse, setByPilot, stationOfField, type Calculation, type Field } from '#lib/app/calculation.ts';
 	import { massIn, saveMass, savedFor, stationKind, type SavedMass } from '#lib/app/my-values.ts';
 	import Button from '../../ui/Button.svelte';
 	import Card from '../../ui/Card.svelte';
@@ -21,7 +21,7 @@
 	let naming = $state<string | null>(null);
 	let name = $state('');
 	/** People for seats, things for baggage areas, from the station the field belongs to. */
-	const kindOf = (field: Field) => { const s = aircraft.stations.find((x) => `load:${x.id}` === field.key); return s ? stationKind(s) : 'person'; };
+	const kindOf = (field: Field) => { const s = stationOfField(aircraft, field.key); return s ? stationKind(s) : 'person'; };
 	function remember(field: Field) {
 		const value = parse(calc.values[field.key]);
 		if (value !== null) onsaved(saveMass(saved, name, value, unit, Date.now(), kindOf(field)));

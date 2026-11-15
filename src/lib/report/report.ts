@@ -7,7 +7,7 @@ import type { Calculation as Results } from '../engine/index.ts';
 import type { PerformanceResult } from '../engine/performance.ts';
 import type { DistanceText } from '../app/presentation.ts';
 import { limitText } from '../engine/mass-balance.ts';
-import { baseKey, canReport, fieldsFor, isFromMetar, notesFor, isVariableWind, keyAt, toInput, type Calculation, type Place, runwayHeading, weatherAt, windChoiceAt } from '../app/calculation.ts';
+import { baseKey, canReport, fieldsFor, magneticWind, notesFor, isVariableWind, keyAt, toInput, type Calculation, type Place, runwayHeading, weatherAt, windChoiceAt } from '../app/calculation.ts';
 import { altitudeText, distanceText, enteredWindKept, landingConditions, sourceText, utcText, valueSource, limitBadge, massBalanceRows, windChoiceText, windText, workingRows } from '../app/presentation.ts';
 import { lookupView, type LookupView } from '../app/lookup-grid.ts';
 
@@ -128,8 +128,8 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 		const dir = keyAt(place, 'wdir'), spd = keyAt(place, 'wspd');
 		const direction = isVariableWind(calc, place) ? 'VRB' : `${calc.values[dir].trim().padStart(3, '0')}°`;
 		const [from, speed] = [valueSource(calc, dir), valueSource(calc, spd)];
-		const w = weatherAt(calc, place), turned = w?.trueDirection !== undefined && isFromMetar(calc, dir) && calc.status[dir] !== 'pilot';
-		const magnetic = turned ? ` (magnetic; METAR ${String(w!.trueDirection).padStart(3, '0')}° true)` : '';
+		const m = magneticWind(calc, place);
+		const magnetic = m ? ` (magnetic; METAR ${String(m.trueDirection).padStart(3, '0')}° true)` : '';
 		return { label: 'Wind', value: `${direction} ${calc.values[spd].trim()} kt${magnetic}`, source: from === speed ? from : `Direction: ${from}; speed: ${speed}` };
 	};
 	const kt = (x: number) => `${Math.abs(x).toFixed(0)} kt`;
