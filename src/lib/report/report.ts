@@ -8,7 +8,7 @@ import type { PerformanceResult } from '../engine/performance.ts';
 import type { DistanceText } from '../app/presentation.ts';
 import { limitText } from '../engine/mass-balance.ts';
 import { baseKey, canReport, degrees, fieldsFor, magneticWind, notesFor, placeOfKey, runwayAt, runwayText, isVariableWind, keyAt, toInput, type Calculation, type Place, weatherAt, windChoiceAt } from '../app/calculation.ts';
-import { altitudeText, distanceText, ignoresEnteredTailwind, landingConditions, sourceText, utcText, valueSource, limitBadge, massBalanceRows, windChoiceText, windText, workingRows } from '../app/presentation.ts';
+import { altitudeText, distanceText, ignoresEnteredTailwind, landingConditions, sourceText, utcText, valueSource, limitBadge, massBalanceRows, windChoiceText, windText, workingRows, type WorkingRow } from '../app/presentation.ts';
 import { lookupView, type LookupView } from '../app/lookup-grid.ts';
 
 export type Delivery = 'notSent' | 'sent' | 'shared';
@@ -16,7 +16,7 @@ export type Delivery = 'notSent' | 'sent' | 'shared';
 /** `source` is kept apart so the PDF can mark it. Reports made before then have it inside the caption. */
 /** `step`: the working row the table belongs under. Reports made before it have none and show the table after the steps. */
 export type ReportLookup = { caption: string; source?: string; view: LookupView; step?: number };
-export type ReportWorking = { title: string; rows: { step: string; total: string; groundRoll: string; source: string }[]; tables?: ReportLookup[] };
+export type ReportWorking = { title: string; rows: WorkingRow[]; tables?: ReportLookup[] };
 /** Ground roll and total come apart for the results band. Reports made before this have only the headline. */
 export type ReportDistance = DistanceText & { condition?: string; groundRoll?: string | null; total?: string | null; mass?: string };
 /**
@@ -447,7 +447,10 @@ export function reportDocument(data: ReportData) {
 					[th(w.title), th('Ground roll', 'right'), th('50 ft', 'right')],
 					...w.rows.flatMap((r, i) => {
 						const last = i === w.rows.length - 1 && r.step.startsWith('Rounded');
-						const row = [{ text: [r.step, ...(r.source ? sup(manual.mark(r.source)) : [])], bold: last }, num(r.groundRoll, { alignment: 'right', bold: last }), num(r.total, { alignment: 'right', bold: last })];
+						const head = { text: [r.step, ...(r.source ? sup(manual.mark(r.source)) : [])], bold: last };
+						// The working sits under the step, smaller and indented, so the step reads at a glance.
+						const step = r.lines?.length ? { stack: [head, ...r.lines.map((l) => ({ text: l, fontSize: small, color: INK2, margin: [10, 1, 0, 0] }))] } : head;
+						const row = [step, num(r.groundRoll, { alignment: 'right', bold: last }), num(r.total, { alignment: 'right', bold: last })];
 						// The manual's table sits right under the step that reads it.
 						const under = (w.tables ?? []).filter((t) => t.step === i).map((t) => [{ colSpan: 3, ...lookupTable(t, manual.mark), margin: [10, 2, 0, 4] }, {}, {}]);
 						return [row, ...under];

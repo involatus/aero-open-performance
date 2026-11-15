@@ -80,12 +80,13 @@ export function altitudeText(r: Pick<Results, 'atmosphere'>): { pressure: string
 	};
 }
 
-export type WorkingRow = { step: string; total: string; groundRoll: string; source: string };
+/** `lines`: the step's working under it. Reports made before it have none, and all in `step`. */
+export type WorkingRow = { step: string; lines?: string[]; total: string; groundRoll: string; source: string };
 
 /** The steps behind a distance, each with its manual source, ending with the rounded result. */
 export function workingRows(a: Aircraft, r: PerformanceResult): WorkingRow[] {
 	const n = (x: number | null) => (x === null ? '–' : x.toFixed(1));
-	const rows = r.steps.map((s, i) => ({ step: `${i + 1}. ${s.detail}${s.cells ? `. Table values ${s.cells.join(', ')}` : ''}`, total: n(s.total), groundRoll: n(s.groundRoll), source: sourceText(a, s.source) }));
+	const rows: WorkingRow[] = r.steps.map((s, i) => ({ step: `${i + 1}. ${s.detail}`, lines: [...(s.lines ?? []), ...(s.cells ? [`Table values ${s.cells.join(', ')}`] : [])], total: n(s.total), groundRoll: n(s.groundRoll), source: sourceText(a, s.source) }));
 	if (r.status === 'ok' && rows.length) rows.push({ step: `Rounded up, ${r.unit}`, total: r.total === null ? '–' : String(r.total), groundRoll: r.groundRoll === null ? '–' : String(r.groundRoll), source: '' });
 	return rows;
 }

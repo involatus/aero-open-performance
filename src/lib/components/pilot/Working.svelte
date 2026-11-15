@@ -34,7 +34,7 @@
 					<thead><tr><th class={th}>Step</th><th class={[th, 'text-right']}>Total</th><th class={[th, 'text-right']}>Ground roll</th></tr></thead>
 					<tbody>
 						{#each rows as row, k (k)}
-							<tr><td class={td}>{row.step}{#if row.source} <InfoTip label={`Source: ${row.source}`}>{row.source}</InfoTip>{/if}</td><td class={[td, 'num text-right']}>{row.total}</td><td class={[td, 'num text-right']}>{row.groundRoll}</td></tr>
+							<tr><td class={td}>{row.step}{#if row.source} <InfoTip label={`Source: ${row.source}`}>{row.source}</InfoTip>{/if}{#each row.lines ?? [] as line, j (j)}<span class="mt-0.5 block pl-4 text-xs text-muted">{line}</span>{/each}</td><td class={[td, 'num text-right']}>{row.total}</td><td class={[td, 'num text-right']}>{row.groundRoll}</td></tr>
 							<!-- The manual's table right under the step that reads it. -->
 							{@const step = result.steps[k]}
 							{@const view = step?.lookup && lookupView(aircraft, step.lookup)}

@@ -110,7 +110,7 @@ describe('creating a Report', () => {
 	it('keeps warnings and cites manual sources in the working', () => {
 		const c = ready(a), d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
 		expect(d.results.takeoff.notes?.join()).toContain('did not change');
-		const lookupRow = d.working[0].rows.find((r) => r.step.includes('Table values'))!;
+		const lookupRow = d.working[0].rows.find((r) => r.lines?.some((l) => l.startsWith('Table values')))!;
 		expect(lookupRow.source).toContain('Fictional test manual');
 	});
 });
@@ -241,7 +241,11 @@ describe('how the altitude was worked out', () => {
 		const steps = r.takeoff.steps.map((s) => s.type);
 		expect(steps.indexOf('altitude')).toBe(0);
 		expect(steps.indexOf('altitude')).toBeLessThan(steps.indexOf('lookup'));
-		expect(r.takeoff.steps[0].detail).toMatch(/^Pressure altitude from elevation .* QNH .*\^0\.190284\) = .*Rule of thumb: \d+ ft \+ \(1013 − [\d.]+\) × 27 ft = \d+ ft \([\d.]+ m\)$/);
+		expect(r.takeoff.steps[0].detail).toMatch(/^Pressure altitude [\d.]+ m \(\d+ ft\), from elevation .* QNH [\d.]+ hPa$/);
+		expect(r.takeoff.steps[0].lines).toEqual([
+			expect.stringMatching(/\^0\.190284\) = [\d.]+ m \(\d+ ft\)$/),
+			expect.stringMatching(/^Rule of thumb: \d+ ft \+ \(1013 − [\d.]+\) × 27 ft = \d+ ft \([\d.]+ m\)$/)
+		]);
 		expect(r.takeoff.steps.find((s) => s.lookup)!.detail).toContain('Table at Pressure altitude');
 		expect(r.landing.steps.some((s) => s.type === 'altitude')).toBe(false);
 	});

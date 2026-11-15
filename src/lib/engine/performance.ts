@@ -10,7 +10,8 @@ export type Wind = { headwind: number; crosswind: number };
 export type LookupTrace = { table: string; at: number[]; brackets: Bracket[]; extended?: Extension };
 /** A lookup above the table's top altitude, carried on by an Operator Rule. `axis` is the axis index. */
 export type Extension = { axis: number; aboveBy: number; density: number; rule: number; factor: number };
-export type StepTrace = { type: string; detail: string; total: number | null; groundRoll: number | null; cells?: number[]; lookup?: LookupTrace; source?: string };
+/** `detail`: the step in one line. `lines`: its working under it, such as the formula. */
+export type StepTrace = { type: string; detail: string; lines?: string[]; total: number | null; groundRoll: number | null; cells?: number[]; lookup?: LookupTrace; source?: string };
 export type PerformanceResult = {
 	status: 'ok' | 'noData' | 'noResult' | 'needsInput';
 	conditionLabel: string;
@@ -80,16 +81,28 @@ function axisLabel(axis: { name: string; input: string }): string {
  * The working for the altitude a table reads, in the table's unit: the exact ISA formula, then the
  * flight-school rule of thumb beside it, so a pilot can check it against their own working.
  */
-export function altitudeSteps(atm: Atmosphere, input: 'pressureAltitude' | 'densityAltitude', unit: string): string[] {
+export function altitudeSteps(atm: Atmosphere, input: 'pressureAltitude' | 'densityAltitude', unit: string): { detail: string; lines: string[] }[] {
 	const u = (ft: number) => convertLength(ft, 'ft', unit), metres = unit === 'm', name = metres ? 'm' : 'ft';
 	const elev = u(atm.elevationFt), pa = u(atm.pressureAltitudeFt), qnh = atm.qnhHpa;
 	if (qnh === undefined) return [];
 	const both = (ft: number) => `${shown1(u(ft))} ${name}${metres ? ` (${Math.round(ft)} ft)` : ''}`;
-	const lines = [`Pressure altitude from elevation ${shown1(elev)} ${name} and QNH ${shown1(qnh)} hPa: ${shown1(elev)} + ${metres ? '44,307.7' : '145,366.45'} × (1 − (${shown1(qnh)} ÷ 1013.25)^0.190284) = ${both(atm.pressureAltitudeFt)}. Rule of thumb: ${Math.round(atm.elevationFt)} ft + (1013 − ${shown1(qnh)}) × 27 ft = ${Math.round(atm.ruleOfThumb.pressureAltitudeFt)} ft${metres ? ` (${shown1(u(atm.ruleOfThumb.pressureAltitudeFt))} m)` : ''}`];
+	const steps = [{
+		detail: `Pressure altitude ${both(atm.pressureAltitudeFt)}, from elevation ${shown1(elev)} ${name} and QNH ${shown1(qnh)} hPa`,
+		lines: [
+			`${shown1(elev)} + ${metres ? '44,307.7' : '145,366.45'} × (1 − (${shown1(qnh)} ÷ 1013.25)^0.190284) = ${both(atm.pressureAltitudeFt)}`,
+			`Rule of thumb: ${Math.round(atm.elevationFt)} ft + (1013 − ${shown1(qnh)}) × 27 ft = ${Math.round(atm.ruleOfThumb.pressureAltitudeFt)} ft${metres ? ` (${shown1(u(atm.ruleOfThumb.pressureAltitudeFt))} m)` : ''}`
+		]
+	}];
 	if (input === 'densityAltitude' && atm.densityAltitudeFt !== null && atm.oatC != null && atm.ruleOfThumb.densityAltitudeFt !== null) {
-		lines.push(`Density altitude from pressure altitude ${shown1(pa)} ${name}, OAT ${shown1(atm.oatC)} °C and ISA ${shown1(atm.isaC)} °C, by the ISA formula: ${both(atm.densityAltitudeFt)}. Rule of thumb: ${Math.round(atm.ruleOfThumb.pressureAltitudeFt)} + 120 × (${shown1(atm.oatC)} − ${shown1(atm.ruleOfThumb.isaC)}) = ${Math.round(atm.ruleOfThumb.densityAltitudeFt)} ft`);
+		steps.push({
+			detail: `Density altitude ${both(atm.densityAltitudeFt)}, from pressure altitude ${shown1(pa)} ${name} and OAT ${shown1(atm.oatC)} °C`,
+			lines: [
+				`ISA formula, with ISA ${shown1(atm.isaC)} °C at that pressure altitude`,
+				`Rule of thumb: ${Math.round(atm.ruleOfThumb.pressureAltitudeFt)} + 120 × (${shown1(atm.oatC)} − ${shown1(atm.ruleOfThumb.isaC)}) = ${Math.round(atm.ruleOfThumb.densityAltitudeFt)} ft`
+			]
+		});
 	}
-	return lines;
+	return steps;
 }
 
 /** Factor for one wind direction, or null when the manual gives no result at this wind. */
@@ -144,7 +157,7 @@ export function runCondition(a: Aircraft, condition: Condition, ctx: Context): P
 			// How the altitude the table reads was worked out, once per condition, before the first table that reads it.
 			for (const axis of axes) if (ctx.atm && !explained.has(axis.input) && (axis.input === 'pressureAltitude' || axis.input === 'densityAltitude')) {
 				explained.add(axis.input);
-				for (const line of altitudeSteps(ctx.atm, axis.input, axis.unit)) trace('altitude', line);
+				for (const a of altitudeSteps(ctx.atm, axis.input, axis.unit)) trace('altitude', a.detail, { lines: a.lines });
 			}
 			for (const [i, axis] of axes.entries()) {
 				const x = inputFor(axis, ctx);
@@ -180,7 +193,7 @@ export function runCondition(a: Aircraft, condition: Condition, ctx: Context): P
 				if (fTotal && total !== null) total *= fTotal.factor;
 				if (fRoll && groundRoll !== null) groundRoll *= fRoll.factor;
 				const u = showUnit(axis.unit);
-				trace('extend', `Above the table by ${aboveBy.toFixed(0)} ${u}: × ${shown.factor.toFixed(4)}, the larger of the table's trend with air density (× ${shown.density.toFixed(4)}) and ${percent}% per 1000 ft (× ${shown.rule.toFixed(4)})`, { source: OPERATOR_SOURCE });
+				trace('extend', `Above the table by ${aboveBy.toFixed(0)} ${u}: × ${shown.factor.toFixed(4)}`, { lines: [`The larger of the table's trend with air density (× ${shown.density.toFixed(4)}) and ${percent}% per 1000 ft (× ${shown.rule.toFixed(4)})`], source: OPERATOR_SOURCE });
 				result.warnings.push(`${axis.name} ${at[extendAxis].toFixed(0)} ${u} is above the table's ${axis.values[last]} ${u}: extended by the Operator rule`);
 				if (aboveM > aboveRule.alertAboveM + EPSILON) result.warnings.push(`${Math.round(aboveM)} m above the table, more than ${aboveRule.alertAboveM} m: treat this distance with extra care`);
 			} else {

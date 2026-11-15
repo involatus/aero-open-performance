@@ -544,7 +544,7 @@
 									{#if testResult.exceeded.length}<p class="font-bold text-bad">Exceeded: {testResult.exceeded.join(', ')}</p>{/if}
 									{#each [['Takeoff', testResult.takeoff], ['Landing', testResult.landing]] as const as [title, r] (title)}
 										<div><strong>{title}:</strong> {r.status === 'ok' ? `total ${r.total ?? '-'}, ground roll ${r.groundRoll ?? '-'} ${r.unit}` : r.reason}
-											{#if r.steps.length}<div class="overflow-x-auto"><table><thead><tr><th>Step</th><th class="n">Total</th><th class="n">Ground roll</th></tr></thead><tbody>{#each r.steps as s, i (i)}<tr><td>{i + 1}. {s.detail}{s.cells ? `. Table values ${s.cells.join(', ')}` : ''}</td><td class="n num">{s.total?.toFixed(1) ?? '-'}</td><td class="n num">{s.groundRoll?.toFixed(1) ?? '-'}</td></tr>{/each}</tbody></table></div>{/if}
+											{#if r.steps.length}<div class="overflow-x-auto"><table><thead><tr><th>Step</th><th class="n">Total</th><th class="n">Ground roll</th></tr></thead><tbody>{#each r.steps as s, i (i)}<tr><td>{i + 1}. {s.detail}{#each [...(s.lines ?? []), ...(s.cells ? [`Table values ${s.cells.join(', ')}`] : [])] as line, j (j)}<span class="block pl-4 text-xs text-muted">{line}</span>{/each}</td><td class="n num">{s.total?.toFixed(1) ?? '-'}</td><td class="n num">{s.groundRoll?.toFixed(1) ?? '-'}</td></tr>{/each}</tbody></table></div>{/if}
 											{#each r.warnings as w (w)}<p class="m-0 text-sm font-semibold text-amber">{w}</p>{/each}
 											{#each r.notes as n (n)}<p class="m-0 text-sm text-muted">{n}</p>{/each}
 										</div>
