@@ -53,7 +53,9 @@ describe('prefilling from the airfield list', () => {
 		expect(c.values.station).toBe('LSZF');
 		applyRunway(c, data.airfields[0].runways[2]);
 		expect(c.values.rwy).toBe('08');
-		expect(c.status.rwy).toBe('pre');
+		// Tapping the runway is the pilot's choice: the runway and the list's elevation count as checked.
+		expect(c.status.rwy).toBe('ok');
+		expect(c.status.elev).toBe('ok');
 		expect(c.airfield?.runway?.surface).toBe('GRASS');
 		expect(toInput(a, c).runwayHeading).toBe(80);
 	});

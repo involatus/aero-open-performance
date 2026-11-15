@@ -4,7 +4,7 @@ import fc from 'fast-check';
 import { validateAircraft } from '../aircraft/validate.ts';
 import type { Aircraft } from '../aircraft/schema.ts';
 import { calculate } from '../engine/index.ts';
-import { applyKey, applyQuick, applyWeather, keyAt, canReport, changeConfiguration, confirmValue, confirmWeather, isOldCalculation, reportAgeMinutes, fieldsFor, newCalculation, nextFlight, parse, prefill, reconcileAfterInstall, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation , runwayHeading, runwayWinds, runwayWindText, notesFor, placeOfKey, baseKey, runwayFor, setWindChoice } from './calculation.ts';
+import { applyKey, applyQuick, applyWeather, keyAt, canReport, changeConfiguration, confirmValue, confirmWeather, isOldCalculation, reportAgeMinutes, fieldsFor, newCalculation, nextFlight, parse, prefill, reconcileAfterInstall, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation , runwayHeading, runwayWinds, runwayWindText, notesFor, placeOfKey, baseKey, runwayFor, setWindChoice, unconfirmWeather } from './calculation.ts';
 
 const load = (name: string): Aircraft => {
 	const r = validateAircraft(JSON.parse(readFileSync(`aircraft-examples/${name}.json`, 'utf8')));
@@ -92,9 +92,9 @@ describe('Prefilled Values', () => {
 		const c = newCalculation(dr, 'x', NOW);
 		prefill(c, 'qnh', '1009', 'METAR');
 		expect(c.status.qnh).toBe('pre');
-		expect(toDoList(dr, c).some((t) => t.label === 'Confirm QNH')).toBe(true);
+		expect(toDoList(dr, c).some((t) => t.label === 'Confirm the weather')).toBe(true);
 		confirmValue(c, 'qnh');
-		expect(toDoList(dr, c).some((t) => t.label === 'Confirm QNH')).toBe(false);
+		expect(toDoList(dr, c).some((t) => t.label === 'Confirm the weather')).toBe(false);
 	});
 	it('take the fuel flow from the published aircraft data without asking, rounded to a tenth', () => {
 		const c = newCalculation({ ...dr, fuelFlow: { value: 25.3622589528, source: dr.fuelFlow!.source } }, 'x', NOW);
@@ -302,7 +302,7 @@ describe('weather prefill', () => {
 		expect([c.values.qnh, c.values.oat, c.values.wdir, c.values.wspd]).toEqual(['1009', '12', '240', '8']);
 		expect(c.status.qnh).toBe('pre');
 		expect(c.sources.qnh).toBe('METAR LSXX');
-		expect(toDoList(dr, c).map((t) => t.label)).toContain('Confirm QNH');
+		expect(toDoList(dr, c).filter((t) => t.label === 'Confirm the weather')).toHaveLength(1);
 		confirmWeather(c);
 		expect(toDoList(dr, c).map((t) => t.label)).not.toContain('Confirm QNH');
 	});
@@ -324,7 +324,7 @@ describe('weather prefill', () => {
 		applyWeather(c, report('METAR LSXX 061320Z VRB04KT 12/06 Q1009'), at);
 		expect(c.values.wdir).toBe('VRB');
 		expect(c.status.wdir).toBe('pre');
-		expect(toDoList(kf, c).map((t) => t.label)).toContain('Confirm Wind from');
+		expect(toDoList(kf, c).map((t) => t.label)).toContain('Confirm the weather');
 		confirmWeather(c);
 		expect(toDoList(kf, c).map((t) => t.label)).not.toContain('Enter Wind from');
 		const w = calculate(kf, toInput(kf, c)).wind!;
@@ -386,7 +386,7 @@ describe('after installing new data', () => {
 		expect(c.values.oat).toBe('15');
 		expect(Object.keys(c.notes)).toEqual([]);
 		expect(c.notice).toContain('Release 7');
-		expect(toDoList(dr, c).map((t) => t.label)).toContain('Confirm QNH');
+		expect(toDoList(dr, c).map((t) => t.label)).toContain('Confirm the weather');
 	});
 	it('resets choices that no longer exist', () => {
 		const c = ready(dr);
@@ -502,5 +502,19 @@ describe('METAR wind turned magnetic', () => {
 		applyWeather(c, report, NOW, 'departure', 3.4);
 		setByPilot(c, 'wdir', '150');
 		expect(fieldsFor(dr, c).flat().find((f) => f.key === 'wdir')!.hint).toBeUndefined();
+	});
+});
+
+describe('the weather, confirmed as one', () => {
+	const METAR_RAW = { raw: 'LSXX 061450Z 24008KT 12/06 Q1009', station: 'LSXX', stationName: null, distanceKm: null };
+	it('is one to-do item per airfield, confirmed and taken back together, keeping typed values', () => {
+		const c = newCalculation(dr, 'x', NOW);
+		applyWeather(c, METAR_RAW, NOW);
+		expect(toDoList(dr, c).filter((t) => t.key === 'weather:departure')).toHaveLength(1);
+		setByPilot(c, 'oat', '14');
+		confirmWeather(c);
+		expect(toDoList(dr, c).some((t) => t.key === 'weather:departure')).toBe(false);
+		unconfirmWeather(c);
+		expect([c.status.qnh, c.status.oat]).toEqual(['pre', 'pilot']);
 	});
 });

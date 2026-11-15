@@ -298,6 +298,9 @@ export function applyRunway(calc: Calculation, end: RunwayEnd, place: Place = 'd
 	if (!airfield) return;
 	prefill(calc, keyAt(place, 'rwy'), String(end.number).padStart(2, '0'), `airfield list ${airfield.ident}, ${airfield.date}`);
 	airfield.runway = { designator: end.designator, surface: end.surface, lengthM: end.lengthM };
+	// Tapping the runway is the pilot's choice of this airfield and runway, so its elevation from the list counts as checked too.
+	confirmValue(calc, keyAt(place, 'rwy'));
+	if (calc.sources[keyAt(place, 'elev')]?.startsWith('airfield list')) confirmValue(calc, keyAt(place, 'elev'));
 }
 
 /** The corrections a condition applies beyond its table, in words, so pilots see what a choice adds. */
@@ -315,6 +318,12 @@ export function conditionCorrections(condition: Condition | undefined): string[]
 export function confirmWeather(calc: Calculation, place: Place = 'departure') {
 	WEATHER_KEYS.forEach((key) => confirmValue(calc, keyAt(place, key)));
 }
+/** Takes back a confirmation of the METAR's values; what the pilot typed stays theirs. */
+export function unconfirmWeather(calc: Calculation, place: Place = 'departure') {
+	WEATHER_KEYS.forEach((base) => { const key = keyAt(place, base); if (calc.status[key] === 'ok' && isFromMetar(calc, key)) calc.status[key] = 'pre'; });
+}
+/** The to-do item and element id for a place's weather, confirmed as one. */
+export const weatherItemKey = (place: Place) => `weather:${place}`;
 
 export function reportAgeMinutes(weather: AppliedWeather | null | undefined, now: number): number | null {
 	if (!weather?.observed) return null;
@@ -410,7 +419,10 @@ export function toDoList(a: Aircraft, calc: Calculation): ToDo[] {
 	fieldsFor(a, calc).forEach((fields, step) => {
 		fields.forEach((f) => {
 			const text = calc.values[f.key];
-			if (calc.status[f.key] === 'pre') items.push({ key: f.key, label: `Confirm ${f.label}`, step });
+			// The METAR's values are checked together: one item per airfield, not one per value.
+			const weather = WEATHER_KEYS.includes(baseKey(f.key)) ? placeOfKey(f.key) : null;
+			if (calc.status[f.key] === 'pre' && weather) { if (!items.some((t) => t.key === weatherItemKey(weather))) items.push({ key: weatherItemKey(weather), label: weather === 'landing' ? 'Confirm the landing weather' : 'Confirm the weather', step }); }
+			else if (calc.status[f.key] === 'pre') items.push({ key: f.key, label: `Confirm ${f.label}`, step });
 			else if (f.required && parse(text) === null && !(f.key.endsWith('wdir') && text === VARIABLE_WIND)) items.push({ key: f.key, label: `Enter ${f.label}`, step });
 			else if (isUnusual(f, text)) items.push({ key: f.key, label: `Check ${f.label}`, step });
 		});

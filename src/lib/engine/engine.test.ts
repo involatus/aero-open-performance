@@ -196,9 +196,9 @@ describe('wind for the distances', () => {
 	});
 	it('No wind leaves out a headwind', () => expect(distances({ ...head, windForDistances: 'none' })).toEqual(distances({ windSpeed: 0 })));
 	it('Tailwind 3 kt replaces a headwind', () => expect(distances({ ...head, windForDistances: 'tail3' })).toEqual(distances({ windDirection: 180, windSpeed: 3 })));
-	it('is never less conservative than the entered wind', () => {
-		expect(distances({ ...tail, windForDistances: 'none' })).toEqual(distances(tail));
-		expect(distances({ ...tail, windForDistances: 'tail3' })).toEqual(distances(tail));
+	it('is the pilot\'s choice, also when it leaves out a stronger entered tailwind', () => {
+		expect(distances({ ...tail, windForDistances: 'none' })).toEqual(distances({ windSpeed: 0 }));
+		expect(distances({ ...tail, windForDistances: 'tail3' })).toEqual(distances({ windDirection: 180, windSpeed: 3 }));
 	});
 	it('keeps the entered wind for the crosswind check and the display', () => {
 		const d = load('test-dr-style');

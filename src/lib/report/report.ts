@@ -8,7 +8,7 @@ import type { PerformanceResult } from '../engine/performance.ts';
 import type { DistanceText } from '../app/presentation.ts';
 import { limitText } from '../engine/mass-balance.ts';
 import { baseKey, canReport, fieldsFor, magneticWind, notesFor, isVariableWind, keyAt, toInput, type Calculation, type Place, runwayHeading, weatherAt, windChoiceAt } from '../app/calculation.ts';
-import { altitudeText, distanceText, enteredWindKept, landingConditions, sourceText, utcText, valueSource, limitBadge, massBalanceRows, windChoiceText, windText, workingRows } from '../app/presentation.ts';
+import { altitudeText, distanceText, ignoresEnteredTailwind, landingConditions, sourceText, utcText, valueSource, limitBadge, massBalanceRows, windChoiceText, windText, workingRows } from '../app/presentation.ts';
 import { lookupView, type LookupView } from '../app/lookup-grid.ts';
 
 export type Delivery = 'notSent' | 'sent' | 'shared';
@@ -140,7 +140,7 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 		return {
 			reported: windRow(place).value,
 			used,
-			choice: choice === 'entered' ? null : `${CHOICE_SHORT[choice]} chosen${enteredWindKept(at, choice) ? ', stronger entered TW used' : ''}`
+			choice: choice === 'entered' ? null : `${CHOICE_SHORT[choice]} chosen${ignoresEnteredTailwind(at, choice) ? `, entered TW ${kt(at.wind!.headwind)} not used` : ''}`
 		};
 	};
 	const thousands = (x: number | null, unit: string | null) => (x === null ? null : `${x.toLocaleString('en')} ${unit ?? ''}`.trim());

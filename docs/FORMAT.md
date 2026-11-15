@@ -121,7 +121,7 @@ headwind  = windSpeed × cos(angle)    (negative means tailwind)
 crosswind = |windSpeed × sin(angle)|
 ```
 
-The crosswind check and the wind shown to the pilot always use the entered wind. The distances use `windForDistances`: `none` plans with no headwind and `tail3` with a 3 kt tailwind. The headwind used is the smaller of the chosen and the entered one, so a choice never shortens a distance. A stronger entered tailwind is always kept.
+The crosswind check and the wind shown to the pilot always use the entered wind. The distances use `windForDistances`: `none` plans with no headwind and `tail3` with a 3 kt tailwind. The chosen wind is used as chosen, also when it leaves out a stronger entered tailwind (for example a METAR from another field); the app and the Report then say the entered tailwind is not used.
 
 With `landingAt`, the landing distance uses the landing airfield's atmosphere and wind, and the crosswind check runs at each airfield: `crosswind` for the departure and `landingCrosswind` for the landing.
 

@@ -49,14 +49,15 @@ export const WIND_CHOICES: Record<WindForDistances, string> = { entered: 'As ent
 const CHOSEN_HEADWIND: Record<WindForDistances, number> = { entered: Infinity, none: 0, tail3: -3 };
 
 /** True when the entered wind is already a stronger tailwind than the choice, so the entered wind is used. */
-export function enteredWindKept(r: Pick<Results, 'wind'>, choice: WindForDistances): boolean {
+/** The pilot's choice leaves out a stronger entered tailwind, so the distances are shorter than with the entered wind. */
+export function ignoresEnteredTailwind(r: Pick<Results, 'wind'>, choice: WindForDistances): boolean {
 	return choice !== 'entered' && !!r.wind && r.wind.headwind < CHOSEN_HEADWIND[choice] - 1e-9;
 }
 
 /** Which wind the distances use, in words, the same on screen and on the Report. */
 export function windChoiceText(r: Pick<Results, 'wind' | 'distanceWind'>, choice: WindForDistances = 'entered'): string {
 	const label = WIND_CHOICES[choice];
-	return enteredWindKept(r, choice) ? `${label} chosen, but the entered tailwind is stronger, so it is used` : label;
+	return ignoresEnteredTailwind(r, choice) ? `${label} chosen: the entered ${Math.round(-r.wind!.headwind)} kt tailwind is not used` : label;
 }
 
 /** The landing airfield's atmosphere and wind: its own when landing elsewhere, else the departure's. */

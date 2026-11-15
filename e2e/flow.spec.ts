@@ -128,9 +128,12 @@ test('airfield list: find offline, choose a runway, confirm; unknown fields are 
 	await context.setOffline(true);
 	await page.getByLabel('Departure airfield').fill('LSZF');
 	await page.getByRole('button', { name: 'Find' }).click();
-	await expect(page.locator('#airfield-found')).toContainText('LSZF Birrfeld Airfield · 1300 ft');
+	await expect(page.locator('#airfield-found')).toContainText('LSZF Birrfeld Airfield · 396 m');
 	await expect(page.locator('[id="f-elev"]')).toHaveValue('396');
 	await page.getByRole('radio', { name: /^08R 080° Grass/ }).click();
+	// The runway from the list is the pilot's choice: its fields fold away until Change.
+	await expect(page.locator('[id="f-rwy"]')).toHaveCount(0);
+	await page.locator('#airfield-found').getByRole('button', { name: 'Change' }).click();
 	await expect(page.locator('[id="f-rwy"]')).toHaveValue('08');
 	await expect(page.getByText('Runway 08, heading 080°')).toBeVisible();
 	await expect(page.getByText('Runway 08R is GRASS in the airfield list')).toBeVisible();
@@ -261,22 +264,28 @@ test('weather: prefills, needs confirming, and never overwrites what the pilot t
 	await expect(page.locator('.metar .raw')).toHaveText(METAR.raw);
 	await expect(page.locator('.metar')).toContainText('8.6 km away');
 	await expect(page.locator('.flag')).toContainText('200° to 280°');
-	await expect(page.locator('#f-qnh')).toHaveValue('1009');
-	await expect(page.locator('#w-qnh')).toContainText('From METAR LSXX');
-	await expect(page.getByText('4 values from the METAR')).toBeVisible();
+	// The METAR's values show as a short list, confirmed together.
+	const card = page.locator('[id="w-weather:departure"]');
+	await expect(card).toContainText('1009 hPa');
+	await expect(page.locator('#f-qnh')).toHaveCount(0);
+	await expect(summary(page).getByText('to do')).toBeVisible();
 
+	// Changing a value opens its field; what the pilot types is theirs.
+	await card.getByRole('button', { name: 'Change' }).nth(1).click();
 	await type(page, 'oat', '9');
 	await page.locator('.keys button', { hasText: /Next field|Done/ }).click();
-	await expect(page.getByText('3 values from the METAR')).toBeVisible();
-	await page.getByRole('button', { name: 'I checked them, confirm' }).click();
+	await page.getByRole('button', { name: 'Confirm weather' }).click();
+	await expect(card).toContainText('Weather confirmed');
+	await card.getByRole('button', { name: 'Change' }).first().click();
 	await expect(page.locator('#w-qnh')).toContainText('From METAR LSXX, confirmed');
 
+	// A new report changes the METAR's values and asks again; the typed value stays.
 	await page.unroute('**/api/metar?*');
 	await page.route('**/api/metar?*', (route) => route.fulfill({ json: { ...METAR, raw: 'METAR LSXX 061320Z 26011KT 14/06 Q1008' } }));
 	await getMetar(page);
-	await expect(page.locator('#f-qnh')).toHaveValue('1008');
-	await expect(page.locator('#w-qnh')).toContainText('was 1009');
-	await expect(page.locator('#f-oat')).toHaveValue('9');
+	await expect(card).toContainText('1008 hPa');
+	await expect(page.getByRole('button', { name: 'Confirm weather' })).toBeVisible();
+	await expect(card).toContainText('9 °C');
 	expect(errors).toEqual([]);
 });
 

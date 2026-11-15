@@ -3,18 +3,20 @@
 	import { Collapsible, ToggleGroup } from 'bits-ui';
 	import type { WindForDistances } from '#lib/aircraft/schema.ts';
 	import type { Calculation as Results } from '#lib/engine/index.ts';
-	import { WIND_CHOICES, enteredWindKept, landingConditions, windText } from '#lib/app/presentation.ts';
+	import { WIND_CHOICES, ignoresEnteredTailwind, landingConditions, windText } from '#lib/app/presentation.ts';
 	import { findAirfields, loadAirfields, type Airfield, type RunwayEnd } from '#lib/airfield/airfields.ts';
 	import { lookUpWeather } from '#lib/weather/lookup.ts';
 	import { nearestFrom, stationLine, variationFor, weatherOnReturn } from '#lib/app/place-weather.ts';
 	import type { WeatherQuery } from '#lib/weather/provider.ts';
 	import {
-		OLD_REPORT_MINUTES, WEATHER_KEYS, airfieldAt, applyAirfield, applyRunway, applyWeather, confirmWeather, isVariableWind, keyAt,
+		OLD_REPORT_MINUTES, WEATHER_KEYS, airfieldAt, applyAirfield, applyRunway, applyWeather, confirmWeather, isVariableWind, keyAt, unconfirmWeather, weatherItemKey,
 		isFromMetar, parse, setWindChoice, reportAgeMinutes, runwayHeading, runwayWindText, runwayWinds, weatherAt, windChoiceAt, type Calculation, type Field, type Place
 	} from '#lib/app/calculation.ts';
 	import Button from '../../ui/Button.svelte';
 	import Card from '../../ui/Card.svelte';
 	import Segmented from '../../ui/Segmented.svelte';
+	import Icon from '../../ui/Icon.svelte';
+	import InfoTip from '../../ui/InfoTip.svelte';
 
 	/** One airfield's runway and weather: the departure, or the landing when it is elsewhere. */
 	let { place, named, calc, results, fields, numberField, closePad }: {
@@ -50,18 +52,45 @@
 	let metarAge = $derived(reportAgeMinutes(weather, now));
 	let weatherToConfirm = $derived(WEATHER_KEYS.filter((w) => calc.status[k(w)] === 'pre').length);
 	let windChoice = $derived<WindForDistances>(windChoiceAt(calc, place));
+	// Each choice shows only what it gives; the line under them says what the distances use.
 	let windOptions = $derived.by(() => {
-		const heading = runwayHeading(calc.values[k('rwy')]), deg = (x: number) => `${String(x).padStart(3, '0')}°`;
-		const variable = isVariableWind(calc, place), speed = parse(calc.values[k('wspd')]), entered = windText(at.wind, variable);
-		const enteredDetail = speed === null ? 'Enter the wind first' : `${variable ? 'VRB' : deg(parse(calc.values[k('wdir')]) ?? 0)} / ${speed} kt${entered ? ` · ${entered.headline}` : ''}`;
-		const kept = (c: WindForDistances) => enteredWindKept(at, c);
+		const entered = windText(at.wind, isVariableWind(calc, place));
 		return [
-			{ id: 'entered', label: WIND_CHOICES.entered, detail: enteredDetail },
-			{ id: 'none', label: WIND_CHOICES.none, detail: kept('none') ? 'Entered tailwind used' : '0 kt' },
-			{ id: 'tail3', label: WIND_CHOICES.tail3, detail: kept('tail3') ? 'Entered tailwind used' : heading === null ? '3 kt from behind' : `${deg((heading + 180) % 360)} / 3 kt on rwy ${String(heading / 10).padStart(2, '0')}` }
+			{ id: 'entered', label: WIND_CHOICES.entered, detail: entered ? entered.headline : 'Enter the wind' },
+			{ id: 'none', label: WIND_CHOICES.none, detail: '0 kt' },
+			{ id: 'tail3', label: WIND_CHOICES.tail3, detail: '3 kt tail' }
 		];
 	});
+	let distancesUse = $derived.by(() => {
+		const w = at.distanceWind, rwy = calc.values[k('rwy')];
+		if (!w) return null;
+		const h = Math.round(w.headwind), on = rwy ? ` on runway ${rwy.padStart(2, '0')}` : '';
+		return h === 0 ? `no wind${on}` : `${h > 0 ? 'headwind' : 'tailwind'} ${Math.abs(h)} kt${on}`;
+	});
+
+	/** The elevation and runway fields stay folded away once a runway from the list set them, until the pilot asks to change them. */
+	let changingPlace = $state(false);
+	let placeSet = $derived(!!chosen?.runway && placeFields.every((f) => parse(calc.values[f.key]) !== null && calc.status[f.key] !== 'pre'));
+
+	/** The weather as a short list; a row opens its field when changed, or when the METAR didn't give its value. */
+	const ROWS = [{ id: 'qnh', label: 'QNH', keys: ['qnh'] }, { id: 'oat', label: 'OAT', keys: ['oat'] }, { id: 'wind', label: 'Wind', keys: ['wdir', 'wspd'] }];
+	/** Change opens a row, Done closes it. Untouched, a row is a summary only while all its values are the METAR's. */
+	let opened = $state<Record<string, boolean>>({});
+	const missing = (base: string) => { const v = calc.values[k(base)]; return !(base === 'wdir' && v === 'VRB') && parse(v) === null; };
+	const fromMetar = (base: string) => isFromMetar(calc, k(base)) && calc.status[k(base)] !== 'pilot';
+	const rowOpen = (row: (typeof ROWS)[number]) => row.keys.some(missing) || (opened[row.id] ?? !row.keys.every(fromMetar));
+	const toggleRow = (row: (typeof ROWS)[number]) => { opened = { ...opened, [row.id]: !rowOpen(row) }; };
+	function rowValue(id: string) {
+		const v = (b: string) => calc.values[k(b)];
+		if (id === 'qnh') return `${v('qnh')} hPa`;
+		if (id === 'oat') return `${v('oat')} °C`;
+		return `${v('wdir') === 'VRB' ? 'VRB' : `${(v('wdir') ?? '').padStart(3, '0')}°`} / ${v('wspd')} kt`;
+	}
+	let windHint = $derived(weatherFields.find((f) => f.key === k('wdir'))?.hint);
+	/** Confirmed: every value from the METAR is checked and at least one came from it. */
+	let weatherConfirmed = $derived(!weatherToConfirm && WEATHER_KEYS.some((w) => calc.status[k(w)] === 'ok' && isFromMetar(calc, k(w))));
 	let showRunways = $derived(airfieldFound !== null && chosen?.ident === airfieldFound.ident);
+	let showPlaceFields = $derived(changingPlace || !showRunways || !placeSet);
 	let runwayWind = $derived(airfieldFound ? runwayWinds(airfieldFound.runways, calc.values[k('wdir')], calc.values[k('wspd')]) : null);
 
 	// The runway list isn't saved with the calculation, so it is looked up again on return to this step.
@@ -161,7 +190,7 @@
 		</div>
 	{/if}
 	{#if showRunways && airfieldFound}
-		<p id={idOf('airfield-found')} class="text-[13px] text-ink-2"><strong>{airfieldFound.ident} {airfieldFound.name}</strong>{#if airfieldFound.elevationFt !== null} · <span class="num">{airfieldFound.elevationFt} ft</span>{/if} · list of {airfieldDate}</p>
+		<p id={idOf('airfield-found')} class="text-[13px] text-ink-2"><strong>{airfieldFound.ident} {airfieldFound.name}</strong>{#if calc.values[k('elev')]}<span aria-hidden="true">&#32;·&#32;</span><span class="num">{calc.values[k('elev')]} {calc.elevationUnit}</span>{/if} · list of {airfieldDate}{#if placeSet}<span aria-hidden="true">&#32;·&#32;</span><button type="button" class="min-h-0 border-0 bg-transparent p-0 text-[13px] font-semibold text-accent" onclick={() => (changingPlace = !changingPlace)}>{changingPlace ? 'Done' : 'Change'}</button>{/if}</p>
 	{/if}
 
 	<!-- The weather comes with the airfield, so the runway can be chosen with the wind in view. -->
@@ -219,27 +248,52 @@
 			{#if runwayWind?.winds.size}<p class="text-[13px] text-muted">Wind from {weather && isFromMetar(calc, k('wdir')) ? `the ${weather.station} METAR` : 'your entry below'}. Use the runway in use: ATIS or the tower may differ.</p>{/if}
 		</div>
 	{/if}
-	<div class="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
-		{#each placeFields as field (field.key)}{@render numberField(field)}{/each}
-	</div>
-</Card>
-
-<Card title={named ? `${word} weather to check` : 'Weather to check'} description={`${place === 'landing' ? 'A METAR is the weather now, not at your arrival. Check it again before landing. ' : ''}${weather ? `Filled in from the ${weather.station} METAR. Compare with ATIS, change what differs, then confirm.` : 'Enter the values from ATIS, or find the airfield above to fetch its METAR.'}`}>
-	<div class="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
-		{#each weatherFields as field (field.key)}{@render numberField(field)}{/each}
-	</div>
-	<div class="flex flex-col gap-1.5">
-		<Segmented label={named ? `Wind for the ${word.toLowerCase()} calculation` : 'Wind for the calculation'} options={windOptions} value={windChoice} minWidth={150} onchange={(id) => chooseWind(id as WindForDistances)} />
-		{#if enteredWindKept(at, windChoice)}
-			<p class="text-[13px] font-semibold text-amber" role="status">The entered tailwind is stronger than {WIND_CHOICES[windChoice]}, so the distances use the entered wind.</p>
-		{:else}
-			<p class="text-[13px] text-muted">No wind and Tailwind 3 kt leave out any headwind, so the distances come out on the conservative side. The crosswind check always uses the entered wind. The report shows which you chose.</p>
-		{/if}
-	</div>
-	{#if weatherToConfirm}
-		<div class="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-amber-bg py-2.5 pr-2.5 pl-3.5">
-			<span class="text-amber-ink"><strong>{weatherToConfirm} value{weatherToConfirm > 1 ? 's' : ''} from the METAR</strong> still need{weatherToConfirm > 1 ? '' : 's'} your check.</span>
-			<Button variant="dark" onclick={() => confirmWeather(calc, place)}>I checked them, confirm</Button>
+	{#if showPlaceFields}
+		<div class="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
+			{#each placeFields as field (field.key)}{@render numberField(field)}{/each}
 		</div>
 	{/if}
 </Card>
+
+<div id={`w-${weatherItemKey(place)}`} class={['scroll-m-4 rounded-xl', weatherToConfirm && 'ring-2 ring-amber']}>
+<Card title={named ? `${word} weather to check` : 'Weather to check'} description={place === 'landing' ? 'A METAR is the weather now, not at your arrival. Check it again before landing.' : undefined}>
+	{#snippet actions()}{#if weather}<span class="text-[13px] text-muted">METAR {weather.station}{metarAge !== null ? `, ${metarAge} min old` : ''}</span>{/if}{/snippet}
+	<dl class="m-0 flex flex-col">
+		{#each ROWS as row (row.id)}
+			{@const open = rowOpen(row)}
+			<div class="flex flex-col gap-2 border-b border-divider py-2 last:border-b-0">
+				<div class="grid min-h-10 grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-2">
+					<dt class="text-sm text-ink-2">{row.label}</dt>
+					<dd class="m-0 flex min-w-0 flex-col">
+						{#if !row.keys.some(missing)}<span class="num text-[17px] font-semibold">{rowValue(row.id)}</span>{:else}<span class="text-sm text-muted">{weather ? 'Not in the METAR: enter it' : 'Enter it'}</span>{/if}
+						{#if row.id === 'wind' && windHint && !open}<span class="text-xs text-muted">{windHint}</span>{/if}
+					</dd>
+					{#if !row.keys.some(missing)}<button type="button" class="min-h-10 border-0 bg-transparent px-1 text-sm font-semibold text-accent" onclick={() => toggleRow(row)}>{open ? 'Done' : 'Change'}</button>{/if}
+				</div>
+				{#if open}
+					<div class="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
+						{#each weatherFields.filter((f) => row.keys.some((b) => f.key === k(b))) as field (field.key)}{@render numberField(field)}{/each}
+					</div>
+				{/if}
+			</div>
+		{/each}
+	</dl>
+	{#if weatherToConfirm}
+		<div class="flex justify-end">
+			<Button variant="dark" onclick={() => { confirmWeather(calc, place); opened = {}; }}>Confirm weather</Button>
+		</div>
+	{:else if weatherConfirmed}
+		<div class="flex items-center gap-2.5 rounded-lg bg-good-bg px-3.5 py-2.5 text-sm text-good">
+			<Icon name="check" size={16} stroke={3} />
+			<span class="flex-1"><strong>Weather confirmed.</strong> The Report says so.</span>
+			<button type="button" class="min-h-0 border-0 bg-transparent p-0 text-sm font-semibold text-accent" onclick={() => unconfirmWeather(calc, place)}>Undo</button>
+		</div>
+	{/if}
+	<div class="flex flex-col gap-1.5">
+		<Segmented label={named ? `Wind for the ${word.toLowerCase()} calculation` : 'Wind for the calculation'} options={windOptions} value={windChoice} minWidth={130} onchange={(id) => chooseWind(id as WindForDistances)} />
+		{#if distancesUse}
+			<p class="text-[13px] text-ink-2">Distances use <strong>{distancesUse}</strong>.{#if ignoresEnteredTailwind(at, windChoice)} <span class="font-semibold text-amber">Ignores the entered {Math.round(-at.wind!.headwind)} kt tailwind; the Report says so.</span>{/if} <InfoTip label="About the wind choices">No wind and Tailwind 3 kt leave out any headwind. Your choice is used as chosen, also when the entered wind has a stronger tailwind, for example a METAR from another field. The crosswind check always uses the entered wind. The Report shows which you chose.</InfoTip></p>
+		{/if}
+	</div>
+</Card>
+</div>

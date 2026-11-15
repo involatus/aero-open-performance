@@ -30,13 +30,14 @@ type PlaceInput = Pick<CalculationInput, 'elevation' | 'qnh' | 'oat' | 'windDire
 const CHOSEN_HEADWIND: Record<WindForDistances, number | null> = { entered: null, none: 0, tail3: -3 };
 
 /**
- * A pilot may plan with no wind or a 3 kt tailwind instead of the entered wind. The chosen wind is
- * only used when it is the more conservative one, so the choice can never shorten a distance.
+ * A pilot may plan with no wind or a 3 kt tailwind instead of the entered wind, for example when the
+ * METAR is from another field. The choice is the pilot's and is used as chosen, even where it ignores a
+ * stronger entered tailwind; the app and the Report then say so. The crosswind stays the entered one.
  */
 export function windForDistances(wind: Wind | null, choice: WindForDistances = 'entered'): Wind | null {
 	const chosen = CHOSEN_HEADWIND[choice];
 	if (!wind || chosen === null) return wind;
-	return { headwind: Math.min(wind.headwind, chosen), crosswind: wind.crosswind };
+	return { headwind: chosen, crosswind: wind.crosswind };
 }
 
 function placeConditions(p: PlaceInput): PlaceConditions {
