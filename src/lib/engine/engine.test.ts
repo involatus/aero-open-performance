@@ -160,14 +160,14 @@ describe('mass and balance', () => {
 describe('warnings', () => {
 	it('warns on fixed values only when the inputs differ', () => {
 		const k = load('test-kitfox-style');
-		expect(calculate(k, baseInput(k)).landing.warnings.join()).not.toContain('Not corrected');
-		expect(calculate(k, baseInput(k, { oat: 20 })).landing.warnings.join()).toContain('Not corrected');
+		expect(calculate(k, baseInput(k)).landing.notes.join()).not.toContain('Not corrected');
+		expect(calculate(k, baseInput(k, { oat: 20 })).landing.notes.join()).toContain('Not corrected');
 	});
 	it('says when wind did not change the distance', () => {
 		const d = load('test-dr-style');
-		expect(calculate(d, baseInput(d)).takeoff.warnings.join()).toContain('did not change');
+		expect(calculate(d, baseInput(d)).takeoff.notes.join()).toContain('did not change');
 		const k = load('test-kitfox-style');
-		expect(calculate(k, baseInput(k)).takeoff.warnings.join()).not.toContain('did not change');
+		expect(calculate(k, baseInput(k)).takeoff.notes.join()).not.toContain('did not change');
 	});
 	it('warns when using the nearest value', () => {
 		const k = load('test-kitfox-style');
@@ -372,7 +372,7 @@ describe('operator rules', () => {
 		const head = calculate(withR(), baseInput(dr, { windSpeed: 12 })).takeoff;
 		expect(head.rawTotal).toBe(still.rawTotal);
 		expect(head.steps.at(-1)!.detail).toContain('no credit');
-		expect(head.warnings).not.toContain('Wind recorded. It did not change this distance.');
+		expect(head.notes).not.toContain('Wind recorded. It did not change this distance.');
 	});
 
 	it('takes headwind credit when the rule has it, and gives no result above the tailwind limit', () => {

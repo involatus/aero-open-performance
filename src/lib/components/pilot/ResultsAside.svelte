@@ -51,6 +51,7 @@
 				{/each}
 			</div>
 			{#each r.warnings as warning (warning)}<span class="text-[13px] font-semibold text-amber">{warning}</span>{/each}
+			{#each r.notes as note (note)}<span class="text-xs text-muted">{note}</span>{/each}
 		{:else}
 			<span class="text-[17px] font-semibold text-amber">{r.reason ?? statusWord(r.status)}</span>
 		{/if}

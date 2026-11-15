@@ -304,7 +304,9 @@ function distanceCell(d: ReportDistance, totalLabel: string) {
 	return { stack: [
 		title, ...condition, pair,
 		...(d.mass ? [{ text: [{ text: 'at ' }, { text: d.mass, font: MONO }], fontSize: small, color: INK2, margin: [0, 1, 0, 0] }] : []),
-		...d.warnings.map((w) => ({ text: w, fontSize: small, bold: true, color: AMBER, margin: [0, 2, 0, 0] }))
+		...d.warnings.map((w) => ({ text: w, fontSize: small, bold: true, color: AMBER, margin: [0, 2, 0, 0] })),
+		// Information, not a caution: plain and grey, so amber keeps meaning "take care".
+		...(d.notes ?? []).map((n) => ({ text: n, fontSize: 6.5, color: INK2, margin: [0, 2, 0, 0] }))
 	] };
 }
 

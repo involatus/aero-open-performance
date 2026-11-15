@@ -300,28 +300,29 @@ def run_chain(ac, cond, inp, mass, pa, da, hw):
                 raise ValueError("unknown step " + t)
     except Stop as e:
         return {"status": e.status, "rawTotal": None, "rawGroundRoll": None,
-                "total": None, "groundRoll": None, "warnings": 0}
+                "total": None, "groundRoll": None, "warnings": 0, "notes": 0}
 
     w = ctx.warnings
+    n = 0
     a = cond.get("assumes")
     if a:
         if not a["inputs"]:
-            w += 1
+            n += 1
         else:
             for i in a["inputs"]:
                 v = ctx.input_value(i["input"], i["unit"])
                 if v is None or abs(v - i["value"]) > EPS:
-                    w += 1  # AMBIGUITY: one warning for the assumption, or one per mismatching input? Counted once below.
+                    n += 1  # AMBIGUITY: one note for the assumption, or one per mismatching input? Counted once.
                     break
     if not has_wind:
-        w += 1
+        n += 1
     rnd = lambda v: None if v is None else math.ceil(v - EPS)
     return {"status": "ok", "rawTotal": vals["total"], "rawGroundRoll": vals["groundRoll"],
-            "total": rnd(vals["total"]), "groundRoll": rnd(vals["groundRoll"]), "warnings": w}
+            "total": rnd(vals["total"]), "groundRoll": rnd(vals["groundRoll"]), "warnings": w, "notes": n}
 
 
 NONE = {"status": "noData", "rawTotal": None, "rawGroundRoll": None,
-        "total": None, "groundRoll": None, "warnings": 0}
+        "total": None, "groundRoll": None, "warnings": 0, "notes": 0}
 
 
 def performance(ac, cfg, kind, cond_id, inp, mass, pa, da, hw):

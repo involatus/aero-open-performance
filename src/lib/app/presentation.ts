@@ -9,7 +9,7 @@ import type { Calculation as Results } from '../engine/index.ts';
 import type { Limit } from '../engine/mass-balance.ts';
 import type { PerformanceResult, Wind } from '../engine/performance.ts';
 
-export type DistanceText = { title: string; status: PerformanceResult['status']; headline: string; detail: string; warnings: string[] };
+export type DistanceText = { title: string; status: PerformanceResult['status']; headline: string; detail: string; warnings: string[]; notes?: string[] };
 export type Tone = 'ok' | 'warnb' | 'fail';
 
 /** "2026-11-08 09:02 UTC": times on Reports are always UTC, as in aviation. */
@@ -24,13 +24,14 @@ export function statusWord(status: PerformanceResult['status']): string {
 }
 
 export function distanceText(title: string, r: PerformanceResult, mass: string): DistanceText {
-	if (r.status !== 'ok') return { title, status: r.status, headline: r.reason ?? statusWord(r.status), detail: r.conditionLabel, warnings: [] };
+	if (r.status !== 'ok') return { title, status: r.status, headline: r.reason ?? statusWord(r.status), detail: r.conditionLabel, warnings: [], notes: [] };
 	const hasTotal = r.total !== null;
 	return {
 		title, status: r.status,
 		headline: `${hasTotal ? r.total : r.groundRoll} ${r.unit}`,
 		detail: `${hasTotal ? `${r.groundRoll !== null ? `Ground roll ${r.groundRoll} ${r.unit}. ` : ''}Total distance.` : 'Ground roll only.'} ${r.conditionLabel}, ${mass}`,
-		warnings: [...r.warnings]
+		warnings: [...r.warnings],
+		notes: [...r.notes]
 	};
 }
 

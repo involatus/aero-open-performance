@@ -20,7 +20,7 @@ export type Calculation = {
 };
 
 function noPerformance(label: string): PerformanceResult {
-	return { status: 'noData', conditionLabel: label, unit: null, rawTotal: null, rawGroundRoll: null, total: null, groundRoll: null, steps: [], warnings: [], reason: "No data: pilot's judgement", missing: [], windApplied: false };
+	return { status: 'noData', conditionLabel: label, unit: null, rawTotal: null, rawGroundRoll: null, total: null, groundRoll: null, steps: [], warnings: [], notes: [], reason: "No data: pilot's judgement", missing: [], windApplied: false };
 }
 
 /** What an airfield's conditions give the distances: its atmosphere, the entered wind and the wind the distances use. */

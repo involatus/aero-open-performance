@@ -20,7 +20,10 @@ export type PerformanceResult = {
 	total: number | null;
 	groundRoll: number | null;
 	steps: StepTrace[];
+	/** Cautions: the distance needs the pilot's extra care, such as a value outside the table. */
 	warnings: string[];
+	/** Information about what the distance doesn't account for, such as wind the manual can't correct for. */
+	notes: string[];
 	reason: string | null;
 	missing: string[];
 	windApplied: boolean;
@@ -102,7 +105,7 @@ function windFactor(rule: WindRule, knots: number, sign: 1 | -1, warnings: strin
 }
 
 export function runCondition(a: Aircraft, condition: Condition, ctx: Context): PerformanceResult {
-	const result: PerformanceResult = { status: 'ok', conditionLabel: condition.label, unit: null, rawTotal: null, rawGroundRoll: null, total: null, groundRoll: null, steps: [], warnings: [], reason: null, missing: [], windApplied: false };
+	const result: PerformanceResult = { status: 'ok', conditionLabel: condition.label, unit: null, rawTotal: null, rawGroundRoll: null, total: null, groundRoll: null, steps: [], warnings: [], notes: [], reason: null, missing: [], windApplied: false };
 	if (condition.kind === 'noData') { result.status = 'noData'; result.reason = "No data: pilot's judgement"; return result; }
 	result.unit = condition.distanceUnit;
 
@@ -223,9 +226,9 @@ export function runCondition(a: Aircraft, condition: Condition, ctx: Context): P
 			const x = inputFor(i, ctx);
 			return x === null || Math.abs(x - i.value) > EPSILON;
 		});
-		if (differs) result.warnings.push(`Manual value for ${condition.assumes.text}. Not corrected for your conditions.`);
+		if (differs) result.notes.push(`Manual value for ${condition.assumes.text}. Not corrected for your conditions.`);
 	}
-	if (!result.windApplied) result.warnings.push('Wind recorded. It did not change this distance.');
+	if (!result.windApplied) result.notes.push('Wind recorded. It did not change this distance.');
 
 	result.rawTotal = total;
 	result.rawGroundRoll = groundRoll;

@@ -15,6 +15,7 @@ How real performance and W&B outputs, and human-factors guidance, present what o
 | F7 | **Use only defined, common abbreviations; use all caps sparingly; group with white space.** "Only use abbreviations that are defined and commonly used in the industry." "Text in all capital letters is harder to read … Use all capitals very sparingly." Printed ground documents may differ from in-flight formats. | [S5] §§4.3.3, 4.5, 4.5.4, 4.5.5, pp. 4-2 to 4-3 |
 | F8 | **Chunk related items and separate the chunks physically. Put the most critical items first.** | [S6] §7.1 p. 48; Appendix A (7), (10) p. 66 |
 | F9 | **Define the abbreviations once.** ForeFlight's guide has a single Definitions table (BEW, LDW, TOW, ZFW). Responses "should portray the desired status or the value". | [S1] p. 4. [S6] Appendix A (4) p. 66 |
+| F10 | **Amber means caution, and is kept for that.** Flight decks use "Red for warning alert indications", "Amber or yellow for caution alert indications" and "Any color except red or green for advisory alert indications". "Use of the colors red, amber, and yellow on the flight deck for functions other than flightcrew alerting must be limited." Added 2026-11-15. | [S7] §25.1322(e)(1), (f) |
 
 **Not fetched, so not cited:** HF-STD-001B (ROSA P returned Access Denied), Tufte's books (no primary pages online), Garmin Pilot W&B PDF output (no Garmin document found), Boeing OPT and Airbus FlySmart output samples (no manufacturer document found; only accident reports), ForeFlight's TOLD summary PDF (the support pages describe its sections but show no sample).
 
@@ -82,6 +83,10 @@ Stacking Mass and balance under Conditions also works. It costs about 150 pt of 
 - The footer section stays last, as SPEC orders it, and lands on page 2.
 - Add the responsibility line and the abbreviation legend to the per-page `footer()`. Drop the duplicate Report ID from the heading.
 
+### R7 Notes apart from warnings (F6, F10)
+
+A distance's remarks are of two kinds. Warnings need the pilot's extra care: a value outside the table, an extension above it, wind beyond the manual's limit. They stay bold amber. Notes only say what the distance doesn't account for: a manual value for its printed conditions, or wind the manual can't correct for. They are plain grey and smaller, under the distance, on screen and on the Report. Done 2026-11-15: the engine gives `warnings` and `notes` (FORMAT.md, Warnings and notes).
+
 ### Mockup, page 1, landing elsewhere
 
 ```
@@ -137,4 +142,5 @@ AOP-20261108-1A2B · Page 1 of 2
 - [S4] FAA-H-8083-1B *Aircraft Weight and Balance Handbook* (2016), Fig. 5-3 p. 5-3, Fig. 6-6 p. 6-3. https://www.faa.gov/sites/faa.gov/files/2023-09/Weight_Balance_Handbook.pdf
 - [S5] FAA AC 120-71B (2017), Ch. 4, §§4.1.2, 4.3.3, 4.5, 4.5.4, 4.5.5, pp. 4-1 to 4-3. https://www.faa.gov/documentLibrary/media/Advisory_Circular/AC_120-71B.pdf
 - [S6] Degani & Wiener, NASA CR-177549, §7.1 p. 48; Appendix A (4), (7), (10) p. 66. https://ntrs.nasa.gov/api/citations/19910017830/downloads/19910017830.pdf
+- [S7] 14 CFR 25.1322, Flightcrew alerting, (e)(1) and (f). https://www.law.cornell.edu/cfr/text/14/25.1322
 - Code: pdfmake 0.3.13 `node_modules/pdfmake/js/columnCalculator.js` `buildColumnWidths`, "case 1".

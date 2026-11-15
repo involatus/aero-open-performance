@@ -183,14 +183,19 @@ Displayed distance = `ceil(raw − EPSILON)`, to a whole number in `distanceUnit
 
 A file is rejected before calculation if a step uses a value not yet set. `referenceMass` is in the aircraft's mass unit, and a table's values and `fixed` values are already in `distanceUnit`. Weighing mass is above zero, so CG is always defined.
 
-### Warnings
+### Warnings and notes
 
-A result's warnings are counted as follows, with no merging of identical ones:
+A result has warnings, cautions that need the pilot's extra care, and notes, information about what the distance doesn't account for. They are counted as follows, with no merging of identical ones.
+
+Warnings:
 
 - Each axis using `nearestWarn` adds one, as does each wind rule using it.
+- An extension above a table adds one, and a second when it is more than `alertAboveM` above the table.
+
+Notes:
+
 - `assumes` (`text`, `inputs`) adds one when `inputs` is empty, or when any listed input is missing or differs from its `value` by more than `EPSILON` in its `unit`. The result is still shown.
 - A chain with no `wind` step adds one, saying the wind was recorded and did not change the distance, unless an Operator wind rule applied.
-- An extension above a table adds one, and a second when it is more than `alertAboveM` above the table.
 
 ### Operator Rules
 

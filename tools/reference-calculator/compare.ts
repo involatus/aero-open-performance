@@ -101,6 +101,7 @@ try {
 				if ((x.total ?? null) !== (y.total ?? null)) report(`${phase}.total`, x.total, y.total);
 				if ((x.groundRoll ?? null) !== (y.groundRoll ?? null)) report(`${phase}.groundRoll`, x.groundRoll, y.groundRoll);
 				if (x.status === 'ok' && x.warnings.length !== y.warnings) report(`${phase}.warnings`, x.warnings.join(' | '), y.warnings);
+				if (x.status === 'ok' && x.notes.length !== y.notes) report(`${phase}.notes`, x.notes.join(' | '), y.notes);
 			}
 		});
 	});

@@ -109,7 +109,7 @@ describe('creating a Report', () => {
 	});
 	it('keeps warnings and cites manual sources in the working', () => {
 		const c = ready(a), d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
-		expect(d.results.takeoff.warnings.join()).toContain('did not change');
+		expect(d.results.takeoff.notes?.join()).toContain('did not change');
 		const lookupRow = d.working[0].rows.find((r) => r.step.includes('Table values'))!;
 		expect(lookupRow.source).toContain('Fictional test manual');
 	});
