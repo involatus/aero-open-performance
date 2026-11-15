@@ -7,6 +7,7 @@
 	import { findAirfields, loadAirfields, type Airfield, type RunwayEnd } from '#lib/airfield/airfields.ts';
 	import { lookUpWeather } from '#lib/weather/lookup.ts';
 	import { nearestFrom, stationLine, weatherOnReturn } from '#lib/app/place-weather.ts';
+	import { variationAt } from '#lib/weather/variation.ts';
 	import type { WeatherQuery } from '#lib/weather/provider.ts';
 	import {
 		OLD_REPORT_MINUTES, WEATHER_KEYS, airfieldAt, applyAirfield, applyRunway, applyWeather, confirmWeather, isVariableWind, keyAt,
@@ -111,7 +112,9 @@
 		weatherBusy = true; weatherMessage = '';
 		closePad();
 		const result = await lookUpWeather(query);
-		if (result.ok) { now = Date.now(); applyWeather(target, result.report, now, place); } else weatherMessage = result.message;
+		// The chosen airfield's variation turns the METAR's true wind magnetic, like its runways and ATIS.
+		const field = airfieldFound && chosen?.ident === airfieldFound.ident ? airfieldFound : null;
+		if (result.ok) { now = Date.now(); applyWeather(target, result.report, now, place, field ? variationAt(field.lat, field.lon, new Date(now)) : null); } else weatherMessage = result.message;
 		weatherBusy = false;
 		return result.ok;
 	}

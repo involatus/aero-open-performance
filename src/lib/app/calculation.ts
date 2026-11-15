@@ -6,6 +6,7 @@ import type { Aircraft, CalculationInput, Condition, Performance, WindForDistanc
 import type { Airfield, RunwayEnd } from '../airfield/airfields.ts';
 import type { Calculation as Results } from '../engine/index.ts';
 import { M_PER_FT } from '../engine/units.ts';
+import { toMagnetic } from '../weather/variation.ts';
 import { parseMetar } from '../weather/metar.ts';
 import type { WeatherReport } from '../weather/provider.ts';
 
@@ -41,7 +42,8 @@ export type Calculation = {
 	landingWindForDistances?: WindForDistances;
 	notice?: string | null;
 };
-export type AppliedWeather = { raw: string; station: string; stationName: string | null; distanceKm: number | null; observed: string | null; flags: string[] };
+/** `trueDirection` and `variation` are set when the METAR's true wind was turned magnetic. */
+export type AppliedWeather = { raw: string; station: string; stationName: string | null; distanceKm: number | null; observed: string | null; flags: string[]; trueDirection?: number; variation?: number };
 export type Field = {
 	key: string;
 	label: string;
@@ -138,13 +140,19 @@ export function runwayWindText(w: RunwayWind): string {
 	if (!along && !cross) return 'Calm';
 	return [along ? `${w.headwind > 0 ? 'Headwind' : 'Tailwind'} ${along} kt` : '', cross ? `cross ${cross} kt` : ''].filter(Boolean).join(' · ');
 }
+/** Under the wind field, only when the METAR's true wind was turned magnetic and the pilot hasn't changed it. */
+function magneticHint(calc: Partial<Pick<Calculation, 'weather' | 'landingWeather' | 'sources' | 'status'>>, place: Place): string | undefined {
+	const w = place === 'landing' ? calc.landingWeather : calc.weather, key = keyAt(place, 'wdir');
+	if (!w || w.trueDirection === undefined || w.variation === undefined || !calc.sources || !isFromMetar({ sources: calc.sources }, key) || calc.status?.[key] === 'pilot') return undefined;
+	return `Magnetic: METAR ${String(w.trueDirection).padStart(3, '0')}° true, variation ${Math.abs(w.variation).toFixed(0)}° ${w.variation >= 0 ? 'E' : 'W'}`;
+}
 function runwayHint(text: string | undefined) {
 	const h = runwayHeading(text);
 	return h === null ? 'Runway number, such as 08 for 080°' : `Runway ${String(h / 10).padStart(2, '0')}, heading ${String(h).padStart(3, '0')}°`;
 }
 
 /** The numeric fields of each step, built from the aircraft file. */
-export function fieldsFor(a: Aircraft, calc: Pick<Calculation, 'elevationUnit'> & Partial<Pick<Calculation, 'values' | 'landingElsewhere'>>): Field[][] {
+export function fieldsFor(a: Aircraft, calc: Pick<Calculation, 'elevationUnit'> & Partial<Pick<Calculation, 'values' | 'landingElsewhere' | 'weather' | 'landingWeather' | 'sources' | 'status'>>): Field[][] {
 	const mass = a.units.mass, step = massStep(mass), maxMass = a.massLimits.maxTakeoff.value;
 	const arm = (x: number) => `arm ${x.toFixed(a.display.armDecimals)} ${a.units.arm}`;
 	const meta = (...parts: (string | false | undefined)[]) => parts.filter(Boolean).join(' · ') || undefined;
@@ -175,7 +183,7 @@ export function fieldsFor(a: Aircraft, calc: Pick<Calculation, 'elevationUnit'> 
 			{ key: k('rwy'), label: name('Runway'), unit: '', decimals: false, negative: false, range: [1, 36], quick: [], required: true, hint: runwayHint(calc.values?.[k('rwy')]) },
 			{ key: k('qnh'), label: name('QNH'), unit: 'hPa', decimals: false, negative: false, range: [900, 1100], quick: [], required: true },
 			{ key: k('oat'), label: name('OAT'), unit: '°C', decimals: true, negative: true, range: [-60, 60], quick: [], required: true },
-			{ key: k('wdir'), label: name('Wind from'), unit: '°', decimals: false, negative: false, range: [0, 360], quick: [VARIABLE_WIND], required: true },
+			{ key: k('wdir'), label: name('Wind from'), unit: '°', decimals: false, negative: false, range: [0, 360], quick: [VARIABLE_WIND], required: true, hint: magneticHint(calc, place) },
 			{ key: k('wspd'), label: name('Wind speed'), unit: 'kt', decimals: false, negative: false, range: [0, 99], quick: [], required: true }
 		];
 	};
@@ -242,9 +250,12 @@ export function isFromMetar(calc: Pick<Calculation, 'sources'>, key: string): bo
  * Prefills only what the report clearly states. A value it doesn't state is left empty,
  * and anything the pilot typed is never touched.
  */
-export function applyWeather(calc: Calculation, report: WeatherReport, now: number, place: Place = 'departure') {
+export function applyWeather(calc: Calculation, report: WeatherReport, now: number, place: Place = 'departure', variation: number | null = null) {
 	const m = parseMetar(report.raw, now);
-	const values: Record<string, number | string | null> = { qnh: m.qnh, oat: m.oat, wdir: m.windVariable ? VARIABLE_WIND : m.windDirection, wspd: m.windSpeed };
+	// METAR wind is true; runways and ATIS are magnetic. A variation under half a degree changes nothing.
+	const turned = !m.windVariable && m.windDirection !== null && variation !== null && Math.abs(variation) >= 0.5;
+	const direction = turned ? toMagnetic(m.windDirection!, variation!) : m.windDirection;
+	const values: Record<string, number | string | null> = { qnh: m.qnh, oat: m.oat, wdir: m.windVariable ? VARIABLE_WIND : direction, wspd: m.windSpeed };
 	const source = metarSource(report.station);
 	for (const base of WEATHER_KEYS) {
 		const value = values[base], key = keyAt(place, base);
@@ -254,7 +265,7 @@ export function applyWeather(calc: Calculation, report: WeatherReport, now: numb
 		}
 	}
 	calc.values[keyAt(place, 'station')] = report.station;
-	const applied: AppliedWeather = { raw: report.raw, station: report.station, stationName: report.stationName, distanceKm: report.distanceKm, observed: m.observed, flags: m.flags };
+	const applied: AppliedWeather = { raw: report.raw, station: report.station, stationName: report.stationName, distanceKm: report.distanceKm, observed: m.observed, flags: m.flags, ...(turned && direction !== m.windDirection ? { trueDirection: m.windDirection!, variation: variation! } : {}) };
 	if (place === 'landing') calc.landingWeather = applied; else calc.weather = applied;
 }
 

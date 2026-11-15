@@ -478,3 +478,29 @@ describe('departure and landing keys', () => {
 		expect(c.landingWindForDistances).toBe('tail3');
 	});
 });
+
+describe('METAR wind turned magnetic', () => {
+	const report = { raw: 'LSMD 061450Z 14302KT 9999 03/M01 Q1015', station: 'LSMD', stationName: null, distanceKm: 8 };
+	it('turns the true wind magnetic with the airfield\'s variation and says so under the field', () => {
+		const c = newCalculation(dr, 'x', NOW);
+		applyWeather(c, report, NOW, 'departure', 3.4);
+		expect(c.values.wdir).toBe('140');
+		expect(c.weather).toMatchObject({ trueDirection: 143, variation: 3.4 });
+		expect(fieldsFor(dr, c).flat().find((f) => f.key === 'wdir')!.hint).toBe('Magnetic: METAR 143° true, variation 3° E');
+	});
+	it('leaves the wind as reported when the variation is tiny or unknown, with no hint', () => {
+		for (const v of [0.3, null]) {
+			const c = newCalculation(dr, 'x', NOW);
+			applyWeather(c, report, NOW, 'departure', v);
+			expect(c.values.wdir).toBe('143');
+			expect(c.weather?.trueDirection).toBeUndefined();
+			expect(fieldsFor(dr, c).flat().find((f) => f.key === 'wdir')!.hint).toBeUndefined();
+		}
+	});
+	it('drops the hint once the pilot types their own wind', () => {
+		const c = newCalculation(dr, 'x', NOW);
+		applyWeather(c, report, NOW, 'departure', 3.4);
+		setByPilot(c, 'wdir', '150');
+		expect(fieldsFor(dr, c).flat().find((f) => f.key === 'wdir')!.hint).toBeUndefined();
+	});
+});
