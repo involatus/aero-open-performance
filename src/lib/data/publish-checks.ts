@@ -1,4 +1,5 @@
 /** The checks every aircraft file must pass before it can be published. There is no override. */
+import { withRules, type OperatorRules } from '../aircraft/operator-rules.ts';
 import type { Aircraft, Axis, Condition, Performance, Table } from '../aircraft/schema.ts';
 import { calculate, runHandCases } from '../engine/index.ts';
 import { validateAircraft } from '../aircraft/validate.ts';
@@ -162,7 +163,7 @@ function checkOfProblem(problem: string): string {
 }
 
 /** All named checks, passing or not, so the admin can show what is done as well as what is left. */
-export function checkList(data: unknown): CheckResult & { aircraft: Aircraft | null; checks: Check[] } {
+export function checkList(data: unknown, rules?: OperatorRules): CheckResult & { aircraft: Aircraft | null; checks: Check[] } {
 	const found = new Map<string, string[]>();
 	const add = (id: string, problem: string) => found.set(id, [...(found.get(id) ?? []), problem]);
 	const v = validateAircraft(data);
@@ -173,7 +174,7 @@ export function checkList(data: unknown): CheckResult & { aircraft: Aircraft | n
 	} else {
 		const a = v.aircraft;
 		try {
-			runHandCases(a).forEach((f) => add('cases-match', `Case ${f.caseId}, ${f.field}: expected ${String(f.expected)}, got ${String(f.actual)}`));
+			runHandCases(withRules(a, rules)).forEach((f) => add('cases-match', `Case ${f.caseId}, ${f.field}: expected ${String(f.expected)}, got ${String(f.actual)}`));
 			coverageProblems(a).forEach((p) => add('cases-cover', p));
 			tableCheckProblems(a).forEach((p) => add('tables-compared', p));
 		} catch (error) {
@@ -191,7 +192,8 @@ export function checkList(data: unknown): CheckResult & { aircraft: Aircraft | n
 	return { problems, unusual, aircraft: v.ok ? v.aircraft : null, checks };
 }
 
-export function publishChecks(data: unknown): CheckResult & { aircraft: Aircraft | null } {
-	const { problems, unusual, aircraft } = checkList(data);
+/** `rules`: the Operator Rules the release will carry, so the hand-calculated cases are checked with them. */
+export function publishChecks(data: unknown, rules?: OperatorRules): CheckResult & { aircraft: Aircraft | null } {
+	const { problems, unusual, aircraft } = checkList(data, rules);
 	return { problems, unusual, aircraft };
 }

@@ -320,3 +320,76 @@ describe('unit conversion', () => {
 		expect(() => convertTemperature(1, 'K', 'C')).toThrow();
 	});
 });
+
+describe('operator rules', () => {
+	const dr = load('test-dr-style');
+	const rules = { wind: { tailwind: { percent: 10, perKnots: 2, maxKnots: 10 } }, aboveTable: { takeoffPercentPer1000ft: 10, landingPercentPer1000ft: 5, alertAboveM: 500 } };
+	const withR = (r: object = rules): Aircraft => ({ ...dr, operatorRules: r as Aircraft['operatorRules'] });
+	const at = (m: number, over: Partial<CalculationInput> = {}) => baseInput(dr, { elevation: { value: m, unit: 'm' }, oat: 0, ...over });
+	// Independent of the engine: ISA pressure ratio from the metre form of the formula.
+	const sigma = (m: number) => Math.pow(1 - (0.0065 * m) / 288.15, 5.25588);
+	const extendStep = (a: Aircraft, input: CalculationInput) => calculate(a, input).takeoff.steps.find((s) => s.type === 'extend');
+
+	it('gives no result above the table without a rule, as before', () => {
+		expect(calculate(dr, at(1707)).takeoff.status).toBe('noResult');
+	});
+
+	it('carries the top row on by the table\'s own trend with air density when that is the larger', () => {
+		const n = Math.log(610 / 520) / Math.log(sigma(1000) / sigma(1500));
+		const density = Math.pow(sigma(1500) / sigma(1707), n), rule = Math.pow(1.1, (1707 - 1500) / 0.3048 / 1000);
+		expect(density).toBeGreaterThan(rule);
+		const step = extendStep(withR(), at(1707))!;
+		expect(step.source).toBe('operator');
+		expect(step.total!).toBeCloseTo(610 * density, 0);
+		expect(calculate(withR(), at(1707)).takeoff.warnings.some((w) => w.includes('extended by the Operator rule'))).toBe(true);
+	});
+
+	it('uses the percentage per 1000 ft when the table rises less than that', () => {
+		const steep = { ...rules, aboveTable: { ...rules.aboveTable, takeoffPercentPer1000ft: 30 } };
+		const step = extendStep(withR(steep), at(1707))!;
+		expect(step.total!).toBeCloseTo(610 * Math.pow(1.3, (1707 - 1500) / 0.3048 / 1000), 1);
+	});
+
+	it('has no limit, but alerts more than the set height above the table', () => {
+		const r = calculate(withR(), at(2200)).takeoff;
+		expect(r.status).toBe('ok');
+		expect(r.warnings.some((w) => w.includes('more than 500 m'))).toBe(true);
+		expect(calculate(withR(), at(1900)).takeoff.warnings.some((w) => w.includes('more than 500 m'))).toBe(false);
+	});
+
+	it('marks the extended row in the table the pilot sees', () => {
+		const lookup = calculate(withR(), at(1707)).takeoff.steps[0].lookup!;
+		expect(lookup.extended).toMatchObject({ axis: 0 });
+		expect(lookup.extended!.aboveBy).toBeCloseTo(207, 0);
+	});
+
+	it('applies the operator\'s wind where the manual has none: a tailwind adds, no headwind credit', () => {
+		const tail = calculate(withR(), baseInput(dr, { windDirection: 180, windSpeed: 3 })).takeoff;
+		const still = calculate(withR(), baseInput(dr)).takeoff;
+		expect(tail.rawTotal!).toBeCloseTo(still.rawTotal! * 1.15, 6);
+		expect(tail.rawGroundRoll!).toBeCloseTo(still.rawGroundRoll! * 1.15, 6);
+		expect(tail.steps.at(-1)).toMatchObject({ type: 'wind', source: 'operator' });
+		const head = calculate(withR(), baseInput(dr, { windSpeed: 12 })).takeoff;
+		expect(head.rawTotal).toBe(still.rawTotal);
+		expect(head.steps.at(-1)!.detail).toContain('no credit');
+		expect(head.warnings).not.toContain('Wind recorded. It did not change this distance.');
+	});
+
+	it('takes headwind credit when the rule has it, and gives no result above the tailwind limit', () => {
+		const credit = withR({ wind: { headwind: { percent: 10, perKnots: 12 }, tailwind: { percent: 10, perKnots: 2, maxKnots: 10 } } });
+		const still = calculate(credit, baseInput(dr)).takeoff;
+		expect(calculate(credit, baseInput(dr, { windSpeed: 12 })).takeoff.rawTotal!).toBeCloseTo(still.rawTotal! * 0.9, 6);
+		expect(calculate(credit, baseInput(dr, { windDirection: 180, windSpeed: 11 })).takeoff.status).toBe('noResult');
+	});
+
+	it('applies to landing too', () => {
+		const still = calculate(withR(), baseInput(dr)).landing, tail = calculate(withR(), baseInput(dr, { windDirection: 180, windSpeed: 4 })).landing;
+		expect(tail.rawTotal ?? tail.rawGroundRoll).toBeCloseTo((still.rawTotal ?? still.rawGroundRoll)! * 1.2, 6);
+	});
+
+	it('never replaces a manual\'s own wind correction', () => {
+		const sr = load('test-sr22-style');
+		const input = { ...baseInput(sr), takeoffCondition: sr.performance.takeoff[0].id, landingCondition: sr.performance.landing[0].id, windDirection: 180, windSpeed: 4 };
+		expect(calculate({ ...sr, operatorRules: rules }, input).takeoff).toEqual(calculate(sr, input).takeoff);
+	});
+});

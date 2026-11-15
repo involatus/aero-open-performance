@@ -1,6 +1,6 @@
 # Aircraft data format and calculation rules
 
-Format version 0.1.0. This document is the complete definition of how an aircraft file is read and calculated. Another implementation must be able to produce the same results from this document alone. The machine-readable shape is in [schema/aircraft.schema.json](../schema/aircraft.schema.json), and examples are in [aircraft-examples/](../aircraft-examples/). All example values are invented.
+Format version 0.2.0. Version 0.2.0 added Operator Rules to the release index; aircraft files are unchanged, and 0.1.0 files are still read. This document is the complete definition of how an aircraft file is read and calculated. Another implementation must be able to produce the same results from this document alone. The machine-readable shape is in [schema/aircraft.schema.json](../schema/aircraft.schema.json), and examples are in [aircraft-examples/](../aircraft-examples/). All example values are invented.
 
 One strict JSON file describes one registered aircraft. Unknown fields are errors. Every value stays in the manual's own units. Nothing has a hidden default.
 
@@ -187,7 +187,27 @@ A result's warnings are counted as follows, with no merging of identical ones:
 
 - Each axis using `nearestWarn` adds one, as does each wind rule using it.
 - `assumes` (`text`, `inputs`) adds one when `inputs` is empty, or when any listed input is missing or differs from its `value` by more than `EPSILON` in its `unit`. The result is still shown.
-- A chain with no `wind` step adds one, saying the wind was recorded and did not change the distance.
+- A chain with no `wind` step adds one, saying the wind was recorded and did not change the distance, unless an Operator wind rule applied.
+- An extension above a table adds one, and a second when it is more than `alertAboveM` above the table.
+
+### Operator Rules
+
+The release index may hold `operatorRules`, the operator's own corrections. The app adds them to every aircraft in the release; an aircraft file never holds them. They apply only where the manual gives nothing, and their steps carry the source `operator`, shown as "Operator rule".
+
+**`wind`** (`headwind?: { percent, perKnots }`, `tailwind?: { percent, perKnots, maxKnots? }`): for a chain with no `wind` step. After the last step, both `total` and `groundRoll` are multiplied as a proportional `wind` rule would, with `above: none` for `maxKnots`. With no `headwind`, a headwind gives no credit, and the working says so. Wind is then required, as for a `wind` step.
+
+**`aboveTable`** (`takeoffPercentPer1000ft`, `landingPercentPer1000ft`, `alertAboveM`): for an axis whose input is `pressureAltitude`, `densityAltitude` or `elevation`, with `above: none` and at least two values, when the input is above the last value. Only the first such axis of a lookup is extended. The lookup reads the table at the last value, giving `D_top`, and at the one before it, giving `D_below`, with every other axis as usual. Each output is then multiplied by the larger of:
+
+```
+σ(h)    = (1 − h_ft / 145366.45)^(1 / 0.190284)       pressure altitude or elevation
+σ(h)    = (1 − h_ft / 145442.16)^(1 / 0.234969)       density altitude
+n       = ln(D_top / D_below) / ln(σ(h_below) / σ(h_top)),   or 0 unless D_top > D_below > 0
+density = (σ(h_top) / σ(h))^n
+rule    = (1 + percent / 100)^((h_ft − h_top_ft) / 1000)     percent for the phase
+```
+
+`density` carries the table's own trend with air density; `rule` is the operator's minimum (UK CAA Safety Sense Leaflet 09: 10% takeoff, 5% landing per 1000 ft). There is no upper limit.
+
 
 ## Data Releases
 
@@ -198,7 +218,7 @@ index.json
 releases/<release>/<registration>.json
 ```
 
-`index.json` has `formatVersion`, `operator`, `release` (a whole number), `published`, optional `notes`, and `aircraft`. Each entry has `registration`, `type`, `revision`, optional `changes`, and either `file` and `sha256`, or `withdrawn: { reason }`.
+`index.json` has `formatVersion`, `operator`, `release` (a whole number), `published`, optional `notes`, optional `operatorRules` (see Operator Rules), and `aircraft`. Each entry has `registration`, `type`, `revision`, optional `changes`, and either `file` and `sha256`, or `withdrawn: { reason }`.
 
 `sha256` is the SHA-256, as lowercase hex, of the file's parsed JSON in RFC 8785 canonical form, so formatting doesn't affect it.
 

@@ -1,6 +1,7 @@
 /** What the admin GUI can do. Separate from the framework, so every rule can be tested. */
 import { draftId } from '../admin/editing.ts';
 import { formatIsReadable } from '../aircraft/validate.ts';
+import { parseRules, sameRules, type OperatorRules } from '../aircraft/operator-rules.ts';
 import { buildRelease, nextReleaseNumber, type DraftInput } from '../data/build-release.ts';
 import { unusualValues } from '../data/publish-checks.ts';
 import { parseIndex, type Change, type ReleaseIndex } from '../data/release.ts';
@@ -9,7 +10,7 @@ import { validateAircraft } from '../aircraft/validate.ts';
 import { AlreadyExists, VersionConflict, type Storage } from './storage/index.ts';
 
 export type Draft = { aircraft: unknown; updatedBy: string; updatedAt: string };
-export type Settings = { operator: string };
+export type Settings = { operator: string; operatorRules?: OperatorRules };
 export class AdminError extends Error {
 	constructor(public status: number, message: string) { super(message); }
 }
@@ -24,11 +25,15 @@ const draftPath = (id: string) => {
 export async function getSettings(s: Storage): Promise<Settings> {
 	return (await s.get<Settings>(SETTINGS))?.data ?? { operator: '' };
 }
+/** Operator Rules reach pilots only with the next release. */
 export async function saveSettings(s: Storage, settings: Settings) {
 	const operator = String(settings?.operator ?? '').trim();
 	if (!operator) throw new AdminError(400, 'Enter the Operator name.');
-	await s.put(SETTINGS, { operator });
-	return { operator };
+	const rules = parseRules(settings?.operatorRules);
+	if (!rules.ok) throw new AdminError(400, rules.problem);
+	const saved: Settings = rules.rules ? { operator, operatorRules: rules.rules } : { operator };
+	await s.put(SETTINGS, saved);
+	return saved;
 }
 
 export async function latestIndex(s: Storage): Promise<ReleaseIndex | null> {
@@ -99,8 +104,13 @@ export async function publish(s: Storage, request: { notes?: string; withdraw?: 
 		if (Array.isArray(request?.include) && !request.include.includes(name)) continue;
 		if (stored) drafts.push({ name, data: stored.data.aircraft });
 	}
+	// Changed rules apply to every aircraft, so every one is checked with them before pilots get them.
+	if (previousIndex && !sameRules(previousIndex.operatorRules, settings.operatorRules) && Array.isArray(request?.include)) {
+		const all = (await s.list('drafts/')).map((path) => path.slice('drafts/'.length, -'.json'.length));
+		if (all.some((name) => !request.include!.includes(name))) return { ok: false as const, problems: ['The Operator rules changed. Publish all aircraft together, so each one is checked with the new rules.'] };
+	}
 	const release = nextReleaseNumber(previousIndex);
-	const built = await buildRelease({ drafts, previous: previousIndex, release, operator: settings.operator, notes: request?.notes, withdraw: request?.withdraw, carryOver: true, now });
+	const built = await buildRelease({ drafts, previous: previousIndex, release, operator: settings.operator, operatorRules: settings.operatorRules, notes: request?.notes, withdraw: request?.withdraw, carryOver: true, now });
 	if (!built.ok) return built;
 	for (const file of built.files) await s.put(`published/${file.path}`, file.data, { ifVersion: null });
 	try {

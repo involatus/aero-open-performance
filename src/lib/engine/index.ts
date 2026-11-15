@@ -72,7 +72,7 @@ export function calculate(a: Aircraft, input: CalculationInput): Calculation {
 		const condition = conditions.find((c) => c.id === id);
 		if (!condition) throw new Error(`Unknown ${phase} condition: ${id}`);
 		const at = phase === 'landing' && landingAt ? landingAt : departure;
-		return runCondition(a, condition, { atm: at.atmosphere, oat: at.oat, elevationM: at.elevationM, mass, massUnit: a.units.mass, wind: at.distanceWind });
+		return runCondition(a, condition, { atm: at.atmosphere, oat: at.oat, elevationM: at.elevationM, mass, massUnit: a.units.mass, wind: at.distanceWind, phase });
 	};
 
 	return {

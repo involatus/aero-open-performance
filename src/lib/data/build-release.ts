@@ -4,6 +4,7 @@
  */
 import { FORMAT_VERSION } from '../aircraft/schema.ts';
 import { sha256 } from './canonical.ts';
+import type { OperatorRules } from '../aircraft/operator-rules.ts';
 import { publishChecks } from './publish-checks.ts';
 import { describeChanges, parseIndex, type Change, type ReleaseEntry, type ReleaseIndex } from './release.ts';
 
@@ -14,6 +15,8 @@ export type ReleaseRequest = {
 	release: number;
 	operator: string;
 	notes?: string;
+	/** Carried by the index to every aircraft, and used for the hand-calculated cases. */
+	operatorRules?: OperatorRules;
 	withdraw?: Record<string, string>;
 	/** Keeps every previously published aircraft that isn't in `drafts` or `withdraw`, unchanged. */
 	carryOver?: boolean;
@@ -38,7 +41,7 @@ export async function buildRelease(r: ReleaseRequest): Promise<BuiltRelease> {
 	const dir = `releases/${r.release}`;
 	const seen = new Set<string>();
 	for (const draft of r.drafts) {
-		const checks = publishChecks(draft.data);
+		const checks = publishChecks(draft.data, r.operatorRules);
 		checks.problems.forEach((p) => problems.push(`${draft.name}: ${p}`));
 		const a = checks.aircraft;
 		if (!a) continue;
@@ -63,6 +66,6 @@ export async function buildRelease(r: ReleaseRequest): Promise<BuiltRelease> {
 	if (problems.length) return { ok: false, problems };
 
 	const notes = r.notes?.trim();
-	const index = parseIndex({ formatVersion: FORMAT_VERSION, operator: r.operator.trim(), release: r.release, published: new Date(r.now).toISOString(), ...(notes ? { notes } : {}), aircraft: entries });
+	const index = parseIndex({ formatVersion: FORMAT_VERSION, operator: r.operator.trim(), release: r.release, published: new Date(r.now).toISOString(), ...(notes ? { notes } : {}), ...(r.operatorRules ? { operatorRules: r.operatorRules } : {}), aircraft: entries });
 	return { ok: true, index, files, changes: describeChanges(r.previous, index) };
 }

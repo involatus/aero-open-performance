@@ -19,6 +19,8 @@
 	import { blankInput, caseCoverage, caseSummaries, newHandCase } from '#lib/admin/hand-cases.ts';
 	import { defaultSource, draftId, makeId } from '#lib/admin/editing.ts';
 	import type { AdminStatus, Overview } from '#lib/server/admin-requests.ts';
+	import { withRules, type OperatorRules } from '#lib/aircraft/operator-rules.ts';
+	import OperatorRulesEditor from '#lib/components/admin/OperatorRulesEditor.svelte';
 	import { NEW_AIRCRAFT, copyForNewAircraft, emptyCells } from '#lib/admin/table-grid.ts';
 	import TableVerify from '#lib/components/admin/TableVerify.svelte';
 	import { tableCheckState } from '#lib/data/table-check.ts';
@@ -43,6 +45,9 @@
 	let newName = $state('');
 	let copyFrom = $state('');
 	let operator = $state('');
+	let operatorRules = $state<OperatorRules | undefined>(undefined);
+	/** The rules the next release will carry, so the editor's checks match what publishing will check. */
+	let savedRules = $derived(overview?.settings.operatorRules);
 	let notes = $state('');
 	let withdrawReg = $state('');
 	let chosen = $state<string[]>([]);
@@ -87,7 +92,7 @@
 	let section = $derived(SECTIONS.find((x) => x.id === tab)!);
 	let Editor = $derived(EDITORS[tab]);
 	// Rerun on every change, so the sidebar always says what still blocks publishing.
-	let liveChecks = $derived.by(() => { if (!editing) return null; try { return checkList($state.snapshot(editing.aircraft)); } catch { return null; } });
+	let liveChecks = $derived.by(() => { if (!editing) return null; try { return checkList($state.snapshot(editing.aircraft), savedRules); } catch { return null; } });
 	let failing = $derived(liveChecks?.checks.filter((c) => c.status === 'fail') ?? []);
 	/** A section is red while a check it fixes fails, green once they pass, and grey when nothing checks it yet. */
 	function sectionStatus(id: string): Check['status'] | 'none' {
@@ -123,7 +128,7 @@
 	let nextRelease = $derived((overview?.index?.release ?? 0) + 1);
 	// Pilots can only lose an aircraft through a withdrawal, so every published one can be withdrawn.
 	let withdrawable = $derived([...new Set([...(overview?.index?.aircraft.filter((e) => !e.withdrawn).map((e) => e.registration) ?? []), ...(overview?.drafts.map((d) => d.registration).filter(Boolean) ?? [])])]);
-	let parsed = $derived.by(() => { if (!editing) return null; const v = validateAircraft($state.snapshot(editing.aircraft)); return v.ok ? v.aircraft : null; });
+	let parsed = $derived.by(() => { if (!editing) return null; const v = validateAircraft($state.snapshot(editing.aircraft)); return v.ok ? withRules(v.aircraft, savedRules) : null; });
 	let validationProblems = $derived.by(() => { if (!editing) return []; const v = validateAircraft($state.snapshot(editing.aircraft)); return v.ok ? [] : v.problems; });
 	let isFictional = $derived(editing?.aircraft?.fictional === true);
 	let tableIds = $derived(editing ? Object.keys(editing.aircraft.tables ?? {}) : []);
@@ -142,6 +147,7 @@
 	async function refresh() {
 		overview = await api('overview');
 		operator = overview!.settings.operator;
+		operatorRules = overview!.settings.operatorRules;
 	}
 	onMount(() => {
 		(async () => {
@@ -230,7 +236,7 @@
 		confirmDelete = null;
 		run(async () => { await api('deleteDraft', { id }); await refresh(); });
 	};
-	const saveOperator = () => run(async () => { await api('saveSettings', { settings: { operator } }); await refresh(); showSettings = false; message = 'Saved.'; });
+	const saveOperator = () => run(async () => { await api('saveSettings', { settings: { operator, operatorRules: $state.snapshot(operatorRules) } }); await refresh(); showSettings = false; message = 'Saved.'; });
 	const publish = () => run(async () => {
 		const withdraw = withdrawReg ? { [withdrawReg]: withdrawReason } : undefined;
 		const result = await api('publish', { notes, withdraw, include: chosen });
@@ -686,6 +692,7 @@
 {#snippet settingsBody()}
 	<div class="flex flex-col gap-3">
 		<label class="adm-field">Operator, the name shown on reports and data<input class="adm" bind:value={operator} /></label>
+		<OperatorRulesEditor rules={operatorRules} onchange={(r) => (operatorRules = r)} />
 		<div class="flex justify-end gap-2">
 			<Dialog.Close class="min-h-11 rounded-lg border border-line-strong bg-surface px-4 font-semibold">Cancel</Dialog.Close>
 			<Button variant="primary" disabled={working} onclick={saveOperator}>Save</Button>

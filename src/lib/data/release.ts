@@ -2,6 +2,7 @@
 import * as v from 'valibot';
 import { FORMAT_VERSION, type Aircraft } from '../aircraft/schema.ts';
 import { formatIsReadable, validateAircraft } from '../aircraft/validate.ts';
+import { OperatorRules, sameRules, withRules } from '../aircraft/operator-rules.ts';
 import { sha256 } from './canonical.ts';
 
 const Text = v.pipe(v.string(), v.minLength(1));
@@ -20,6 +21,8 @@ export const ReleaseIndex = v.strictObject({
 	release: v.pipe(v.number(), v.integer(), v.minValue(1)),
 	published: Text,
 	notes: v.optional(Text),
+	/** The operator's own corrections, applied to every aircraft where its manual gives none. */
+	operatorRules: v.optional(OperatorRules),
 	aircraft: v.array(Entry)
 });
 export type ReleaseIndex = v.InferOutput<typeof ReleaseIndex>;
@@ -109,6 +112,7 @@ export function describeChanges(installed: ReleaseIndex | null, next: ReleaseInd
 		before.delete(e.registration);
 	}
 	for (const registration of before.keys()) changes.push({ registration, text: 'Removed from the data' });
+	if (!sameRules(installed?.operatorRules, next.operatorRules)) changes.push({ registration: 'All aircraft', text: next.operatorRules ? 'Operator rules changed' : 'Operator rules removed' });
 	return changes;
 }
 
@@ -119,4 +123,9 @@ export function withdrawalReason(installed: ReleaseIndex | null, seen: ReleaseIn
 		if (reason) return reason;
 	}
 	return null;
+}
+
+/** The installed aircraft as the engine runs them: each with the release's Operator Rules. */
+export function aircraftWithRules(data: InstalledData | null) {
+	return (data?.aircraft ?? []).map((a) => withRules(a, data!.index.operatorRules));
 }

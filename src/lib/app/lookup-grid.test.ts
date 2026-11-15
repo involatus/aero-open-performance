@@ -48,6 +48,13 @@ describe('the table a result came from', () => {
 		expect(g.rows[0].head).toMatchObject({ marker: true, note: 'Altitude -100 m is outside the table: uses 0 m' });
 	});
 
+	it('says when the Operator rule carries the table on above its top row', () => {
+		const lookup = { ...at(dr, 'hard', 1500, 15), at: [1707, 15], extended: { axis: 0, aboveBy: 207, density: 1.07, rule: 1.06, factor: 1.07 } };
+		lookup.brackets[0] = { ...lookup.brackets[0], clamped: true };
+		const g = lookupView(dr, lookup)!.grids[0];
+		expect(g.rows.at(-1)!.head).toMatchObject({ marker: true, note: 'Altitude 1707 m is above the table: reads 1500 m, then extended by the Operator rule' });
+	});
+
 	it('shows a one-axis table as one row', () => {
 		const v = lookupView(dr, at(dr, 'landing', 700))!;
 		const g = v.grids[0];

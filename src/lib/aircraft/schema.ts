@@ -3,8 +3,9 @@
  * Every choice is required: nothing here has a hidden default.
  */
 import * as v from 'valibot';
+import type { OperatorRules } from './operator-rules.ts';
 
-export const FORMAT_VERSION = '0.1.0';
+export const FORMAT_VERSION = '0.2.0';
 
 const Text = v.pipe(v.string(), v.minLength(1));
 const Id = v.pipe(v.string(), v.regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/));
@@ -230,7 +231,8 @@ export const Aircraft = v.strictObject({
 	acknowledgedUnusualValues: v.optional(v.array(Text))
 });
 
-export type Aircraft = v.InferOutput<typeof Aircraft>;
+/** An aircraft file, plus the release's Operator Rules once the app has added them. A file never holds rules. */
+export type Aircraft = v.InferOutput<typeof Aircraft> & { operatorRules?: OperatorRules };
 export type CalculationInput = v.InferOutput<typeof CalculationInput>;
 export type Table = v.InferOutput<typeof Table>;
 export type Axis = v.InferOutput<typeof Axis>;

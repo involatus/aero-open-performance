@@ -18,10 +18,11 @@ const number = (x: number) => (Number.isInteger(x) ? String(x) : Math.abs(x) >= 
 const value = (x: number) => (Number.isInteger(x) ? String(x) : x.toFixed(1));
 
 /** Printed values, plus a marker where the input falls between two of them. An input on a value marks that value. */
-function heads(axis: Axis, x: number, b: Bracket): GridHead[] {
+function heads(axis: Axis, x: number, b: Bracket, extended = false): GridHead[] {
 	const out: GridHead[] = axis.values.map((v) => ({ text: number(v), marker: false, note: '' }));
 	if (b.clamped) {
-		out[b.low] = { ...out[b.low], marker: true, note: `${axis.name} ${number(x)} ${unitText(axis.unit)} is outside the table: uses ${number(axis.values[b.low])} ${unitText(axis.unit)}` };
+		const u = unitText(axis.unit), at = `${axis.name} ${number(x)} ${u}`, top = `${number(axis.values[b.low])} ${u}`;
+		out[b.low] = { ...out[b.low], marker: true, note: extended ? `${at} is above the table: reads ${top}, then extended by the Operator rule` : `${at} is outside the table: uses ${top}` };
 		return out;
 	}
 	if (b.low === b.high) { out[b.low] = { ...out[b.low], marker: true }; return out; }
@@ -37,18 +38,18 @@ function positions(b: Bracket, length: number): Array<number | null> {
 }
 
 /** One grid for the last two axes. Leading axes, such as mass on a three-axis table, each give a slice. */
-function grid(title: string, rowAxis: Axis | null, colAxis: Axis, cells: unknown, at: number[], brackets: Bracket[]): LookupGrid {
+function grid(title: string, rowAxis: Axis | null, colAxis: Axis, cells: unknown, at: number[], brackets: Bracket[], extendedAt: number | null = null): LookupGrid {
 	const rb: Bracket = rowAxis ? brackets[0] : { low: 0, high: 0, fraction: 0, clamped: false, warn: false };
 	const cb = brackets[rowAxis ? 1 : 0], cx = at[rowAxis ? 1 : 0];
 	const rows2d = (rowAxis ? cells : [cells]) as number[][];
 	const rowPos = positions(rb, rows2d.length), colPos = positions(cb, colAxis.values.length);
-	const rowHeads = rowAxis ? heads(rowAxis, at[0], rb) : [{ text: '', marker: true, note: '' }];
+	const rowHeads = rowAxis ? heads(rowAxis, at[0], rb, extendedAt === 0) : [{ text: '', marker: true, note: '' }];
 	const resultValue = interpolate(rows2d, [rb, cb]);
 	return {
 		title,
 		rowAxis: rowAxis ? axisText(rowAxis) : '',
 		colAxis: axisText(colAxis),
-		colHeads: heads(colAxis, cx, cb),
+		colHeads: heads(colAxis, cx, cb, extendedAt === (rowAxis ? 1 : 0)),
 		rows: rowPos.map((r, ri) => ({
 			head: rowHeads[ri],
 			cells: colPos.map((c) => {
@@ -80,7 +81,7 @@ export function lookupView(a: Aircraft, lookup: LookupTrace): LookupView | null 
 		const b = leadB[i], picks = b.low === b.high ? [b.low] : [b.low, b.high];
 		slices = slices.flatMap((s) => picks.map((p) => ({ idx: [...s.idx, p], label: [...s.label, `${axis.name} ${number(axis.values[p])} ${unitText(axis.unit)}`] })));
 	});
-	const grids = slices.map((s) => grid(s.label.join(', '), rowAxis, colAxis, s.idx.reduce<unknown>((node, i) => (node as unknown[])[i], cells), restAt, restB));
+	const grids = slices.map((s) => grid(s.label.join(', '), rowAxis, colAxis, s.idx.reduce<unknown>((node, i) => (node as unknown[])[i], cells), restAt, restB, lookup.extended ? lookup.extended.axis - lead.length : null));
 
 	const interpolated = lead.filter((_, i) => leadB[i].low !== leadB[i].high);
 	const between = interpolated.length

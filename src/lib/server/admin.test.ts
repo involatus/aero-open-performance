@@ -109,6 +109,26 @@ describe('publishing', () => {
 		expect((await latestIndex(s))?.release).toBe(1);
 		expect(await s.list('published/releases/2')).toEqual([]);
 	});
+	it('publishes the Operator rules with the release, checked against every aircraft when they change', async () => {
+		await saveDraft(s, 'TEST-DR', { aircraft: raw('test-dr-style') }, ADMIN, NOW);
+		await publish(s, {}, ADMIN, NOW);
+		const rules = { aboveTable: { takeoffPercentPer1000ft: 10, landingPercentPer1000ft: 5, alertAboveM: 500 } };
+		await expect(saveSettings(s, { operator: 'Test club', operatorRules: { aboveTable: { takeoffPercentPer1000ft: -1 } } as never })).rejects.toThrow('Operator rules are not valid');
+		await saveSettings(s, { operator: 'Test club', operatorRules: rules });
+		const partial = await publish(s, { include: ['TEST-KF'] }, ADMIN, NOW + 1);
+		expect(partial.ok).toBe(false);
+		if (!partial.ok) expect(partial.problems.join()).toContain('Publish all aircraft together');
+		// A hand-calculated case that expected no result above the table now gets one, so it must be redone first.
+		const stale = await publish(s, { include: ['TEST-KF', 'TEST-DR'] }, ADMIN, NOW + 2);
+		if (!stale.ok) expect(stale.problems.join()).toContain('dr-outside, takeoff.status: expected noResult, got ok');
+		else throw new Error('should not publish');
+		await deleteDraft(s, 'TEST-DR');
+		const all = await publish(s, { include: ['TEST-KF'] }, ADMIN, NOW + 3);
+		if (!all.ok) throw new Error(all.problems.join('\n')); expect(all.changes).toContainEqual({ registration: 'All aircraft', text: 'Operator rules changed' });
+		expect((await latestIndex(s))?.operatorRules).toEqual(rules);
+		// The aircraft files stay as they were, so pilots' copies still match their checksums.
+		expect((await listDrafts(s))[0].published?.same).toBe(true);
+	});
 	it('needs the Operator name', async () => {
 		const empty = memoryStorage();
 		await saveDraft(empty, 'TEST-KF', { aircraft: raw('test-kitfox-style') }, ADMIN, NOW);

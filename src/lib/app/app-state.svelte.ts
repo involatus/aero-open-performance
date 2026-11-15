@@ -1,7 +1,7 @@
 /** Open Calculations, saved on this device. Nothing here leaves the device. */
 import * as idb from 'idb-keyval';
 import { reconcileAfterInstall, type Calculation } from './calculation.ts';
-import { ReleaseError, downloadRelease, offersUpdate, parseIndex, shouldCheck, verifyInstalled, withdrawalReason, type InstalledData, type ReleaseIndex } from '../data/release.ts';
+import { ReleaseError, aircraftWithRules, downloadRelease, offersUpdate, parseIndex, shouldCheck, verifyInstalled, withdrawalReason, type InstalledData, type ReleaseIndex } from '../data/release.ts';
 import { isExpired, type Delivery, type StoredReport } from '../report/report.ts';
 import { makeReport, type ReportSource, type ReportTools } from '../report/make-report.ts';
 
@@ -38,9 +38,8 @@ export class AppState {
 	installing = $state(false);
 	checking = $state(false);
 
-	get aircraft() {
-		return this.data?.aircraft ?? [];
-	}
+	/** With the release's Operator Rules. Worked out once per installed release, so views see stable objects. */
+	aircraft = $derived(aircraftWithRules(this.data));
 	get pending(): ReleaseIndex | null {
 		return this.seen && this.data && offersUpdate(this.data.index, this.seen) ? this.seen : null;
 	}

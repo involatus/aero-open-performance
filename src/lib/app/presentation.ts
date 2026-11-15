@@ -2,6 +2,7 @@
  * What the pilot reads about a result, worded once. The screen and the Report both use this,
  * so they can't drift apart. Calculations stay in the engine; this only turns them into text.
  */
+import { OPERATOR_SOURCE, OPERATOR_SOURCE_TEXT } from '../aircraft/operator-rules.ts';
 import type { Aircraft, WindForDistances } from '../aircraft/schema.ts';
 import type { Calculation } from './calculation.ts';
 import type { Calculation as Results } from '../engine/index.ts';
@@ -88,6 +89,7 @@ export function workingRows(a: Aircraft, r: PerformanceResult): WorkingRow[] {
 }
 
 export function sourceText(a: Aircraft, id: string | undefined): string {
+	if (id === OPERATOR_SOURCE) return OPERATOR_SOURCE_TEXT;
 	const s = id ? a.sources[id] : undefined;
 	if (!s) return '';
 	return [s.document, s.revision && `Rev. ${s.revision}`, s.page && `p. ${s.page}`].filter(Boolean).join(' ');
