@@ -2,6 +2,7 @@
  * Airfields from OurAirports, a community database kept on the device for offline use.
  * Every value it gives is a Prefilled Value the pilot checks against official sources.
  */
+import { M_PER_FT } from '../engine/units.ts';
 export type RunwayEnd = { designator: string; number: number; surface: string; surfaceKind: SurfaceKind; lengthM: number | null };
 export type Airfield = { ident: string; name: string; elevationFt: number | null; lat: number; lon: number; runways: RunwayEnd[] };
 export type AirfieldData = { source: string; date: string; airfields: Airfield[] };
@@ -31,7 +32,7 @@ export function parseAirfields(raw: Raw): AirfieldData {
 		ident, name, elevationFt, lat, lon,
 		runways: rws.flatMap(([le, he, surface, lengthFt]) => [le, he].flatMap((d) => {
 			const number = runwayNumber(d);
-			return number === null ? [] : [{ designator: d, number, surface, surfaceKind: surfaceKind(surface), lengthM: lengthFt === null ? null : Math.round(lengthFt * 0.3048) }];
+			return number === null ? [] : [{ designator: d, number, surface, surfaceKind: surfaceKind(surface), lengthM: lengthFt === null ? null : Math.round(lengthFt * M_PER_FT) }];
 		}))
 	}));
 	return { source: raw.source, date: raw.date, airfields };

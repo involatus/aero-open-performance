@@ -5,6 +5,7 @@
 import type { Aircraft, CalculationInput, Condition, Performance, WindForDistances } from '../aircraft/schema.ts';
 import type { Airfield, RunwayEnd } from '../airfield/airfields.ts';
 import type { Calculation as Results } from '../engine/index.ts';
+import { M_PER_FT } from '../engine/units.ts';
 import { parseMetar } from '../weather/metar.ts';
 import type { WeatherReport } from '../weather/provider.ts';
 
@@ -261,7 +262,7 @@ export function applyWeather(calc: Calculation, report: WeatherReport, now: numb
 export function applyAirfield(calc: Calculation, airfield: Airfield, date: string, place: Place = 'departure') {
 	const source = `airfield list ${airfield.ident}, ${date}`, k = (key: string) => keyAt(place, key);
 	if (airfield.elevationFt !== null) {
-		const value = calc.elevationUnit === 'ft' ? airfield.elevationFt : Math.round(airfield.elevationFt * 0.3048);
+		const value = calc.elevationUnit === 'ft' ? airfield.elevationFt : Math.round(airfield.elevationFt * M_PER_FT);
 		prefill(calc, k('elev'), String(value), source);
 	}
 	if (!calc.values[k('place')]) calc.values[k('place')] = `${airfield.ident} ${airfield.name}`;

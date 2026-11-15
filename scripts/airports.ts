@@ -25,7 +25,14 @@ function parseCsv(text: string): Record<string, string>[] {
 	return body.filter((r) => r.length === head.length).map((r) => Object.fromEntries(head.map((h, i) => [h, r[i]])));
 }
 
-const get = async (name: string) => parseCsv(await (await fetch(`${BASE}/${name}.csv`)).text());
+// A failed download must never replace the shipped list with an empty one.
+const get = async (name: string) => {
+	const response = await fetch(`${BASE}/${name}.csv`);
+	if (!response.ok) throw new Error(`${name}.csv: HTTP ${response.status}`);
+	const rows = parseCsv(await response.text());
+	if (!rows.length) throw new Error(`${name}.csv has no rows`);
+	return rows;
+};
 const [airports, runways] = await Promise.all([get('airports'), get('runways')]);
 
 const byAirport = new Map<string, Record<string, string>[]>();
@@ -39,5 +46,6 @@ const list = airports
 	.map((a) => [a.ident, a.name, num(a.elevation_ft), Number(Number(a.latitude_deg).toFixed(3)), Number(Number(a.longitude_deg).toFixed(3)),
 		byAirport.get(a.id)!.map((r) => [r.le_ident, r.he_ident, r.surface, num(r.length_ft)])]);
 
+if (list.length < 1000) throw new Error(`Only ${list.length} airfields: not replacing static/airports.json`);
 writeFileSync('static/airports.json', JSON.stringify({ source: 'OurAirports, public domain', date: new Date().toISOString().slice(0, 10), airports: list }));
 console.log(`Wrote ${list.length} airfields to static/airports.json`);

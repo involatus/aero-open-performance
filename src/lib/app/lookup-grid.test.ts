@@ -73,3 +73,15 @@ describe('the table a result came from', () => {
 		expect(v.between).toContain(`lies between these tables: ${(low + high) / 2}`);
 	});
 });
+
+describe('an extended leading axis', () => {
+	it('says so in the slice title when altitude is not one of the last two axes', () => {
+		const sr = aircraft('test-sr22-style');
+		const t = structuredClone(sr);
+		const axes = t.tables.takeoff.axes;
+		const top = axes[0].values.at(-1)!;
+		const lookup = { ...at(t, 'takeoff', top, axes[1].values[0], axes[2].values[0]), extended: { axis: 0, aboveBy: 100, density: 1, rule: 1, factor: 1 } };
+		lookup.at = [top + 100, axes[1].values[0], axes[2].values[0]];
+		expect(lookupView(t, lookup)!.grids[0].title).toContain('is above the table: extended by the Operator rule');
+	});
+});

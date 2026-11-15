@@ -393,3 +393,12 @@ describe('operator rules', () => {
 		expect(calculate({ ...sr, operatorRules: rules }, input).takeoff).toEqual(calculate(sr, input).takeoff);
 	});
 });
+
+describe('limit text', () => {
+	it('gives both crosswind limits in knots', async () => {
+		const { limitText } = await import('./mass-balance.ts');
+		const dr = load('test-dr-style');
+		expect(limitText(dr, { id: 'landingCrosswind', label: 'Crosswind at landing', status: 'warning', value: 12, limit: 15 })).toBe('12 kt, manual figure 15 kt');
+		expect(limitText(dr, { id: 'crosswind', label: 'Crosswind', status: 'warning', value: 12, limit: 15 })).toBe('12 kt, manual figure 15 kt');
+	});
+});

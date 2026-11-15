@@ -79,9 +79,11 @@ export function lookupView(a: Aircraft, lookup: LookupTrace): LookupView | null 
 	let slices: Array<{ idx: number[]; label: string[] }> = [{ idx: [], label: [] }];
 	lead.forEach((axis, i) => {
 		const b = leadB[i], picks = b.low === b.high ? [b.low] : [b.low, b.high];
-		slices = slices.flatMap((s) => picks.map((p) => ({ idx: [...s.idx, p], label: [...s.label, `${axis.name} ${number(axis.values[p])} ${unitText(axis.unit)}`] })));
+		// An extended axis among the leading ones says so in the slice title, as a row or column note would.
+		const extended = lookup.extended?.axis === i ? `, ${axis.name.toLowerCase()} ${number(lookup.at[i])} ${unitText(axis.unit)} is above the table: extended by the Operator rule` : '';
+		slices = slices.flatMap((s) => picks.map((p) => ({ idx: [...s.idx, p], label: [...s.label, `${axis.name} ${number(axis.values[p])} ${unitText(axis.unit)}${extended}`] })));
 	});
-	const grids = slices.map((s) => grid(s.label.join(', '), rowAxis, colAxis, s.idx.reduce<unknown>((node, i) => (node as unknown[])[i], cells), restAt, restB, lookup.extended ? lookup.extended.axis - lead.length : null));
+	const grids = slices.map((s) => grid(s.label.join(', '), rowAxis, colAxis, s.idx.reduce<unknown>((node, i) => (node as unknown[])[i], cells), restAt, restB, lookup.extended && lookup.extended.axis >= lead.length ? lookup.extended.axis - lead.length : null));
 
 	const interpolated = lead.filter((_, i) => leadB[i].low !== leadB[i].high);
 	const between = interpolated.length
