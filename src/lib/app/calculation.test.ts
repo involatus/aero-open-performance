@@ -4,7 +4,7 @@ import fc from 'fast-check';
 import { validateAircraft } from '../aircraft/validate.ts';
 import type { Aircraft } from '../aircraft/schema.ts';
 import { calculate } from '../engine/index.ts';
-import { applyKey, applyQuick, applyWeather, keyAt, canReport, changeConfiguration, confirmValue, confirmWeather, isOldCalculation, reportAgeMinutes, fieldsFor, newCalculation, nextFlight, parse, prefill, reconcileAfterInstall, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation , runwayHeading, runwayWinds, runwayWindText, notesFor, placeOfKey, baseKey, runwayFor, setWindChoice, unconfirmWeather } from './calculation.ts';
+import { applyKey, applyQuick, applyWeather, keyAt, canReport, changeConfiguration, confirmValue, confirmWeather, isOldCalculation, reportAgeMinutes, fieldsFor, newCalculation, nextFlight, parse, prefill, reconcileAfterInstall, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation , runwayAt, runwayWinds, runwayWindText, notesFor, placeOfKey, baseKey, runwayFor, setWindChoice, unconfirmWeather } from './calculation.ts';
 
 const load = (name: string): Aircraft => {
 	const r = validateAircraft(JSON.parse(readFileSync(`aircraft-examples/${name}.json`, 'utf8')));
@@ -398,11 +398,21 @@ describe('after installing new data', () => {
 });
 
 describe('runway number', () => {
-	it('stands for its heading in tens of degrees', () => {
-		expect(runwayHeading('08')).toBe(80);
-		expect(runwayHeading('8')).toBe(80);
-		expect(runwayHeading('36')).toBe(360);
-		expect(runwayHeading('')).toBeNull();
+	it('stands for its heading in tens of degrees when nothing was measured', () => {
+		const c = newCalculation(dr, 'x', NOW);
+		for (const [typed, heading] of [['08', 80], ['8', 80], ['36', 360]] as const) { setByPilot(c, 'rwy', typed); expect(runwayAt(c, 'departure')?.heading).toBe(heading); }
+		setByPilot(c, 'rwy', '');
+		expect(runwayAt(c, 'departure')).toBeNull();
+	});
+	it('leaves a runway chosen from the list behind when another number is typed', () => {
+		const c = newCalculation(dr, 'x', NOW);
+		c.airfield = { ident: 'LSZH', name: 'Z', date: 'd', runway: { designator: '28', surface: 'CON', lengthM: 2500, heading: 273 } };
+		setByPilot(c, 'rwy', '28');
+		expect(runwayFor(c, 'takeoff')?.lengthM).toBe(2500);
+		expect(runwayAt(c, 'departure')).toEqual({ number: 28, heading: 273, measured: true });
+		setByPilot(c, 'rwy', '10');
+		expect(runwayFor(c, 'takeoff')).toBeNull();
+		expect(runwayAt(c, 'departure')).toEqual({ number: 10, heading: 100, measured: false });
 	});
 });
 
@@ -471,6 +481,7 @@ describe('departure and landing keys', () => {
 		const c = newCalculation(dr, 'x', NOW);
 		c.airfield = { ident: 'LSZS', name: 'S', date: 'd', runway: { designator: '21', surface: 'ASP', lengthM: 1800 } };
 		c.landingAirfield = { ident: 'LSZH', name: 'Z', date: 'd', runway: { designator: '28', surface: 'ASP', lengthM: 2500 } };
+		setByPilot(c, 'rwy', '21'); setByPilot(c, 'land:rwy', '28');
 		expect(runwayFor(c, 'landing')?.designator).toBe('21');
 		c.landingElsewhere = true;
 		expect(runwayFor(c, 'landing')?.designator).toBe('28');

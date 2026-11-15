@@ -3,6 +3,7 @@
  * Every value it gives is a Prefilled Value the pilot checks against official sources.
  */
 import { M_PER_FT } from '../engine/units.ts';
+import { toMagnetic } from '../weather/variation.ts';
 /** `headingTrue`: the runway's measured heading from OurAirports, true north; null where it has none. */
 export type RunwayEnd = { designator: string; number: number; surface: string; surfaceKind: SurfaceKind; lengthM: number | null; headingTrue: number | null };
 export type Airfield = { ident: string; name: string; elevationFt: number | null; lat: number; lon: number; runways: RunwayEnd[] };
@@ -51,8 +52,7 @@ export function parseAirfields(raw: Raw): AirfieldData {
  */
 export function magneticHeading(end: Pick<RunwayEnd, 'number' | 'headingTrue'>, variation: number | null): number {
 	if (end.headingTrue === null) return end.number * 10;
-	const m = Math.round(end.headingTrue - (variation ?? 0)) % 360;
-	return m <= 0 ? m + 360 : m;
+	return toMagnetic(end.headingTrue || 360, variation ?? 0);
 }
 
 /** The exact identifier first, then names containing the text. */

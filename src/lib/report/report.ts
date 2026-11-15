@@ -7,7 +7,7 @@ import type { Calculation as Results } from '../engine/index.ts';
 import type { PerformanceResult } from '../engine/performance.ts';
 import type { DistanceText } from '../app/presentation.ts';
 import { limitText } from '../engine/mass-balance.ts';
-import { baseKey, canReport, fieldsFor, magneticWind, notesFor, placeOfKey, runwayAt, runwayText, isVariableWind, keyAt, toInput, type Calculation, type Place, runwayHeading, weatherAt, windChoiceAt } from '../app/calculation.ts';
+import { baseKey, canReport, degrees, fieldsFor, magneticWind, notesFor, placeOfKey, runwayAt, runwayText, isVariableWind, keyAt, toInput, type Calculation, type Place, weatherAt, windChoiceAt } from '../app/calculation.ts';
 import { altitudeText, distanceText, ignoresEnteredTailwind, landingConditions, sourceText, utcText, valueSource, limitBadge, massBalanceRows, windChoiceText, windText, workingRows } from '../app/presentation.ts';
 import { lookupView, type LookupView } from '../app/lookup-grid.ts';
 
@@ -119,17 +119,17 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 		const f = allFields.find((x) => x.key === key)!;
 		// A runway number alone can be misread, so the report also gives the heading it stands for: "08 (080°)".
 		const rwy = baseKey(key) === 'rwy' ? runwayAt(calc, placeOfKey(key)) : null;
-		const value = rwy ? `${runwayText(rwy.number)} (${String(rwy.heading).padStart(3, '0')}°${rwy.measured ? ' magnetic' : ''})` : `${calc.values[key] ?? ''} ${f.unit}`.trim();
+		const value = rwy ? `${runwayText(rwy.number)} (${degrees(rwy.heading)}${rwy.measured ? ' magnetic' : ''})` : `${calc.values[key] ?? ''} ${f.unit}`.trim();
 		return { label: f.label, value, source: valueSource(calc, key) };
 	};
 	const sourced = (key: string): Sourced => (({ value, source }) => ({ value, source }))(shown(key));
 	/** Direction and speed in one value, as a METAR gives them: "VRB 2 kt", "250° 10 kt". */
 	const windRow = (place: Place) => {
 		const dir = keyAt(place, 'wdir'), spd = keyAt(place, 'wspd');
-		const direction = isVariableWind(calc, place) ? 'VRB' : `${calc.values[dir].trim().padStart(3, '0')}°`;
+		const direction = isVariableWind(calc, place) ? 'VRB' : degrees(Number(calc.values[dir]));
 		const [from, speed] = [valueSource(calc, dir), valueSource(calc, spd)];
 		const m = magneticWind(calc, place);
-		const magnetic = m ? ` (magnetic; METAR ${String(m.trueDirection).padStart(3, '0')}° true)` : '';
+		const magnetic = m ? ` (magnetic; METAR ${degrees(m.trueDirection)} true)` : '';
 		return { label: 'Wind', value: `${direction} ${calc.values[spd].trim()} kt${magnetic}`, source: from === speed ? from : `Direction: ${from}; speed: ${speed}` };
 	};
 	const kt = (x: number) => `${Math.abs(x).toFixed(0)} kt`;

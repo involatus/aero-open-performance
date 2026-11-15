@@ -6,11 +6,11 @@
 	import { WIND_CHOICES, ignoresEnteredTailwind, landingConditions, windText } from '#lib/app/presentation.ts';
 	import { findAirfields, loadAirfields, magneticHeading, type Airfield, type RunwayEnd } from '#lib/airfield/airfields.ts';
 	import { lookUpWeather } from '#lib/weather/lookup.ts';
-	import { nearestFrom, stationLine, variationFor, weatherOnReturn } from '#lib/app/place-weather.ts';
+	import { distancesUseText, nearestFrom, stationLine, variationFor, weatherConfirmed, weatherOnReturn, weatherRows, type WeatherRow } from '#lib/app/place-weather.ts';
 	import type { WeatherQuery } from '#lib/weather/provider.ts';
 	import {
 		OLD_REPORT_MINUTES, WEATHER_KEYS, airfieldAt, applyAirfield, applyRunway, applyWeather, confirmWeather, isVariableWind, keyAt, unconfirmWeather, weatherItemKey,
-		isFromMetar, parse, setWindChoice, reportAgeMinutes, runwayHeading, runwayWindText, runwayWinds, weatherAt, windChoiceAt, type Calculation, type Field, type Place
+		chosenRunway, degrees, isFromMetar, parse, runwayAt, setWindChoice, reportAgeMinutes, runwayWindText, runwayWinds, weatherAt, windChoiceAt, type Calculation, type Field, type Place
 	} from '#lib/app/calculation.ts';
 	import Button from '../../ui/Button.svelte';
 	import Card from '../../ui/Card.svelte';
@@ -61,34 +61,21 @@
 			{ id: 'tail3', label: WIND_CHOICES.tail3, detail: '3 kt tail' }
 		];
 	});
-	let distancesUse = $derived.by(() => {
-		const w = at.distanceWind, rwy = calc.values[k('rwy')];
-		if (!w) return null;
-		const h = Math.round(w.headwind), on = rwy ? ` on runway ${rwy.padStart(2, '0')}` : '';
-		return h === 0 ? `no wind${on}` : `${h > 0 ? 'headwind' : 'tailwind'} ${Math.abs(h)} kt${on}`;
-	});
+	let distancesUse = $derived(distancesUseText(at.distanceWind, runwayAt(calc, place)?.number ?? null));
 
 	/** The elevation and runway fields stay folded away once a runway from the list set them, until the pilot asks to change them. */
 	let changingPlace = $state(false);
 	let placeSet = $derived(!!chosen?.runway && placeFields.every((f) => parse(calc.values[f.key]) !== null && calc.status[f.key] !== 'pre'));
 
 	/** The weather as a short list; a row opens its field when changed, or when the METAR didn't give its value. */
-	const ROWS = [{ id: 'qnh', label: 'QNH', keys: ['qnh'] }, { id: 'oat', label: 'OAT', keys: ['oat'] }, { id: 'wind', label: 'Wind', keys: ['wdir', 'wspd'] }];
+	let rows = $derived(weatherRows(calc, place));
 	/** Change opens a row, Done closes it. Untouched, a row is a summary only while all its values are the METAR's. */
 	let opened = $state<Record<string, boolean>>({});
-	const missing = (base: string) => { const v = calc.values[k(base)]; return !(base === 'wdir' && v === 'VRB') && parse(v) === null; };
-	const fromMetar = (base: string) => isFromMetar(calc, k(base)) && calc.status[k(base)] !== 'pilot';
-	const rowOpen = (row: (typeof ROWS)[number]) => row.keys.some(missing) || (opened[row.id] ?? !row.keys.every(fromMetar));
-	const toggleRow = (row: (typeof ROWS)[number]) => { opened = { ...opened, [row.id]: !rowOpen(row) }; };
-	function rowValue(id: string) {
-		const v = (b: string) => calc.values[k(b)];
-		if (id === 'qnh') return `${v('qnh')} hPa`;
-		if (id === 'oat') return `${v('oat')} °C`;
-		return `${v('wdir') === 'VRB' ? 'VRB' : `${(v('wdir') ?? '').padStart(3, '0')}°`} / ${v('wspd')} kt`;
-	}
+	const rowOpen = (row: WeatherRow) => row.value === null || (opened[row.id] ?? !row.fromMetar);
+	const toggleRow = (row: WeatherRow) => { opened = { ...opened, [row.id]: !rowOpen(row) }; };
 	let windHint = $derived(weatherFields.find((f) => f.key === k('wdir'))?.hint);
 	/** Confirmed: every value from the METAR is checked and at least one came from it. */
-	let weatherConfirmed = $derived(!weatherToConfirm && WEATHER_KEYS.some((w) => calc.status[k(w)] === 'ok' && isFromMetar(calc, k(w))));
+	let confirmed = $derived(weatherConfirmed(calc, place));
 	let showRunways = $derived(airfieldFound !== null && chosen?.ident === airfieldFound.ident);
 	let showPlaceFields = $derived(changingPlace || !showRunways || !placeSet);
 	/** The airfield's variation: the METAR's true wind and the runways' measured true headings both become magnetic. */
@@ -144,7 +131,7 @@
 		const result = await lookUpWeather(query);
 		// The chosen airfield's variation turns the METAR's true wind magnetic, like its runways and ATIS.
 		const field = airfieldFound && chosen?.ident === airfieldFound.ident ? airfieldFound : null;
-		if (result.ok) { now = Date.now(); applyWeather(target, result.report, now, place, variationFor(field, now)); } else weatherMessage = result.message;
+		if (result.ok) { now = Date.now(); applyWeather(target, result.report, now, place, field ? fieldVariation : null); } else weatherMessage = result.message;
 		weatherBusy = false;
 		return result.ok;
 	}
@@ -167,7 +154,7 @@
 		const text = end.surfaceKind === 'unknown' ? end.surface || 'Surface unknown' : end.surfaceKind;
 		return text.charAt(0).toUpperCase() + text.slice(1);
 	};
-	const heading = (end: RunwayEnd) => `${String(magneticHeading(end, fieldVariation)).padStart(3, '0')}°`;
+	const heading = (end: RunwayEnd) => degrees(magneticHeading(end, fieldVariation));
 	const textInput = 'min-h-[52px] w-full rounded-lg border border-line-strong bg-surface px-3.5 text-ink outline-none focus:border-accent focus:ring-[3px] focus:ring-accent-ring';
 	const enter = (action: () => void) => (e: KeyboardEvent) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur(); action(); } };
 </script>
@@ -233,7 +220,7 @@
 	{#if showRunways && airfieldFound}
 		<div class="flex flex-col gap-1.5">
 			<span class="label-caps" id={idOf('runway-label')}>Runway</span>
-			<ToggleGroup.Root type="single" value={chosen?.runway?.designator ?? ''} onValueChange={(d) => { if (d) chooseRunway(d); }} aria-labelledby={idOf('runway-label')} class="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2">
+			<ToggleGroup.Root type="single" value={chosenRunway(calc, place)?.designator ?? ''} onValueChange={(d) => { if (d) chooseRunway(d); }} aria-labelledby={idOf('runway-label')} class="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2">
 				{#each airfieldFound.runways as end (end.designator)}
 					{@const w = runwayWind?.winds.get(end.designator)}
 					{@const into = runwayWind?.intoWind === end.designator}
@@ -261,16 +248,16 @@
 <Card title={named ? `${word} weather to check` : 'Weather to check'} description={place === 'landing' ? 'A METAR is the weather now, not at your arrival. Check it again before landing.' : undefined}>
 	{#snippet actions()}{#if weather}<span class="text-[13px] text-muted">METAR {weather.station}{metarAge !== null ? `, ${metarAge} min old` : ''}</span>{/if}{/snippet}
 	<dl class="m-0 flex flex-col">
-		{#each ROWS as row (row.id)}
+		{#each rows as row (row.id)}
 			{@const open = rowOpen(row)}
 			<div class="flex flex-col gap-2 border-b border-divider py-2 last:border-b-0">
 				<div class="grid min-h-10 grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-2">
 					<dt class="text-sm text-ink-2">{row.label}</dt>
 					<dd class="m-0 flex min-w-0 flex-col">
-						{#if !row.keys.some(missing)}<span class="num text-[17px] font-semibold">{rowValue(row.id)}</span>{:else}<span class="text-sm text-muted">{weather ? 'Not in the METAR: enter it' : 'Enter it'}</span>{/if}
+						{#if row.value !== null}<span class="num text-[17px] font-semibold">{row.value}</span>{:else}<span class="text-sm text-muted">{weather ? 'Not in the METAR: enter it' : 'Enter it'}</span>{/if}
 						{#if row.id === 'wind' && windHint && !open}<span class="text-xs text-muted">{windHint}</span>{/if}
 					</dd>
-					{#if !row.keys.some(missing)}<button type="button" class="min-h-10 border-0 bg-transparent px-1 text-sm font-semibold text-accent" onclick={() => toggleRow(row)}>{open ? 'Done' : 'Change'}</button>{/if}
+					{#if row.value !== null}<button type="button" class="min-h-10 border-0 bg-transparent px-1 text-sm font-semibold text-accent" onclick={() => toggleRow(row)}>{open ? 'Done' : 'Change'}</button>{/if}
 				</div>
 				{#if open}
 					<div class="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
@@ -284,7 +271,7 @@
 		<div class="flex justify-end">
 			<Button variant="dark" onclick={() => { confirmWeather(calc, place); opened = {}; }}>Confirm weather</Button>
 		</div>
-	{:else if weatherConfirmed}
+	{:else if confirmed}
 		<div class="flex items-center gap-2.5 rounded-lg bg-good-bg px-3.5 py-2.5 text-sm text-good">
 			<Icon name="check" size={16} stroke={3} />
 			<span class="flex-1"><strong>Weather confirmed.</strong> The Report says so.</span>

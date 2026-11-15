@@ -84,8 +84,14 @@ export const placeOfKey = (key: string): Place => (key.startsWith(keyAt('landing
 export const baseKey = (key: string) => (placeOfKey(key) === 'landing' ? key.slice(keyAt('landing', '').length) : key);
 /** Where the landing happens: the landing airfield when elsewhere, otherwise the departure. */
 export const landingPlace = (calc: Pick<Calculation, 'landingElsewhere'>): Place => (calc.landingElsewhere ? 'landing' : 'departure');
+/** The runway chosen from the list, while the runway number still names it; typing another number leaves it behind. */
+export function chosenRunway(calc: Partial<Pick<Calculation, 'values' | 'airfield' | 'landingAirfield'>>, place: Place) {
+	const runway = (place === 'landing' ? calc.landingAirfield : calc.airfield)?.runway;
+	const number = parse(calc.values?.[keyAt(place, 'rwy')]);
+	return runway && number !== null && runwayNumber(runway.designator) === number ? runway : null;
+}
 /** The chosen runway the takeoff or landing uses. */
-export const runwayFor = (calc: Calculation, phase: 'takeoff' | 'landing') => airfieldAt(calc, phase === 'landing' ? landingPlace(calc) : 'departure')?.runway ?? null;
+export const runwayFor = (calc: Calculation, phase: 'takeoff' | 'landing') => chosenRunway(calc, phase === 'landing' ? landingPlace(calc) : 'departure');
 
 /** The places whose conditions the pilot enters: the departure, and the landing when it is elsewhere. */
 export const placesOf = (calc: Pick<Calculation, 'landingElsewhere'>): Place[] => (calc.landingElsewhere ? ['departure', 'landing'] : ['departure']);
@@ -110,16 +116,11 @@ export function performanceOf(a: Aircraft, configurationId: string): Performance
 
 function massStep(unit: string) { return unit === 'lb' ? '10' : '5'; }
 
-/** A runway's number is its heading in tens of degrees: runway 08 means 080°. */
-export function runwayHeading(text: string | undefined): number | null {
-	const n = parse(text);
-	return n === null ? null : n * 10;
-}
 export type RunwayWind = { headwind: number; crosswind: number; variable: boolean };
 /**
  * Each runway's wind components from the entered wind, and the runway most into the wind, so a pilot who
  * doesn't know the active runway yet can see the choice. Variable wind counts as a tailwind on every runway,
- * as in the calculation, so no runway is "into wind" then. Runway numbers stand for the heading, as elsewhere.
+ * as in the calculation, so no runway is "into wind" then. Each runway's `heading` is magnetic; without one its number stands for it.
  */
 export function runwayWinds(runways: Array<{ designator: string; number: number; heading?: number }>, wdir: string | undefined, wspd: string | undefined) {
 	const speed = parse(wspd), variable = wdir === VARIABLE_WIND, direction = variable ? null : parse(wdir);
@@ -151,7 +152,8 @@ export function magneticWind(calc: Partial<Pick<Calculation, 'weather' | 'landin
 	if (!w || w.trueDirection === undefined || w.variation === undefined || !calc.sources || !isFromMetar({ sources: calc.sources }, key) || calc.status?.[key] === 'pilot') return null;
 	return { trueDirection: w.trueDirection, variation: w.variation };
 }
-const degrees = (x: number) => `${String(x).padStart(3, '0')}°`;
+/** Headings and wind directions as written: 080°. */
+export const degrees = (x: number) => `${String(x).padStart(3, '0')}°`;
 function magneticHint(calc: Parameters<typeof magneticWind>[0], place: Place): string | undefined {
 	const m = magneticWind(calc, place);
 	return m ? `Magnetic: METAR ${degrees(m.trueDirection)} true, variation ${Math.abs(m.variation).toFixed(0)}° ${m.variation >= 0 ? 'E' : 'W'}` : undefined;
@@ -165,8 +167,7 @@ export const stationOfField = (a: Aircraft, key: string) => a.stations.find((s) 
 export function runwayAt(calc: Partial<Pick<Calculation, 'values' | 'airfield' | 'landingAirfield'>>, place: Place): { number: number; heading: number; measured: boolean } | null {
 	const number = parse(calc.values?.[keyAt(place, 'rwy')]);
 	if (number === null) return null;
-	const chosen = (place === 'landing' ? calc.landingAirfield : calc.airfield)?.runway;
-	const measured = chosen?.heading !== undefined && runwayNumber(chosen.designator) === number ? chosen.heading : null;
+	const measured = chosenRunway(calc, place)?.heading ?? null;
 	return { number, heading: measured ?? number * 10, measured: measured !== null };
 }
 export const runwayText = (number: number) => String(number).padStart(2, '0');
@@ -312,7 +313,8 @@ export function applyRunway(calc: Calculation, end: RunwayEnd, place: Place = 'd
 	const airfield = airfieldAt(calc, place);
 	if (!airfield) return;
 	prefill(calc, keyAt(place, 'rwy'), String(end.number).padStart(2, '0'), `airfield list ${airfield.ident}, ${airfield.date}`);
-	airfield.runway = { designator: end.designator, surface: end.surface, lengthM: end.lengthM, ...(end.headingTrue !== null ? { heading: magneticHeading(end, variation) } : {}) };
+	// Without a variation a measured true heading isn't magnetic, so none is kept and the runway number stands for it.
+	airfield.runway = { designator: end.designator, surface: end.surface, lengthM: end.lengthM, ...(end.headingTrue !== null && variation !== null ? { heading: magneticHeading(end, variation) } : {}) };
 	// Tapping the runway is the pilot's choice of this airfield and runway, so its elevation from the list counts as checked too.
 	confirmValue(calc, keyAt(place, 'rwy'));
 	if (calc.sources[keyAt(place, 'elev')]?.startsWith('airfield list')) confirmValue(calc, keyAt(place, 'elev'));
