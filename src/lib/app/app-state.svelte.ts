@@ -11,6 +11,7 @@ const REPORTS = 'reports-v1';
 const DATA = 'data-release-v1';
 const META = 'data-meta-v1';
 const MY_VALUES = 'my-values-v1';
+const PILOT_NAME = 'pilot-name-v1';
 const BASE = '/data';
 const PUBLISHED = '/api/data';
 const pdfKey = (id: string) => `report-pdf:${id}`;
@@ -30,6 +31,8 @@ export class AppState {
 	reports = $state<StoredReport[]>([]);
 	/** The pilot's own saved values, such as their weight. Only on this device. */
 	saved = $state<SavedMass[]>([]);
+	/** The name last entered, filled into each new Calculation. Only on this device. */
+	pilotName = $state('');
 	current = $state(0);
 	loaded = $state(false);
 	saveFailed = $state(false);
@@ -139,6 +142,8 @@ export class AppState {
 			this.saveFailed = true;
 		}
 		try {
+			const name = await this.device.store.get(PILOT_NAME);
+			this.pilotName = typeof name === 'string' ? name : '';
 			this.saved = readSaved(await this.device.store.get(MY_VALUES));
 		} catch {
 			this.saveFailed = true;
@@ -203,6 +208,7 @@ export class AppState {
 
 	/** Opens a Calculation as a new tab and shows it. */
 	addTab(calc: Calculation) {
+		if (!calc.values.name?.trim() && this.pilotName) calc.values.name = this.pilotName;
 		this.tabs.push(calc);
 		this.current = this.tabs.length - 1;
 	}
@@ -212,6 +218,17 @@ export class AppState {
 		if (index < 0 || index >= this.tabs.length) return;
 		this.tabs.splice(index, 1);
 		if (this.current > index || this.current >= this.tabs.length) this.current = Math.max(0, this.current - 1);
+	}
+
+	async setPilotName(name: string) {
+		const clean = name.trim().replace(/\s+/g, ' ').slice(0, 60);
+		if (clean === this.pilotName) return;
+		this.pilotName = clean;
+		try {
+			await this.device.store.set(PILOT_NAME, clean);
+		} catch {
+			this.saveFailed = true;
+		}
 	}
 
 	async setSaved(list: SavedMass[]) {

@@ -104,3 +104,22 @@ describe('app state on a device', () => {
 		expect(app.reports).toHaveLength(1);
 	});
 });
+
+describe('the pilot\'s name on this device', () => {
+	it('fills the last name into each new Calculation, keeps a name already there, and survives a restart', async () => {
+		const store = memory();
+		const app = new AppState(device(store));
+		await app.load();
+		await app.check();
+		const a = app.aircraft[0];
+		await app.setPilotName('  Anna   Muster ');
+		app.addTab(newCalculation(a, 'one', NOW));
+		expect(app.tabs.at(-1)!.values.name).toBe('Anna Muster');
+		const other = newCalculation(a, 'two', NOW); other.values.name = 'Ben';
+		app.addTab(other);
+		expect(app.tabs.at(-1)!.values.name).toBe('Ben');
+		const again = new AppState(device(store));
+		await again.load();
+		expect(again.pilotName).toBe('Anna Muster');
+	});
+});

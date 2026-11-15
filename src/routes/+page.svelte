@@ -345,7 +345,7 @@
 								<SendStep
 									{aircraft} {calc} {todo} exceeded={exceededLimits} {ready} {creating} {reportError} {latestReport} {reportIsCurrent}
 									{closePad} ongo={goToItem} onstep={goStep} oncreate={createReport} onshare={shareReport} onopen={openReport}
-								/>
+								 onname={(n) => app.setPilotName(n)} />
 							{/if}
 
 							{#if padField}
@@ -370,4 +370,4 @@
 		{/if}
 	</main>
 </Tabs.Root>
-<SavedValues bind:open={showSaved} saved={app.saved} onsaved={(list) => app.setSaved(list)} />
+<SavedValues bind:open={showSaved} saved={app.saved} onsaved={(list) => app.setSaved(list)} name={app.pilotName} onname={(n) => app.setPilotName(n)} />

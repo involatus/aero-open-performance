@@ -12,12 +12,14 @@
 
 	let {
 		aircraft, calc, todo, exceeded, ready, creating, reportError, latestReport, reportIsCurrent,
-		closePad, ongo, onstep, oncreate, onshare, onopen
+		closePad, ongo, onstep, oncreate, onshare, onopen, onname
 	}: {
 		aircraft: Aircraft; calc: Calculation; todo: ToDo[]; exceeded: Limit[]; ready: boolean; creating: boolean; reportError: string;
 		latestReport: StoredReport | undefined; reportIsCurrent: boolean;
 		closePad: () => void; ongo: (item: ToDo) => void; onstep: (step: number) => void;
 		oncreate: () => void; onshare: (id: string) => void; onopen: (id: string) => void;
+		/** Remembers the name on this device for the next Calculation. */
+		onname: (name: string) => void;
 	} = $props();
 	const LANDING_PLACE = keyAt('landing', 'place');
 	/** Only the notes for this flight's configuration and conditions. */
@@ -46,7 +48,8 @@
 		{/if}
 		<label class="flex flex-col gap-1.5" id="w-name">
 			<span class="font-bold">Pilot name</span>
-			<input id="f-name" type="text" enterkeyhint="done" autocapitalize="words" autocorrect="off" spellcheck="false" autocomplete="name" placeholder="First and last name" bind:value={calc.values.name} onfocus={closePad} class={textInput(!calc.values.name?.trim())} />
+			<input id="f-name" type="text" enterkeyhint="done" autocapitalize="words" autocorrect="off" spellcheck="false" autocomplete="name" placeholder="First and last name" bind:value={calc.values.name} onfocus={closePad} onchange={(e) => onname(e.currentTarget.value)} class={textInput(!calc.values.name?.trim())} />
+			<span class="text-[13px] text-muted">Remembered on this device for your next calculation.</span>
 		</label>
 	</div>
 	{#if notes.length}

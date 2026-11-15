@@ -72,7 +72,7 @@
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Portal>
 					<DropdownMenu.Content align="end" sideOffset={6} class={menu}>
-						<DropdownMenu.Item onSelect={onsavedvalues} class={item}>My saved values</DropdownMenu.Item>
+						<DropdownMenu.Item onSelect={onsavedvalues} class={item}>My details</DropdownMenu.Item>
 						<DropdownMenu.Item disabled={checking} onSelect={oncheck} class={item}>{checking ? 'Checking' : 'Check for new data'}</DropdownMenu.Item>
 						<DropdownMenu.Item class={item}>
 							{#snippet child({ props })}<a {...props} href={resolve('/device-test')}>Device test</a>{/snippet}
