@@ -1,10 +1,17 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import type { Aircraft } from '#lib/aircraft/schema.ts';
-	import { defaultSource, makeId, move } from '#lib/admin/editing.ts';
+	import { defaultSource, entryUnits, makeId, move, shown, unitLabel, type Kind } from '#lib/admin/editing.ts';
 	import Num from './Num.svelte';
 	import SourcePick from './SourcePick.svelte';
+	import AdmItem from './AdmItem.svelte';
 
 	let { a, touch }: { a: Aircraft; touch: () => void } = $props();
+	// Cards present when the editor opened start closed; ones added since start open.
+	const known = untrack(() => new Set([...a.stations, ...a.combinedLimits].map((x) => x.id)));
+	const val = (kind: Kind, v: number) => `${Number(shown(a, kind, v).toPrecision(6))} ${unitLabel(entryUnits(a), kind)}`;
+	const stationSummary = (s: Aircraft['stations'][number]) => [s.positions ? `${s.positions.length} positions` : s.arm !== undefined && `Arm ${val('arm', s.arm)}`, s.maxMass !== undefined && `max ${val('mass', s.maxMass)}`].filter(Boolean).join(' · ');
+	const limitSummary = (l: Aircraft['combinedLimits'][number]) => `Max ${val('mass', l.maxMass)} for ${l.stations.map((id) => a.stations.find((s) => s.id === id)?.label ?? id).join(', ') || 'no stations yet'}`;
 
 	function addStation() {
 		const label = `Station ${a.stations.length + 1}`;
@@ -43,15 +50,12 @@
 <p class="adm-hint">One card for each seat and each baggage area, named as pilots should see it. Give every seat its own card, also when seats share an arm, so pilots never have to add people together. Leave the maximum empty if the manual gives none.</p>
 
 {#each a.stations as s, i (s.id)}
-	<div class="adm-card">
-		<div class="adm-card-head">
-			<h3>{s.label || 'Unnamed station'}</h3>
-			<div class="adm-tools">
-				<button type="button" disabled={i === 0} onclick={() => { move(a.stations, i, -1); touch(); }} aria-label={`Move ${s.label} up`}>Up</button>
-				<button type="button" disabled={i === a.stations.length - 1} onclick={() => { move(a.stations, i, 1); touch(); }} aria-label={`Move ${s.label} down`}>Down</button>
-				<button type="button" onclick={() => removeStation(i)} aria-label={`Delete ${s.label}`}>Delete</button>
-			</div>
-		</div>
+	<AdmItem title={s.label || 'Unnamed station'} summary={stationSummary(s)} open={!known.has(s.id)}>
+		{#snippet tools()}
+			<button type="button" disabled={i === 0} onclick={() => { move(a.stations, i, -1); touch(); }} aria-label={`Move ${s.label} up`}>Up</button>
+			<button type="button" disabled={i === a.stations.length - 1} onclick={() => { move(a.stations, i, 1); touch(); }} aria-label={`Move ${s.label} down`}>Down</button>
+			<button type="button" onclick={() => removeStation(i)} aria-label={`Delete ${s.label}`}>Delete</button>
+		{/snippet}
 		<div class="adm-row">
 			<label class="adm-field">Name *<input class="adm" placeholder="e.g. Pilot" value={s.label} oninput={(e) => { s.label = e.currentTarget.value; touch(); }} /></label>
 			{#if !s.positions}<Num label="Arm" aircraft={a} kind="arm" value={s.arm} onchange={(v) => { s.arm = v ?? 0; touch(); }} />{/if}
@@ -72,18 +76,17 @@
 				<div><button type="button" class="small" onclick={() => addPosition(s)}>Add position</button></div>
 			</div>
 		{/if}
-	</div>
+	</AdmItem>
 {/each}
 <div><button type="button" onclick={addStation}>Add station</button></div>
 
 <h2 class="mt-4">Combined limits</h2>
 <p class="adm-hint">A combined limit caps several stations added together. Example: forward baggage, rear passenger and aft baggage may hold at most 250 lb together, even if each alone allows more.</p>
 {#each a.combinedLimits as l, i (l.id)}
-	<div class="adm-card">
-		<div class="adm-card-head">
-			<h3>{l.label || 'Unnamed limit'}</h3>
-			<div class="adm-tools"><button type="button" onclick={() => { a.combinedLimits.splice(i, 1); touch(); }} aria-label={`Delete ${l.label}`}>Delete</button></div>
-		</div>
+	<AdmItem title={l.label || 'Unnamed limit'} summary={limitSummary(l)} open={!known.has(l.id)}>
+		{#snippet tools()}
+			<button type="button" onclick={() => { a.combinedLimits.splice(i, 1); touch(); }} aria-label={`Delete ${l.label}`}>Delete</button>
+		{/snippet}
 		<div class="adm-row">
 			<label class="adm-field">Name *<input class="adm" value={l.label} oninput={(e) => { l.label = e.currentTarget.value; touch(); }} /></label>
 			<Num label="Maximum together" aircraft={a} kind="mass" value={l.maxMass} onchange={(v) => { l.maxMass = v ?? 0; touch(); }} />
@@ -95,6 +98,6 @@
 				{#each a.stations as s (s.id)}<label class="adm-check"><input type="checkbox" checked={l.stations.includes(s.id)} onchange={(e) => toggleMember(l, s.id, e.currentTarget.checked)} /> {s.label}</label>{/each}
 			</div>
 		</fieldset>
-	</div>
+	</AdmItem>
 {/each}
 <div><button type="button" onclick={addCombined}>Add combined limit</button></div>

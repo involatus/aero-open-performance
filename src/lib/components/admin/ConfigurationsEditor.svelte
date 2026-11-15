@@ -1,10 +1,16 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import type { Aircraft } from '#lib/aircraft/schema.ts';
-	import { defaultSource, makeId } from '#lib/admin/editing.ts';
+	import { defaultSource, entryUnits, makeId, shown, unitLabel, type Kind } from '#lib/admin/editing.ts';
 	import Num from './Num.svelte';
 	import SourcePick from './SourcePick.svelte';
+	import AdmItem from './AdmItem.svelte';
 
 	let { a, touch }: { a: Aircraft; touch: () => void } = $props();
+	// Cards present when the editor opened start closed; ones added since start open.
+	const known = untrack(() => new Set(a.configurations.map((x) => x.id)));
+	const val = (kind: Kind, v: number) => `${Number(shown(a, kind, v).toPrecision(6))} ${unitLabel(entryUnits(a), kind)}`;
+	const configSummary = (c: Aircraft['configurations'][number]) => [c.weighing.mass > 0 ? `Empty ${val('mass', c.weighing.mass)}, arm ${val('arm', c.weighing.moment / c.weighing.mass)}` : 'No weighing yet', c.weighing.date && `weighed ${c.weighing.date}`, c.performance === 'none' && 'no performance data'].filter(Boolean).join(' · ');
 
 	type Weighing = Aircraft['configurations'][number]['weighing'];
 	const armOf = (w: Weighing) => (w.mass > 0 ? w.moment / w.mass : undefined);
@@ -24,11 +30,10 @@
 
 <p class="adm-hint">A Configuration is a way the aircraft is equipped with its own weighing, such as tricycle or tailwheel, or wheels or skis. Most aircraft have just one. Pilots choose it when there is more than one.</p>
 {#each a.configurations as c, i (c.id)}
-	<div class="adm-card">
-		<div class="adm-card-head">
-			<h3>{c.label || 'Unnamed configuration'}</h3>
-			<div class="adm-tools"><button type="button" disabled={a.configurations.length < 2} onclick={() => { a.configurations.splice(i, 1); touch(); }} aria-label={`Delete ${c.label}`}>Delete</button></div>
-		</div>
+	<AdmItem title={c.label || 'Unnamed configuration'} summary={configSummary(c)} open={!known.has(c.id)}>
+		{#snippet tools()}
+			<button type="button" disabled={a.configurations.length < 2} onclick={() => { a.configurations.splice(i, 1); touch(); }} aria-label={`Delete ${c.label}`}>Delete</button>
+		{/snippet}
 		<div class="adm-row">
 			<label class="adm-field">Name *<input class="adm" placeholder="e.g. Tricycle gear" value={c.label} oninput={(e) => { c.label = e.currentTarget.value; touch(); }} /></label>
 		</div>
@@ -44,6 +49,6 @@
 		</fieldset>
 		<label class="adm-check"><input type="checkbox" checked={c.performance === 'none'} onchange={(e) => { if (e.currentTarget.checked) c.performance = 'none'; else delete c.performance; touch(); }} /> The manual has no takeoff or landing data for this configuration</label>
 		{#if c.massLimits || c.envelope || (c.performance && c.performance !== 'none')}<p class="adm-hint">This configuration has its own limits or performance, set in the JSON tab.</p>{/if}
-	</div>
+	</AdmItem>
 {/each}
 <div><button type="button" onclick={add}>Add configuration</button></div>

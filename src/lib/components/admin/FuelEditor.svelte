@@ -1,10 +1,16 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import type { Aircraft } from '#lib/aircraft/schema.ts';
-	import { defaultSource, entryUnits, factor, makeId, move } from '#lib/admin/editing.ts';
+	import { defaultSource, entryUnits, factor, makeId, move, shown, unitLabel, type Kind } from '#lib/admin/editing.ts';
 	import Num from './Num.svelte';
 	import SourcePick from './SourcePick.svelte';
+	import AdmItem from './AdmItem.svelte';
 
 	let { a, touch }: { a: Aircraft; touch: () => void } = $props();
+	// Cards present when the editor opened start closed; ones added since start open.
+	const known = untrack(() => new Set([...a.tanks, ...a.burnPlans].map((x) => x.id)));
+	const val = (kind: Kind, v: number) => `${Number(shown(a, kind, v).toPrecision(6))} ${unitLabel(entryUnits(a), kind)}`;
+	const tankSummary = (t: Aircraft['tanks'][number]) => `${val('volume', t.capacity)} usable · arm ${val('arm', t.arm)}`;
 
 	// Typical fuel densities, so nobody has to work them out. The manual's own figure still wins.
 	const AVGAS_KG_PER_L = 0.72, AVGAS_LB_PER_USGAL = 6;
@@ -52,15 +58,12 @@
 
 <p class="adm-hint">One card per tank or group of tanks the pilot fills separately. Use usable fuel.</p>
 {#each a.tanks as t, i (t.id)}
-	<div class="adm-card">
-		<div class="adm-card-head">
-			<h3>{t.label || 'Unnamed tank'}</h3>
-			<div class="adm-tools">
-				<button type="button" disabled={i === 0} onclick={() => { move(a.tanks, i, -1); touch(); }}>Up</button>
-				<button type="button" disabled={i === a.tanks.length - 1} onclick={() => { move(a.tanks, i, 1); touch(); }}>Down</button>
-				<button type="button" onclick={() => removeTank(i)} aria-label={`Delete ${t.label}`}>Delete</button>
-			</div>
-		</div>
+	<AdmItem title={t.label || 'Unnamed tank'} summary={tankSummary(t)} open={!known.has(t.id)}>
+		{#snippet tools()}
+			<button type="button" disabled={i === 0} onclick={() => { move(a.tanks, i, -1); touch(); }}>Up</button>
+			<button type="button" disabled={i === a.tanks.length - 1} onclick={() => { move(a.tanks, i, 1); touch(); }}>Down</button>
+			<button type="button" onclick={() => removeTank(i)} aria-label={`Delete ${t.label}`}>Delete</button>
+		{/snippet}
 		<div class="adm-row">
 			<label class="adm-field">Name *<input class="adm" placeholder="e.g. Main tanks" value={t.label} oninput={(e) => { t.label = e.currentTarget.value; touch(); }} /></label>
 			<Num label="Usable fuel" aircraft={a} kind="volume" value={t.capacity} onchange={(v) => { t.capacity = v ?? 0; touch(); }} />
@@ -68,7 +71,7 @@
 			<Num label="Fuel density" aircraft={a} kind="density" value={t.density} hint={`AVGAS is usually ${avgas.text}.`} onchange={(v) => { t.density = v ?? 0; touch(); }} />
 			<SourcePick aircraft={a} value={t.source} onchange={(id) => { t.source = id; touch(); }} />
 		</div>
-	</div>
+	</AdmItem>
 {/each}
 <div><button type="button" onclick={addTank}>Add tank</button></div>
 
@@ -79,11 +82,10 @@
 	<h2 class="mt-4">Burn Plans</h2>
 	<p class="adm-hint">How fuel is used during the flight, to work out landing mass and CG. Pilots choose one; the preselected one is ticked.</p>
 	{#each a.burnPlans as p, i (p.id)}
-		<div class="adm-card">
-			<div class="adm-card-head">
-				<h3>{p.label || 'Unnamed plan'}</h3>
-				<div class="adm-tools"><button type="button" disabled={a.burnPlans.length < 2} onclick={() => { a.burnPlans.splice(i, 1); syncPlans(); touch(); }}>Delete</button></div>
-			</div>
+		<AdmItem title={p.label || 'Unnamed plan'} summary={p.type === 'even' ? 'From all tanks evenly' : `In order: ${p.tanks.map(tankLabel).join(', ')}`} open={!known.has(p.id)}>
+			{#snippet tools()}
+				<button type="button" disabled={a.burnPlans.length < 2} onclick={() => { a.burnPlans.splice(i, 1); syncPlans(); touch(); }}>Delete</button>
+			{/snippet}
 			<div class="adm-row">
 				<label class="adm-field">Name *<input class="adm" value={p.label} oninput={(e) => { p.label = e.currentTarget.value; touch(); }} /></label>
 				<label class="adm-field">How<select class="adm" value={p.type} onchange={(e) => setType(p, e.currentTarget.value)}><option value="even">From all tanks evenly</option><option value="sequence">One tank after another</option></select></label>
@@ -96,7 +98,7 @@
 					{/each}
 				</ol>
 			{/if}
-		</div>
+		</AdmItem>
 	{/each}
 	<div><button type="button" onclick={addPlan}>Add burn plan</button></div>
 {/if}

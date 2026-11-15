@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import type { Aircraft, Condition, Step } from '#lib/aircraft/schema.ts';
 	import { defaultSource, makeId, move, sourceFor } from '#lib/admin/editing.ts';
 	import Num from './Num.svelte';
@@ -7,6 +8,7 @@
 	type Output = 'total' | 'groundRoll';
 	type WindRule = NonNullable<Extract<Step, { type: 'wind' }>['headwind']>;
 	import SourcePick from './SourcePick.svelte';
+	import AdmItem from './AdmItem.svelte';
 
 	let { a, touch }: { a: Aircraft; touch: () => void } = $props();
 
@@ -41,9 +43,34 @@
 	function addPreset(c: StepsCondition, id: string) {
 		const p = PRESETS.find((x) => x.id === id)!, value = p[phase]!;
 		c.steps.push({ type: 'factor', value, applies: ['total', 'groundRoll'], reason: `${p.label}: ${value.toFixed(2)}`, source: sourceFor(a.sources, p.doc, p.page) });
+		addedStep = `${c.id}:${c.steps.length - 1}`;
 		touch();
 	}
 	const typeName = (t: string) => STEP_TYPES.find((s) => s[0] === t)?.[1] ?? t;
+	// Cards present when the editor opened start closed; ones added since start open.
+	/** The step just added, as `condition id:index`, so its card starts open. */
+	let addedStep = $state<string | null>(null);
+	const known = untrack(() => new Set([...a.performance.takeoff, ...a.performance.landing].map((c) => c.id)));
+	const pct = (x: number) => `${Math.round(x * 1000) / 10}%`;
+	const share = (x: number) => `${Math.round(x * 10000) / 100}%`;
+	const windText = (r: WindRule | undefined, word: string) => (r ? `${word} ${pct(r.percent / 100)} per ${r.perKnots} kt${r.maxKnots ? ` up to ${r.maxKnots} kt` : ''}` : '');
+	/** One line for a closed step card. */
+	function stepSummary(s: Step, unit: string): string {
+		switch (s.type) {
+			case 'lookup': return s.table ? `Table ${s.table}` : 'No table chosen';
+			case 'wind': return [windText(s.headwind, 'Headwind'), windText(s.tailwind, 'Tailwind')].filter(Boolean).join(', ') || 'No correction';
+			case 'surface': return `+${s.percent}% of ground roll${s.carryToTotal ? ', also on total' : ''}`;
+			case 'factor': return `× ${s.value}${s.reason ? `: ${s.reason}` : ''}`;
+			case 'massCorrection': return `(mass ÷ ${s.referenceMass} ${a.units.mass})^${s.exponent}`;
+			case 'ratio': return `${OUTPUTS.find((o) => o[0] === s.into)?.[1]} = ${share(s.value)} of ${OUTPUTS.find((o) => o[0] === s.from)?.[1].toLowerCase()}`;
+			case 'fixed': return [s.total !== undefined && `Total ${s.total} ${unit}`, s.groundRoll !== undefined && `ground roll ${s.groundRoll} ${unit}`].filter(Boolean).join(', ');
+		}
+	}
+	/** One line for a closed condition card: its steps in order. */
+	function conditionSummary(c: Condition): string {
+		if (c.kind === 'noData') return 'No data: pilots decide themselves';
+		return c.steps.map((s) => (s.type === 'lookup' ? `table ${s.table}` : s.type === 'factor' ? `× ${s.value}` : s.type === 'ratio' ? `${s.into === 'groundRoll' ? 'ground roll' : 'total'} ${share(s.value)}` : typeName(s.type).toLowerCase())).join(' → ');
+	}
 
 	function newStep(type: string): Step {
 		const source = defaultSource(a), applies: Output[] = ['total', 'groundRoll'];
@@ -90,16 +117,13 @@
 <p class="adm-hint">Each condition is one choice pilots make, such as "Paved" or "Dry grass". Its steps run from top to bottom, in the order the manual applies them. If the manual has no figure for a surface, copy a condition and add a published factor from "Add a step".{tables.length ? '' : ' Add the tables first, under Tables.'}</p>
 
 {#each list as c, i (c.id)}
-	<div class="adm-card">
-		<div class="adm-card-head">
-			<h3>{c.label || 'Unnamed condition'}</h3>
-			<div class="adm-tools">
-				<button type="button" disabled={i === 0} onclick={() => { move(list, i, -1); touch(); }}>Up</button>
-				<button type="button" disabled={i === list.length - 1} onclick={() => { move(list, i, 1); touch(); }}>Down</button>
-				<button type="button" onclick={() => addCondition(c)}>Copy</button>
-				<button type="button" onclick={() => { list.splice(i, 1); touch(); }} aria-label={`Delete ${c.label}`}>Delete</button>
-			</div>
-		</div>
+	<AdmItem title={c.label || 'Unnamed condition'} summary={conditionSummary(c)} open={!known.has(c.id)}>
+		{#snippet tools()}
+			<button type="button" disabled={i === 0} onclick={() => { move(list, i, -1); touch(); }}>Up</button>
+			<button type="button" disabled={i === list.length - 1} onclick={() => { move(list, i, 1); touch(); }}>Down</button>
+			<button type="button" onclick={() => addCondition(c)}>Copy</button>
+			<button type="button" onclick={() => { list.splice(i, 1); touch(); }} aria-label={`Delete ${c.label}`}>Delete</button>
+		{/snippet}
 		<div class="adm-row">
 			<label class="adm-field">Name *<input class="adm" placeholder="e.g. Dry grass" value={c.label} oninput={(e) => { c.label = e.currentTarget.value; touch(); }} /></label>
 			{#if c.kind === 'steps'}<label class="adm-field">Distances in<select class="adm" value={c.distanceUnit} onchange={(e) => { c.distanceUnit = e.currentTarget.value as 'm' | 'ft'; touch(); }}><option value="m">metres</option><option value="ft">feet</option></select></label>{/if}
@@ -107,15 +131,12 @@
 		<label class="adm-check"><input type="checkbox" checked={c.kind === 'noData'} onchange={(e) => setKind(c, e.currentTarget.checked)} /> The manual has no data for this: pilots decide themselves</label>
 		{#if c.kind === 'steps'}
 			{#each c.steps as s, j (j)}
-				<div class="adm-card sub">
-					<div class="adm-card-head">
-						<strong>{j + 1}. {typeName(s.type)}</strong>
-						<div class="adm-tools">
-							<button type="button" disabled={j === 0} onclick={() => { move(c.steps, j, -1); touch(); }}>Up</button>
-							<button type="button" disabled={j === c.steps.length - 1} onclick={() => { move(c.steps, j, 1); touch(); }}>Down</button>
-							<button type="button" disabled={c.steps.length < 2} onclick={() => { c.steps.splice(j, 1); touch(); }}>Delete</button>
-						</div>
-					</div>
+				<AdmItem sub title={`${j + 1}. ${typeName(s.type)}`} summary={stepSummary(s, c.distanceUnit)} open={addedStep === `${c.id}:${j}`}>
+					{#snippet tools()}
+						<button type="button" disabled={j === 0} onclick={() => { move(c.steps, j, -1); touch(); }}>Up</button>
+						<button type="button" disabled={j === c.steps.length - 1} onclick={() => { move(c.steps, j, 1); touch(); }}>Down</button>
+						<button type="button" disabled={c.steps.length < 2} onclick={() => { c.steps.splice(j, 1); touch(); }}>Delete</button>
+					{/snippet}
 					{#if s.type === 'lookup'}
 						<label class="adm-field">Table<select class="adm" value={s.table} onchange={(e) => { s.table = e.currentTarget.value; touch(); }}>{#if !tables.includes(s.table)}<option value={s.table}>Choose a table</option>{/if}{#each tables as t (t)}<option value={t}>{t}</option>{/each}</select></label>
 					{:else if s.type === 'wind'}
@@ -163,10 +184,10 @@
 						<div class="flex flex-wrap gap-x-4"><span class="adm-field">Applies to</span>{#each OUTPUTS as [k, l] (k)}<label class="adm-check"><input type="checkbox" checked={s.applies.includes(k)} onchange={(e) => toggleApplies(s, k, e.currentTarget.checked)} /> {l}</label>{/each}</div>
 					{/if}
 					{#if s.type !== 'lookup'}<SourcePick aircraft={a} value={s.source} onchange={(id) => { s.source = id; touch(); }} />{/if}
-				</div>
+				</AdmItem>
 			{/each}
 			<label class="adm-field">Add a step
-				<select class="adm" value="" onchange={(e) => { const v = e.currentTarget.value; if (v.startsWith('preset:')) addPreset(c, v.slice(7)); else if (v) { c.steps.push(newStep(v)); touch(); } e.currentTarget.value = ''; }}>
+				<select class="adm" value="" onchange={(e) => { const v = e.currentTarget.value; if (v.startsWith('preset:')) addPreset(c, v.slice(7)); else if (v) { c.steps.push(newStep(v)); addedStep = `${c.id}:${c.steps.length - 1}`; touch(); } e.currentTarget.value = ''; }}>
 					<option value="">Choose what the manual does next</option>
 					<optgroup label="From the manual">{#each STEP_TYPES as [v, l, d] (v)}<option value={v}>{l}: {d}</option>{/each}</optgroup>
 					<optgroup label={`Only if the manual gives no figure: published ${phase} factors`}>{#each presets as p (p.id)}<option value={`preset:${p.id}`}>{p.label}: × {p[phase]!.toFixed(2)}</option>{/each}</optgroup>
@@ -174,6 +195,6 @@
 			</label>
 			<label class="adm-field">Only if the manual gives one distance for a fixed situation: which situation<span class="adm-hint">Pilots are then warned that the distance isn't corrected for their conditions. Leave empty when a table covers them.</span><input class="adm" placeholder="e.g. sea level, 15 °C" value={c.assumes?.text ?? ''} oninput={(e) => { const t = e.currentTarget.value; if (t.trim()) c.assumes = { text: t, inputs: c.assumes?.inputs ?? [] }; else delete c.assumes; touch(); }} /></label>
 		{/if}
-	</div>
+	</AdmItem>
 {/each}
 <div><button type="button" onclick={() => addCondition()}>Add {phase} condition</button></div>
