@@ -130,7 +130,7 @@
 				</Collapsible.Root>
 			{/key}
 			<Collapsible.Root>
-				<Collapsible.Trigger class="mt-1.5 min-h-11 border-0 bg-transparent p-0 font-semibold text-accent">Show the working</Collapsible.Trigger>
+				<Collapsible.Trigger class="mt-1.5 min-h-11 border-0 bg-transparent p-0 font-semibold text-accent">Calculation steps</Collapsible.Trigger>
 				<Collapsible.Content class="pt-2"><Working {aircraft} {results} /></Collapsible.Content>
 			</Collapsible.Root>
 		</section>
@@ -148,7 +148,7 @@
 				<button type="button" class={[row, 'border-t border-divider']} onclick={onproblem}>{@render statusRow('todo', `${todo.length} to do before a Report`, `Next: ${todo[0].label.charAt(0).toLowerCase()}${todo[0].label.slice(1)}`)}</button>
 			{/if}
 			<Collapsible.Root>
-				<Collapsible.Trigger class={[row, 'rounded-lg border-t border-divider']}>{@render statusRow('list', 'Working and CG chart', 'Every step with its manual page')}</Collapsible.Trigger>
+				<Collapsible.Trigger class={[row, 'rounded-lg border-t border-divider']}>{@render statusRow('list', 'Calculation steps and CG chart', 'Every step with its manual page')}</Collapsible.Trigger>
 				<Collapsible.Content class="flex flex-col gap-3 px-3.5 pt-2 pb-3">
 					{#if !massFirst}<div class="mx-auto w-full max-w-[420px]"><CgChart {aircraft} {results} configuration={calc.configuration} /></div>{/if}
 					<Working {aircraft} {results} />

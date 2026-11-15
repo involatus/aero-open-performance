@@ -15,7 +15,7 @@
 
 <fieldset class="flex flex-col gap-3 border-0 p-0">
 	<legend class="label-caps mb-1">Operator rules</legend>
-	<p class="text-[13px] text-muted">Used only where an aircraft's manual gives none, marked "Operator rule" in the working and the Report. Pilots get changes with the next release.</p>
+	<p class="text-[13px] text-muted">Used only where an aircraft's manual gives none, marked "Operator rule" in the calculation steps and the Report. Pilots get changes with the next release.</p>
 
 	<div class="flex flex-col gap-2 rounded-lg border border-line p-3">
 		<label class={box}><input type="checkbox" class="size-5" checked={!!wind} onchange={(e) => set({ ...rules, wind: e.currentTarget.checked ? S.wind : undefined })} /> Wind, when the manual has no wind correction</label>

@@ -120,7 +120,7 @@ describe('Report layout', () => {
 		const a = load(name), c = ready(a);
 		const r = calculate(a, toInput(a, c));
 		const doc = reportDocument(createReportData(a, c, r, meta(a, c, r))), all = text(doc);
-		for (const s of ['Takeoff', 'Landing', 'DA', 'Wind', 'Conditions', 'Mass and balance', 'Burn plan', 'Limits', 'Working', RESPONSIBILITY, 'AOP-TEST', 'PRE-RELEASE, NOT FOR FLIGHT', 'FICTIONAL']) expect(all).toContain(s);
+		for (const s of ['Takeoff', 'Landing', 'DA', 'Wind', 'Conditions', 'Mass and balance', 'Burn plan', 'Limits', 'Calculation steps', RESPONSIBILITY, 'AOP-TEST', 'PRE-RELEASE, NOT FOR FLIGHT', 'FICTIONAL']) expect(all).toContain(s);
 		expect(all).toContain('A Pilot');
 		expect(all).toContain('LSXX');
 	});
@@ -155,7 +155,7 @@ describe('Report layout', () => {
 		const a = load('test-dr-style'), c = ready(a), d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
 		d.working.forEach((w) => delete w.tables);
 		const all = text(reportDocument(d));
-		expect(all).toContain('Working');
+		expect(all).toContain('Calculation steps');
 		expect(all).not.toContain('printed values used');
 	});
 	it('still renders Reports made before the compact layout', () => {

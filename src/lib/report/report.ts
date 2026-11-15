@@ -437,7 +437,7 @@ export function reportDocument(data: ReportData) {
 				num(l.detail, { alignment: 'right' })
 			]) }, layout: rows })), columnGap: 18, margin: [0, 0, 0, 10] },
 			// The working is supplemental, so it starts page 2 and page 1 stays the summary.
-			...d.working.map((w, i) => ({ stack: [...(i === 0 ? [heading('Working')] : []), {
+			...d.working.map((w, i) => ({ stack: [...(i === 0 ? [heading('Calculation steps')] : []), {
 				table: { widths: ['*', 60, 60], headerRows: 1, keepWithHeaderRows: 1, dontBreakRows: true, body: [
 					[th(w.title), th('Ground roll', 'right'), th('50 ft', 'right')],
 					...w.rows.map((r, i) => {
