@@ -23,6 +23,12 @@ async function checkForNewData(page: Page) {
 	await page.getByRole('button', { name: 'More' }).click();
 	await page.getByRole('menuitem', { name: 'Check for new data' }).click();
 }
+/** The station field and its buttons fold away once there is weather; open them when they are hidden. */
+async function getMetar(page: Page) {
+	const button = page.getByRole('button', { name: 'Get METAR' });
+	if (!(await button.isVisible())) await page.getByRole('button', { name: /^(Get a METAR|Use another station)$/ }).click();
+	await button.click();
+}
 async function type(page: Page, id: string, value: string) {
 	await page.locator(`[id="f-${id}"]`).click();
 	for (const key of value) await page.locator('.keys button', { hasText: new RegExp(`^${key === '.' ? '\\.' : key}$`) }).click();
@@ -37,7 +43,7 @@ for (const name of AIRCRAFT) {
 			await stepButton(page, step).click();
 			await expect(page.getByRole('navigation', { name: 'Steps' }).locator('[aria-current=step]')).toContainText(step);
 		}
-		await page.getByRole('button', { name: 'Show the working' }).click();
+		await page.getByRole('button', { name: 'Calculation steps' }).click();
 		await expect(summary(page)).toBeVisible();
 		await expect(page.getByRole('img', { name: /^CG envelope/ }).first()).toBeVisible();
 		expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0);
@@ -251,7 +257,7 @@ test('weather: prefills, needs confirming, and never overwrites what the pilot t
 	expect(calls).toBe(0);
 	await page.locator('#f-station').fill('lsxx');
 	await expect(page.locator('#f-station')).toHaveValue(/LSXX/i);
-	await page.getByRole('button', { name: 'Get METAR' }).click();
+	await getMetar(page);
 	await expect(page.locator('.metar .raw')).toHaveText(METAR.raw);
 	await expect(page.locator('.metar')).toContainText('8.6 km away');
 	await expect(page.locator('.flag')).toContainText('200° to 280°');
@@ -267,7 +273,7 @@ test('weather: prefills, needs confirming, and never overwrites what the pilot t
 
 	await page.unroute('**/api/metar?*');
 	await page.route('**/api/metar?*', (route) => route.fulfill({ json: { ...METAR, raw: 'METAR LSXX 061320Z 26011KT 14/06 Q1008' } }));
-	await page.getByRole('button', { name: 'Get METAR' }).click();
+	await getMetar(page);
 	await expect(page.locator('#f-qnh')).toHaveValue('1008');
 	await expect(page.locator('#w-qnh')).toContainText('was 1009');
 	await expect(page.locator('#f-oat')).toHaveValue('9');
@@ -283,7 +289,7 @@ for (const [name, status, body, message] of [
 		await page.route('**/api/metar?*', (route) => route.fulfill({ status, json: body }));
 		await toConditions(page);
 		await page.locator('#f-station').fill('LSXX');
-		await page.getByRole('button', { name: 'Get METAR' }).click();
+		await getMetar(page);
 		await expect(page.locator('.banner')).toContainText(message);
 		await type(page, 'qnh', '1013');
 		await expect(page.locator('#f-qnh')).toHaveValue('1013');
@@ -298,7 +304,7 @@ test('weather with no connection says so, and manual entry works', async ({ page
 	await stepButton(page, '3 · Conditions').click();
 	await context.setOffline(true);
 	await page.locator('#f-station').fill('LSXX');
-	await page.getByRole('button', { name: 'Get METAR' }).click();
+	await getMetar(page);
 	await expect(page.locator('.banner')).toContainText('No connection');
 	await type(page, 'qnh', '1013');
 	await expect(page.locator('#f-qnh')).toHaveValue('1013');
@@ -309,7 +315,7 @@ test('an old report gets a strong warning', async ({ page }) => {
 	await page.route('**/api/metar?*', (route) => route.fulfill({ json: { ...METAR, raw: 'METAR LSXX 010000Z 24008KT 12/06 Q1009' } }));
 	await toConditions(page);
 	await page.locator('#f-station').fill('LSXX');
-	await page.getByRole('button', { name: 'Get METAR' }).click();
+	await getMetar(page);
 	await expect(page.locator('.metar .banner')).toContainText('minutes old');
 });
 
@@ -499,7 +505,7 @@ test('landing at another airfield: its own conditions for the landing, on the Re
 
 	await page.getByRole('radio', { name: 'Another airfield' }).click();
 	await expect(page.getByRole('heading', { name: 'Landing weather' })).toBeVisible();
-	await expect(page.getByText('A METAR is the weather now, not at your arrival.')).toBeVisible();
+	await expect(page.getByText(/A METAR is the weather now, not at your arrival/)).toBeVisible();
 	await expect(stepButton(page, '3 · Conditions')).toContainText('6 to do');
 	for (const [id, value] of [['elev', '1000'], ['rwy', '36'], ['qnh', '1000'], ['oat', '25'], ['wdir', '90'], ['wspd', '20']]) await type(page, `land:${id}`, value);
 	await page.getByRole('button', { name: 'Close keypad' }).click();

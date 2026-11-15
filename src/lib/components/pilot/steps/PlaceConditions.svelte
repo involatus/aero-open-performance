@@ -225,7 +225,7 @@
 	</div>
 </Card>
 
-<Card title={named ? `${word} weather to check` : 'Weather to check'} description={weather ? `Filled in from the ${weather.station} METAR. Compare with ATIS, change what differs, then confirm.` : 'Enter the values from ATIS, or find the airfield above to fetch its METAR.'}>
+<Card title={named ? `${word} weather to check` : 'Weather to check'} description={`${place === 'landing' ? 'A METAR is the weather now, not at your arrival. Check it again before landing. ' : ''}${weather ? `Filled in from the ${weather.station} METAR. Compare with ATIS, change what differs, then confirm.` : 'Enter the values from ATIS, or find the airfield above to fetch its METAR.'}`}>
 	<div class="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
 		{#each weatherFields as field (field.key)}{@render numberField(field)}{/each}
 	</div>
