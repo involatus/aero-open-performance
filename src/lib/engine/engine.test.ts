@@ -358,7 +358,7 @@ describe('operator rules', () => {
 	});
 
 	it('marks the extended row in the table the pilot sees', () => {
-		const lookup = calculate(withR(), at(1707)).takeoff.steps[0].lookup!;
+		const lookup = calculate(withR(), at(1707)).takeoff.steps.find((st) => st.lookup)!.lookup!;
 		expect(lookup.extended).toMatchObject({ axis: 0 });
 		expect(lookup.extended!.aboveBy).toBeCloseTo(207, 0);
 	});

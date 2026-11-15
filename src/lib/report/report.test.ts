@@ -109,8 +109,8 @@ describe('creating a Report', () => {
 	it('keeps warnings and cites manual sources in the working', () => {
 		const c = ready(a), d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
 		expect(d.results.takeoff.warnings.join()).toContain('did not change');
-		expect(d.working[0].rows[0].source).toContain('Fictional test manual');
-		expect(d.working[0].rows[0].step).toContain('Table values');
+		const lookupRow = d.working[0].rows.find((r) => r.step.includes('Table values'))!;
+		expect(lookupRow.source).toContain('Fictional test manual');
 	});
 });
 
@@ -142,7 +142,7 @@ describe('Report layout', () => {
 	});
 	it('marks manual sources in the working and lists each one once', () => {
 		const a = load('test-dr-style'), c = ready(a), d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
-		const source = d.working[0].rows[0].source, all = text(reportDocument(d));
+		const source = d.working[0].rows.find((r) => r.source)!.source, all = text(reportDocument(d));
 		expect(all.split(JSON.stringify(` ${source}`)).length - 1).toBe(1);
 		expect(all).not.toContain('"text":"Source"');
 	});
@@ -153,12 +153,13 @@ describe('Report layout', () => {
 	});
 	it('puts each manual table right under the step that reads it', () => {
 		const a = load('test-dr-style'), c = ready(a), d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
-		expect(d.working[0].tables?.[0].step).toBe(0);
+		const index = d.working[0].rows.findIndex((r) => r.step.includes('Table at'));
+		expect(d.working[0].tables?.[0].step).toBe(index);
 		const doc = JSON.stringify(reportDocument(d));
-		const lookupRow = doc.indexOf('1. Table at'), table = doc.indexOf('printed values used'), secondStep = doc.indexOf('"2. ');
+		const lookupRow = doc.indexOf(`${index + 1}. Table at`), table = doc.indexOf('printed values used'), nextStep = doc.indexOf(`"${index + 2}. `);
 		expect(lookupRow).toBeGreaterThan(-1);
 		expect(table).toBeGreaterThan(lookupRow);
-		expect(secondStep).toBeGreaterThan(table);
+		expect(nextStep).toBeGreaterThan(table);
 	});
 	it('shows tables after the steps for Reports made before tables had a step', () => {
 		const a = load('test-dr-style'), c = ready(a), d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
@@ -230,5 +231,17 @@ describe('identity and retention', () => {
 		expect(fingerprint(a, c)).toBe(f);
 		setByPilot(c, 'qnh', '1000');
 		expect(fingerprint(a, c)).not.toBe(f);
+	});
+});
+
+describe('how the altitude was worked out', () => {
+	it('comes first in the working, with the formula and the rule of thumb, before the table that reads it', () => {
+		const a = load('test-dr-style'), c = ready(a), r = calculate(a, toInput(a, c));
+		const steps = r.takeoff.steps.map((s) => s.type);
+		expect(steps.indexOf('altitude')).toBe(0);
+		expect(steps.indexOf('altitude')).toBeLessThan(steps.indexOf('lookup'));
+		expect(r.takeoff.steps[0].detail).toMatch(/^Pressure altitude from elevation .* QNH .*\^0\.190284\) = .*Rule of thumb: /);
+		expect(r.takeoff.steps.find((s) => s.lookup)!.detail).toContain('Table at Pressure altitude');
+		expect(r.landing.steps.some((s) => s.type === 'altitude')).toBe(false);
 	});
 });

@@ -66,6 +66,29 @@ export function extensionFactor(input: string, belowFt: number, topFt: number, a
 	return { n, density, rule, factor: Math.max(density, rule) };
 }
 
+const shown1 = (x: number) => String(Number(x.toFixed(1)));
+/** Says which altitude a table reads: a plain "Altitude" axis becomes "Pressure altitude", others get it in brackets. */
+function axisLabel(axis: { name: string; input: string }): string {
+	const kind = axis.input === 'pressureAltitude' ? 'pressure altitude' : axis.input === 'densityAltitude' ? 'density altitude' : null;
+	if (!kind || new RegExp(kind.split(' ')[0], 'i').test(axis.name)) return axis.name;
+	return /^altitude$/i.test(axis.name.trim()) ? kind.charAt(0).toUpperCase() + kind.slice(1) : `${axis.name} (${kind})`;
+}
+/**
+ * The working for the altitude a table reads, in the table's unit: the exact ISA formula, then the
+ * flight-school rule of thumb beside it, so a pilot can check it against their own working.
+ */
+export function altitudeSteps(atm: Atmosphere, input: 'pressureAltitude' | 'densityAltitude', unit: string): string[] {
+	const u = (ft: number) => convertLength(ft, 'ft', unit), metres = unit === 'm', name = metres ? 'm' : 'ft';
+	const elev = u(atm.elevationFt), pa = u(atm.pressureAltitudeFt), qnh = atm.qnhHpa;
+	if (qnh === undefined) return [];
+	const both = (ft: number) => `${shown1(u(ft))} ${name}${metres ? ` (${Math.round(ft)} ft)` : ''}`;
+	const lines = [`Pressure altitude from elevation ${shown1(elev)} ${name} and QNH ${shown1(qnh)} hPa: ${shown1(elev)} + ${metres ? '44,307.7' : '145,366.45'} × (1 − (${shown1(qnh)} ÷ 1013.25)^0.190284) = ${both(atm.pressureAltitudeFt)}. Rule of thumb: ${shown1(elev)} + (1013 − ${shown1(qnh)}) × ${metres ? '8.23' : '27'} = ${shown1(u(atm.ruleOfThumb.pressureAltitudeFt))} ${name}`];
+	if (input === 'densityAltitude' && atm.densityAltitudeFt !== null && atm.oatC != null && atm.ruleOfThumb.densityAltitudeFt !== null) {
+		lines.push(`Density altitude from pressure altitude ${shown1(pa)} ${name}, OAT ${shown1(atm.oatC)} °C and ISA ${shown1(atm.isaC)} °C, by the ISA formula: ${both(atm.densityAltitudeFt)}. Rule of thumb: ${Math.round(atm.ruleOfThumb.pressureAltitudeFt)} + 120 × (${shown1(atm.oatC)} − ${shown1(atm.ruleOfThumb.isaC)}) = ${Math.round(atm.ruleOfThumb.densityAltitudeFt)} ft`);
+	}
+	return lines;
+}
+
 /** Factor for one wind direction, or null when the manual gives no result at this wind. */
 function windFactor(rule: WindRule, knots: number, sign: 1 | -1, warnings: string[]): number | null {
 	let k = knots;
@@ -88,6 +111,7 @@ export function runCondition(a: Aircraft, condition: Condition, ctx: Context): P
 		result.status = status; result.reason = reason; result.missing = missing; return result;
 	};
 	const trace = (type: string, detail: string, extra: Partial<StepTrace> = {}) => result.steps.push({ type, detail, total, groundRoll, ...extra });
+	const explained = new Set<string>();
 	const apply = (applies: string[], factor: number) => {
 		if (applies.includes('total') && total !== null) total *= factor;
 		if (applies.includes('groundRoll') && groundRoll !== null) groundRoll *= factor;
@@ -114,6 +138,11 @@ export function runCondition(a: Aircraft, condition: Condition, ctx: Context): P
 			const brackets: Bracket[] = [];
 			const parts: string[] = [], at: number[] = [];
 			let extendAxis: number | null = null;
+			// How the altitude the table reads was worked out, once per condition, before the first table that reads it.
+			for (const axis of axes) if (ctx.atm && !explained.has(axis.input) && (axis.input === 'pressureAltitude' || axis.input === 'densityAltitude')) {
+				explained.add(axis.input);
+				for (const line of altitudeSteps(ctx.atm, axis.input, axis.unit)) trace('altitude', line);
+			}
 			for (const [i, axis] of axes.entries()) {
 				const x = inputFor(axis, ctx);
 				if (x === null) return stop('needsInput', `Enter ${INPUT_NAMES[axis.input]}`, [INPUT_NAMES[axis.input]]);
@@ -126,7 +155,7 @@ export function runCondition(a: Aircraft, condition: Condition, ctx: Context): P
 				}
 				if (!b) return stop('noResult', `No result: ${axis.name} ${x.toFixed(1)} ${showUnit(axis.unit)} is outside the table (${axis.values[0]} to ${axis.values[last]} ${showUnit(axis.unit)})`);
 				if (b.warn) result.warnings.push(`${axis.name} ${x.toFixed(1)} ${showUnit(axis.unit)} is outside the table: uses the nearest value`);
-				parts.push(`${axis.name} ${x.toFixed(1)} ${showUnit(axis.unit)}`);
+				parts.push(`${axisLabel(axis)} ${x.toFixed(1)} ${showUnit(axis.unit)}`);
 				brackets.push(b);
 				at.push(x);
 			}

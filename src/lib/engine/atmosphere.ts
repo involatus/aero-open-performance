@@ -3,7 +3,8 @@ import { M_PER_FT } from './units.ts';
 
 /** The flight-school rule of thumb, shown beside the exact values so a pilot can compare with their own working. */
 export type RuleOfThumb = { pressureAltitudeFt: number; isaC: number; densityAltitudeFt: number | null };
-export type Atmosphere = { elevationFt: number; pressureAltitudeFt: number; isaC: number; densityAltitudeFt: number | null; ruleOfThumb: RuleOfThumb };
+/** `qnhHpa` and `oatC` are the inputs, kept so the calculation steps can show the working. */
+export type Atmosphere = { elevationFt: number; pressureAltitudeFt: number; isaC: number; densityAltitudeFt: number | null; ruleOfThumb: RuleOfThumb; qnhHpa?: number; oatC?: number | null };
 
 /**
  * 27 ft per hPa from 1013 hPa, ISA falling 2 °C per 1000 ft from 15 °C, and 120 ft per °C above or below ISA.
@@ -25,5 +26,5 @@ export function atmosphere(elevationM: number, qnhHpa: number, oatC: number | nu
 		const densityRatio = pressureRatio / ((oatC + 273.15) / 288.15);
 		densityAltitudeFt = 145442.16 * (1 - Math.pow(densityRatio, 0.234969));
 	}
-	return { elevationFt, pressureAltitudeFt, isaC, densityAltitudeFt, ruleOfThumb: ruleOfThumb(elevationFt, qnhHpa, oatC) };
+	return { elevationFt, pressureAltitudeFt, isaC, densityAltitudeFt, ruleOfThumb: ruleOfThumb(elevationFt, qnhHpa, oatC), qnhHpa, oatC };
 }
