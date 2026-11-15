@@ -159,6 +159,8 @@ const Configuration = v.strictObject({
 });
 
 const Quantity = v.strictObject({ value: Num, unit: DistanceUnit });
+/** Degrees, or "VRB" for variable wind. */
+const WindFrom = v.nullable(v.union([Num, v.literal('VRB')]));
 export const CalculationInput = v.strictObject({
 	configuration: Id,
 	loads: v.record(Id, v.strictObject({ mass: NonNegative, position: v.optional(Id) })),
@@ -169,7 +171,7 @@ export const CalculationInput = v.strictObject({
 	elevation: v.nullable(Quantity),
 	qnh: v.nullable(Positive),
 	oat: v.nullable(Num),
-	windDirection: v.nullable(Num),
+	windDirection: WindFrom,
 	windSpeed: v.nullable(NonNegative),
 	runwayHeading: v.nullable(Num),
 	/** Which wind the distances use. Missing means the entered wind. */
@@ -179,7 +181,7 @@ export const CalculationInput = v.strictObject({
 		elevation: v.nullable(Quantity),
 		qnh: v.nullable(Positive),
 		oat: v.nullable(Num),
-		windDirection: v.nullable(Num),
+		windDirection: WindFrom,
 		windSpeed: v.nullable(NonNegative),
 		runwayHeading: v.nullable(Num),
 		windForDistances: v.optional(v.picklist(['entered', 'none', 'tail3']))

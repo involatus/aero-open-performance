@@ -28,6 +28,7 @@
 	import { sha256 } from '#lib/data/canonical.ts';
 	import type { Aircraft, CalculationInput, HandCase , Axis } from '#lib/aircraft/schema.ts';
 	import { calculate, runHandCases } from '#lib/engine/index.ts';
+	import { armText, massText, workingRows } from '#lib/app/presentation.ts';
 
 	type Status = AdminStatus;
 
@@ -540,11 +541,12 @@
 								<CaseInputs aircraft={parsed} input={testInput} onchange={() => {}} />
 								{#if typeof testResult === 'string'}<div class="banner notsent">{testResult}</div>
 								{:else if testResult}
-									<p><strong>Takeoff mass</strong> <span class="num">{testResult.massBalance.takeoff.mass.toFixed(1)}</span>, CG <span class="num">{testResult.massBalance.takeoff.arm.toFixed(3)}</span>. <strong>Landing mass</strong> <span class="num">{testResult.massBalance.landing.mass.toFixed(1)}</span>, CG <span class="num">{testResult.massBalance.landing.arm.toFixed(3)}</span>.</p>
+									{#if parsed}<p><strong>Takeoff mass</strong> <span class="num">{massText(parsed, testResult.massBalance.takeoff.mass)}</span>, CG <span class="num">{armText(parsed, testResult.massBalance.takeoff.arm)}</span>. <strong>Landing mass</strong> <span class="num">{massText(parsed, testResult.massBalance.landing.mass)}</span>, CG <span class="num">{armText(parsed, testResult.massBalance.landing.arm)}</span>.</p>{/if}
 									{#if testResult.exceeded.length}<p class="font-bold text-bad">Exceeded: {testResult.exceeded.join(', ')}</p>{/if}
 									{#each [['Takeoff', testResult.takeoff], ['Landing', testResult.landing]] as const as [title, r] (title)}
+										{@const rows = parsed ? workingRows(parsed, r) : []}
 										<div><strong>{title}:</strong> {r.status === 'ok' ? `total ${r.total ?? '-'}, ground roll ${r.groundRoll ?? '-'} ${r.unit}` : r.reason}
-											{#if r.steps.length}<div class="overflow-x-auto"><table><thead><tr><th>Step</th><th class="n">Total</th><th class="n">Ground roll</th></tr></thead><tbody>{#each r.steps as s, i (i)}<tr><td>{i + 1}. {s.detail}{#each [...(s.lines ?? []), ...(s.cells ? [`Table values ${s.cells.join(', ')}`] : [])] as line, j (j)}<span class="block pl-4 text-xs text-muted">{line}</span>{/each}</td><td class="n num">{s.total?.toFixed(1) ?? '-'}</td><td class="n num">{s.groundRoll?.toFixed(1) ?? '-'}</td></tr>{/each}</tbody></table></div>{/if}
+											{#if rows.length}<div class="overflow-x-auto"><table><thead><tr><th>Step</th><th class="n">Total</th><th class="n">Ground roll</th></tr></thead><tbody>{#each rows as row, i (i)}<tr><td>{row.step}{#if row.source} <span class="text-xs text-muted">({row.source})</span>{/if}{#each row.lines ?? [] as line, j (j)}<span class="block pl-4 text-xs text-muted">{line}</span>{/each}</td><td class="n num">{row.total}</td><td class="n num">{row.groundRoll}</td></tr>{/each}</tbody></table></div>{/if}
 											{#each r.warnings as w (w)}<p class="m-0 text-sm font-semibold text-amber">{w}</p>{/each}
 											{#each r.notes as n (n)}<p class="m-0 text-sm text-muted">{n}</p>{/each}
 										</div>

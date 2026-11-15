@@ -1,6 +1,6 @@
 # Aircraft data format and calculation rules
 
-Format version 0.4.0. Version 0.4.0 added `surface` on conditions, 0.3.0 added `appliesTo` on notes and `carries` on stations, and 0.2.0 added Operator Rules to the release index. Older files are still read. This document is the complete definition of how an aircraft file is read and calculated. Another implementation must be able to produce the same results from this document alone. The machine-readable shape is in [schema/aircraft.schema.json](../schema/aircraft.schema.json), and examples are in [aircraft-examples/](../aircraft-examples/). All example values are invented.
+Format version 0.4.0. Version 0.4.0 added `surface` on conditions and `"VRB"` as a wind direction, 0.3.0 added `appliesTo` on notes and `carries` on stations, and 0.2.0 added Operator Rules to the release index. Older files are still read. This document is the complete definition of how an aircraft file is read and calculated. Another implementation must be able to produce the same results from this document alone. The machine-readable shape is in [schema/aircraft.schema.json](../schema/aircraft.schema.json), and examples are in [aircraft-examples/](../aircraft-examples/). All example values are invented.
 
 One strict JSON file describes one registered aircraft. Unknown fields are errors. Every value stays in the manual's own units. Nothing has a hidden default.
 
@@ -46,7 +46,8 @@ A **Configuration** has `id`, `label` and `weighing` (`mass`, `moment`, `date`, 
 | `elevation` | `{ value, unit }` in `m` or `ft`, or `null` |
 | `qnh` | hPa, or `null` |
 | `oat` | °C, or `null` |
-| `windDirection`, `runwayHeading` | Degrees, or `null` |
+| `windDirection` | Degrees, `"VRB"` for variable wind, or `null` |
+| `runwayHeading` | Degrees, or `null` |
 | `windSpeed` | Knots, or `null` |
 | `windForDistances` | Optional: `entered` (the default), `none` or `tail3` |
 | `landingAt` | Optional: the landing airfield's `elevation`, `qnh`, `oat`, `windDirection`, `windSpeed`, `runwayHeading` and `windForDistances`, when it isn't the departure airfield |
@@ -120,6 +121,8 @@ Needs direction, speed and runway heading. With `angle = (windDirection − runw
 headwind  = windSpeed × cos(angle)    (negative means tailwind)
 crosswind = |windSpeed × sin(angle)|
 ```
+
+Variable wind (`"VRB"`) has no direction, so it is a tailwind at its full speed on any runway, with no crosswind: `headwind = −windSpeed`, `crosswind = 0`. It still needs a runway heading.
 
 The crosswind check and the wind shown to the pilot always use the entered wind. The distances use `windForDistances`: `none` plans with no headwind and `tail3` with a 3 kt tailwind. The chosen wind is used as chosen, also when it leaves out a stronger entered tailwind (for example a METAR from another field); the app and the Report then say the entered tailwind is not used.
 

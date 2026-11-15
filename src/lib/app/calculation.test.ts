@@ -244,7 +244,10 @@ describe('landing at another airfield', () => {
 		const c = elsewhere();
 		fill(c);
 		setByPilot(c, 'land:wdir', 'VRB');
-		expect(toInput(dr, c).landingAt?.windDirection).toBe(70);
+		expect(toInput(dr, c).landingAt?.windDirection).toBe('VRB');
+		const landing = calculate(dr, toInput(dr, c)).landingAt!;
+		expect(landing.wind!.headwind).toBeLessThan(0);
+		expect(landing.wind!.crosswind).toBe(0);
 		expect(toDoList(dr, c)).toEqual([]);
 	});
 	it('prefills landing weather under its own keys', () => {
@@ -341,12 +344,12 @@ describe('weather prefill', () => {
 		setByPilot(c, 'wdir', '10');
 		expect(variable!).toBeGreaterThan(calculate(kf, toInput(kf, c)).takeoff.rawTotal!);
 	});
-	it('wraps round north, and waits for a heading', () => {
+	it('is a tailwind on any runway, and waits for a heading', () => {
 		const c = ready(kf);
-		setByPilot(c, 'rwy', '27'); setByPilot(c, 'wdir', 'VRB');
-		expect(toInput(kf, c).windDirection).toBe(90);
+		setByPilot(c, 'rwy', '27'); setByPilot(c, 'wdir', 'VRB'); setByPilot(c, 'wspd', '4');
+		expect(calculate(kf, toInput(kf, c)).wind).toEqual({ headwind: -4, crosswind: 0 });
 		c.values.rwy = '';
-		expect(toInput(kf, c).windDirection).toBeNull();
+		expect(calculate(kf, toInput(kf, c)).wind).toBeNull();
 	});
 	it('offers variable wind as a quick choice, and a typed number replaces it', () => {
 		const field = fieldsFor(kf, { elevationUnit: 'm' })[2].find((f) => f.key === 'wdir')!;

@@ -8,6 +8,7 @@ import type { Calculation } from './calculation.ts';
 import type { Calculation as Results } from '../engine/index.ts';
 import type { Limit } from '../engine/mass-balance.ts';
 import type { PerformanceResult, Wind } from '../engine/performance.ts';
+import { ignoresEnteredTailwind } from '../engine/wind.ts';
 
 export type DistanceText = { title: string; status: PerformanceResult['status']; headline: string; detail: string; warnings: string[]; notes?: string[] };
 export type Tone = 'ok' | 'warnb' | 'fail';
@@ -47,18 +48,10 @@ export function windText(wind: Wind | null, variable: boolean): { headline: stri
 }
 
 export const WIND_CHOICES: Record<WindForDistances, string> = { entered: 'As entered', none: 'No wind', tail3: 'Tailwind 3 kt' };
-const CHOSEN_HEADWIND: Record<WindForDistances, number> = { entered: Infinity, none: 0, tail3: -3 };
-
-/** True when the entered wind is already a stronger tailwind than the choice, so the entered wind is used. */
-/** The pilot's choice leaves out a stronger entered tailwind, so the distances are shorter than with the entered wind. */
-export function ignoresEnteredTailwind(r: Pick<Results, 'wind'>, choice: WindForDistances): boolean {
-	return choice !== 'entered' && !!r.wind && r.wind.headwind < CHOSEN_HEADWIND[choice] - 1e-9;
-}
-
 /** Which wind the distances use, in words, the same on screen and on the Report. */
 export function windChoiceText(r: Pick<Results, 'wind' | 'distanceWind'>, choice: WindForDistances = 'entered'): string {
 	const label = WIND_CHOICES[choice];
-	return ignoresEnteredTailwind(r, choice) ? `${label} chosen: the entered ${Math.round(-r.wind!.headwind)} kt tailwind is not used` : label;
+	return ignoresEnteredTailwind(r.wind, choice) ? `${label} chosen: the entered ${Math.round(-r.wind!.headwind)} kt tailwind is not used` : label;
 }
 
 /** The landing airfield's atmosphere and wind: its own when landing elsewhere, else the departure's. */

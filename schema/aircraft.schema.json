@@ -2682,7 +2682,14 @@
 							"windDirection": {
 								"anyOf": [
 									{
-										"type": "number"
+										"anyOf": [
+											{
+												"type": "number"
+											},
+											{
+												"const": "VRB"
+											}
+										]
 									},
 									{
 										"type": "null"
@@ -2772,7 +2779,14 @@
 									"windDirection": {
 										"anyOf": [
 											{
-												"type": "number"
+												"anyOf": [
+													{
+														"type": "number"
+													},
+													{
+														"const": "VRB"
+													}
+												]
 											},
 											{
 												"type": "null"

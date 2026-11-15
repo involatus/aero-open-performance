@@ -2,8 +2,10 @@
 import type { Aircraft, CalculationInput, HandCase, WindForDistances } from '../aircraft/schema.ts';
 import { atmosphere, type Atmosphere } from './atmosphere.ts';
 import { configurationOf, massBalance, type MassBalance } from './mass-balance.ts';
-import { runCondition, type PerformanceResult, type Wind } from './performance.ts';
+import { runCondition, type PerformanceResult } from './performance.ts';
 import { convertLength, massArmFactors } from './units.ts';
+import { windComponents, windForDistances, type Wind } from './wind.ts';
+export { windForDistances } from './wind.ts';
 
 export type Calculation = {
 	massBalance: MassBalance;
@@ -27,27 +29,10 @@ function noPerformance(label: string): PerformanceResult {
 export type PlaceConditions = { atmosphere: Atmosphere | null; elevationM: number | null; oat: number | null; wind: Wind | null; distanceWind: Wind | null };
 type PlaceInput = Pick<CalculationInput, 'elevation' | 'qnh' | 'oat' | 'windDirection' | 'windSpeed' | 'runwayHeading' | 'windForDistances'>;
 
-const CHOSEN_HEADWIND: Record<WindForDistances, number | null> = { entered: null, none: 0, tail3: -3 };
-
-/**
- * A pilot may plan with no wind or a 3 kt tailwind instead of the entered wind, for example when the
- * METAR is from another field. The choice is the pilot's and is used as chosen, even where it ignores a
- * stronger entered tailwind; the app and the Report then say so. The crosswind stays the entered one.
- */
-export function windForDistances(wind: Wind | null, choice: WindForDistances = 'entered'): Wind | null {
-	const chosen = CHOSEN_HEADWIND[choice];
-	if (!wind || chosen === null) return wind;
-	return { headwind: chosen, crosswind: wind.crosswind };
-}
-
 function placeConditions(p: PlaceInput): PlaceConditions {
 	const elevationM = p.elevation ? convertLength(p.elevation.value, p.elevation.unit, 'm') : null;
 	const atm = elevationM !== null && p.qnh !== null ? atmosphere(elevationM, p.qnh, p.oat) : null;
-	let wind: Wind | null = null;
-	if (p.windDirection !== null && p.windSpeed !== null && p.runwayHeading !== null) {
-		const angle = ((p.windDirection - p.runwayHeading) * Math.PI) / 180;
-		wind = { headwind: p.windSpeed * Math.cos(angle), crosswind: Math.abs(p.windSpeed * Math.sin(angle)) };
-	}
+	const wind = p.windDirection !== null && p.windSpeed !== null && p.runwayHeading !== null ? windComponents(p.windDirection, p.windSpeed, p.runwayHeading) : null;
 	return { atmosphere: atm, elevationM, oat: p.oat, wind, distanceWind: windForDistances(wind, p.windForDistances) };
 }
 

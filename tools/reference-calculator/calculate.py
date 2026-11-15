@@ -156,6 +156,8 @@ def wind(inp):
     d, s, r = inp.get("windDirection"), inp.get("windSpeed"), inp.get("runwayHeading")
     if d is None or s is None or r is None:
         return None, None
+    if d == "VRB":
+        return -s, 0.0
     ang = math.radians(d - r)
     return s * math.cos(ang), abs(s * math.sin(ang))
 

@@ -50,7 +50,7 @@ function randomInput(a: Aircraft, r: () => number): CalculationInput {
 		elevation,
 		qnh: r() < 0.03 ? null : onGrid ? 1013.25 : between(960, 1050),
 		oat: r() < 0.03 ? null : onGrid && temps.length ? pick(temps) : between(-30, 55),
-		windDirection: r() < 0.03 ? null : Math.floor(between(0, 360)),
+		windDirection: r() < 0.03 ? null : r() < 0.05 ? 'VRB' : Math.floor(between(0, 360)),
 		windSpeed: r() < 0.03 ? null : r() < 0.2 ? 0 : between(0, 35),
 		runwayHeading: r() < 0.03 ? null : Math.floor(between(0, 360)),
 		takeoffCondition: pick(perf.takeoff).id,

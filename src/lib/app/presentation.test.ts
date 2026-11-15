@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { validateAircraft } from '../aircraft/validate.ts';
 import { calculate } from '../engine/index.ts';
 import { atmosphere } from '../engine/atmosphere.ts';
-import { altitudeText, distanceText, ignoresEnteredTailwind, limitBadge, massBalanceRows, statusWord, windChoiceText, windText, workingRows } from './presentation.ts';
+import { altitudeText, distanceText, limitBadge, massBalanceRows, statusWord, windChoiceText, windText, workingRows } from './presentation.ts';
 
 const aircraft = (n: string) => {
 	const v = validateAircraft(JSON.parse(readFileSync(`aircraft-examples/${n}.json`, 'utf8')));
@@ -60,10 +60,6 @@ describe('wind for the distances', () => {
 		expect(windChoiceText({ ...head, distanceWind: { headwind: -3, crosswind: 0 } }, 'tail3')).toBe('Tailwind 3 kt');
 	});
 	it('says when the choice leaves out a stronger entered tailwind', () => {
-		expect(ignoresEnteredTailwind(tail, 'none')).toBe(true);
-		expect(ignoresEnteredTailwind(tail, 'tail3')).toBe(true);
-		expect(ignoresEnteredTailwind({ wind: { headwind: -3, crosswind: 0 } }, 'tail3')).toBe(false);
-		expect(ignoresEnteredTailwind({ wind: { headwind: 0, crosswind: 0 } }, 'none')).toBe(false);
 		expect(windChoiceText(tail, 'none')).toMatch(/^No wind chosen: the entered \d+ kt tailwind is not used$/);
 	});
 });

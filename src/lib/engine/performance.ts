@@ -5,7 +5,8 @@ import { EPSILON, bracket, interpolate, surroundingCells, type Bracket } from '.
 import type { Atmosphere } from './atmosphere.ts';
 import { OPERATOR_SOURCE, type OperatorRules } from '../aircraft/operator-rules.ts';
 
-export type Wind = { headwind: number; crosswind: number };
+export type { Wind } from './wind.ts';
+import type { Wind } from './wind.ts';
 /** Where a lookup read its table: the input on each axis, in the axis unit, and where it fell. */
 export type LookupTrace = { table: string; at: number[]; brackets: Bracket[]; extended?: Extension };
 /** A lookup above the table's top altitude, carried on by an Operator Rule. `axis` is the axis index. */

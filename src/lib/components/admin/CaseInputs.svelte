@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Aircraft, CalculationInput } from '#lib/aircraft/schema.ts';
-	import { performanceOf } from '#lib/app/calculation.ts';
+	import { VARIABLE_WIND, performanceOf } from '#lib/app/calculation.ts';
 	import { entryUnits, shown, stored } from '#lib/admin/editing.ts';
 
 	let { aircraft, input, onchange }: { aircraft: Aircraft; input: CalculationInput; onchange: () => void } = $props();
@@ -20,6 +20,10 @@
 	function setNullable(key: 'qnh' | 'oat' | 'windDirection' | 'windSpeed' | 'runwayHeading', text: string) {
 		(input[key] as number | null) = num(text);
 		onchange();
+	}
+	/** Degrees, or VRB for variable wind, as in a METAR. */
+	function setWindFrom(text: string) {
+		if (text.trim().toUpperCase() === VARIABLE_WIND) { input.windDirection = VARIABLE_WIND; onchange(); } else setNullable('windDirection', text);
 	}
 	function setElevation(value: string, unit: 'm' | 'ft') {
 		const n = num(value);
@@ -44,7 +48,7 @@
 	<label class="adm-field">Elevation unit<select class="adm" value={input.elevation?.unit ?? 'm'} onchange={(e) => setElevation(String(input.elevation?.value ?? ''), e.currentTarget.value as 'm' | 'ft')}><option value="m">m</option><option value="ft">ft</option></select></label>
 	<label class="adm-field">QNH, hPa<input class="adm" inputmode="decimal" value={input.qnh ?? ''} onchange={(e) => setNullable('qnh', e.currentTarget.value)} /></label>
 	<label class="adm-field">OAT, °C<input class="adm" inputmode="decimal" value={input.oat ?? ''} onchange={(e) => setNullable('oat', e.currentTarget.value)} /></label>
-	<label class="adm-field">Wind from, °<input class="adm" inputmode="decimal" value={input.windDirection ?? ''} onchange={(e) => setNullable('windDirection', e.currentTarget.value)} /></label>
+	<label class="adm-field">Wind from, ° or VRB<input class="adm" value={input.windDirection ?? ''} onchange={(e) => setWindFrom(e.currentTarget.value)} /></label>
 	<label class="adm-field">Wind speed, kt<input class="adm" inputmode="decimal" value={input.windSpeed ?? ''} onchange={(e) => setNullable('windSpeed', e.currentTarget.value)} /></label>
 	<label class="adm-field">Runway heading, °<input class="adm" inputmode="decimal" value={input.runwayHeading ?? ''} onchange={(e) => setNullable('runwayHeading', e.currentTarget.value)} /></label>
 	{#if perf}

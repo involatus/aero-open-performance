@@ -7,6 +7,7 @@ import { magneticHeading, runwayNumber, surfaceKind, type Airfield, type RunwayE
 import type { Calculation as Results } from '../engine/index.ts';
 import { M_PER_FT } from '../engine/units.ts';
 import { toMagnetic } from '../weather/variation.ts';
+import { VARIABLE_WIND, windComponents } from '../engine/wind.ts';
 import { parseMetar } from '../weather/metar.ts';
 import type { WeatherReport } from '../weather/provider.ts';
 
@@ -71,7 +72,7 @@ export type ToDo = { key: string; label: string; step: number };
 export const STEP_NAMES = ['Load', 'Fuel', 'Conditions', 'Send'];
 
 /** Variable wind has no direction, so every Operator's calculations apply it as a tailwind. */
-export const VARIABLE_WIND = 'VRB';
+export { VARIABLE_WIND } from '../engine/wind.ts';
 export const isVariableWind = (calc: Pick<Calculation, 'values'>, place: Place = 'departure') => calc.values[keyAt(place, 'wdir')] === VARIABLE_WIND;
 
 /** The landing airfield's values sit beside the departure ones under their own keys, such as land:qnh. */
@@ -131,9 +132,7 @@ export function runwayWinds(runways: Array<{ designator: string; number: number;
 	const winds = new Map<string, RunwayWind>();
 	if (speed === null || (!variable && direction === null)) return { winds, intoWind: null as string | null };
 	for (const r of runways) {
-		if (variable) { winds.set(r.designator, { headwind: -speed, crosswind: 0, variable }); continue; }
-		const angle = ((direction! - (r.heading ?? r.number * 10)) * Math.PI) / 180;
-		winds.set(r.designator, { headwind: speed * Math.cos(angle), crosswind: Math.abs(speed * Math.sin(angle)), variable });
+		winds.set(r.designator, { ...windComponents(variable ? VARIABLE_WIND : direction!, speed, r.heading ?? r.number * 10), variable });
 	}
 	let intoWind: string | null = null, best = 0.5;
 	if (!variable) for (const [d, w] of winds) if (w.headwind > best) { best = w.headwind; intoWind = d; }
@@ -443,8 +442,7 @@ function placeInput(calc: Calculation, place: Place): NonNullable<CalculationInp
 	const elevation = parse(v('elev')), qnh = parse(v('qnh')), speed = parse(v('wspd'));
 	// Older saved calculations still have a heading instead of a runway number.
 	const heading = v('rwy') !== undefined && v('rwy') !== '' ? runwayAt(calc, place)?.heading ?? null : place === 'departure' ? parse(calc.values.hdg) : null;
-	// Blowing from straight behind is how the engine sees a tailwind.
-	const direction = isVariableWind(calc, place) ? (heading === null ? null : (heading + 180) % 360) : parse(v('wdir'));
+	const direction = isVariableWind(calc, place) ? VARIABLE_WIND : parse(v('wdir'));
 	return {
 		elevation: elevation === null ? null : { value: elevation, unit: calc.elevationUnit },
 		qnh: qnh !== null && qnh > 0 ? qnh : null,

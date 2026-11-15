@@ -3,7 +3,8 @@
 	import { Collapsible, ToggleGroup } from 'bits-ui';
 	import type { WindForDistances } from '#lib/aircraft/schema.ts';
 	import type { Calculation as Results } from '#lib/engine/index.ts';
-	import { WIND_CHOICES, ignoresEnteredTailwind, landingConditions, windText } from '#lib/app/presentation.ts';
+	import { WIND_CHOICES, landingConditions, windText } from '#lib/app/presentation.ts';
+	import { ignoresEnteredTailwind } from '#lib/engine/wind.ts';
 	import { findAirfields, loadAirfields, magneticHeading, type Airfield, type RunwayEnd } from '#lib/airfield/airfields.ts';
 	import { lookUpWeather } from '#lib/weather/lookup.ts';
 	import { distancesUseText, nearestFrom, stationLine, variationFor, weatherConfirmed, weatherOnReturn, weatherRows, type WeatherRow } from '#lib/app/place-weather.ts';
@@ -281,7 +282,7 @@
 	<div class="flex flex-col gap-1.5">
 		<Segmented label={named ? `Wind for the ${word.toLowerCase()} calculation` : 'Wind for the calculation'} options={windOptions} value={windChoice} minWidth={130} onchange={(id) => chooseWind(id as WindForDistances)} />
 		{#if distancesUse}
-			<p class="text-[13px] text-ink-2">Distances use <strong>{distancesUse}</strong>.{#if ignoresEnteredTailwind(at, windChoice)} <span class="font-semibold text-amber">Ignores the entered {Math.round(-at.wind!.headwind)} kt tailwind; the Report says so.</span>{/if} <InfoTip label="About the wind choices">No wind and Tailwind 3 kt leave out any headwind. Your choice is used as chosen, also when the entered wind has a stronger tailwind, for example a METAR from another field. The crosswind check always uses the entered wind. The Report shows which you chose.</InfoTip></p>
+			<p class="text-[13px] text-ink-2">Distances use <strong>{distancesUse}</strong>.{#if ignoresEnteredTailwind(at.wind, windChoice)} <span class="font-semibold text-amber">Ignores the entered {Math.round(-at.wind!.headwind)} kt tailwind; the Report says so.</span>{/if} <InfoTip label="About the wind choices">No wind and Tailwind 3 kt leave out any headwind. Your choice is used as chosen, also when the entered wind has a stronger tailwind, for example a METAR from another field. The crosswind check always uses the entered wind. The Report shows which you chose.</InfoTip></p>
 		{/if}
 	</div>
 </Card>
