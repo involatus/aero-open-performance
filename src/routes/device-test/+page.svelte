@@ -173,7 +173,7 @@
 <svelte:head><title>Device test</title></svelte:head>
 
 <main>
-	<div class="notice">Pre-release, not for flight. This page only tests your device.</div>
+	<div class="notice">This page only tests your device.</div>
 	<h1>Device test</h1>
 
 	<section>

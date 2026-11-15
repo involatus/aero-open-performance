@@ -87,10 +87,9 @@
 			</DropdownMenu.Root>
 		</div>
 	</div>
-	<div class="border-t border-amber-edge bg-amber-bg text-[13px] text-amber-ink">
-		<div class="mx-auto flex max-w-[1240px] flex-wrap gap-x-4 gap-y-1 px-4 py-1.5 sm:px-5">
-			<strong>Pre-release, not for flight.</strong>
-			{#if isDemo}<span>Fictional demo aircraft with invented data.</span>{/if}
+	{#if isDemo}
+		<div class="border-t border-amber-edge bg-amber-bg text-[13px] text-amber-ink">
+			<div class="mx-auto flex max-w-[1240px] flex-wrap gap-x-4 gap-y-1 px-4 py-1.5 sm:px-5"><strong>Fictional demo aircraft with invented data.</strong></div>
 		</div>
-	</div>
+	{/if}
 </header>

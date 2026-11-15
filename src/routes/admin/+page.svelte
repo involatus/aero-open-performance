@@ -410,7 +410,7 @@
 		</header>
 	{/if}
 	<div class="border-b border-amber-edge bg-amber-bg text-[13px] text-amber-ink">
-		<div class="mx-auto max-w-[1240px] px-4 py-1.5 sm:px-5"><strong>Pre-release, not for flight.</strong> What you publish here reaches pilots' devices.</div>
+		<div class="mx-auto max-w-[1240px] px-4 py-1.5 sm:px-5"><strong>What you publish here reaches pilots' devices.</strong></div>
 	</div>
 
 	<main class="mx-auto flex w-full max-w-[1240px] flex-1 flex-col gap-4 px-4 py-5 sm:px-5">
