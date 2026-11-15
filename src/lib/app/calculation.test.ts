@@ -4,7 +4,7 @@ import fc from 'fast-check';
 import { validateAircraft } from '../aircraft/validate.ts';
 import type { Aircraft } from '../aircraft/schema.ts';
 import { calculate } from '../engine/index.ts';
-import { applyKey, applyQuick, applyWeather, keyAt, canReport, changeConfiguration, confirmValue, confirmWeather, isOldCalculation, reportAgeMinutes, fieldsFor, newCalculation, nextFlight, parse, prefill, reconcileAfterInstall, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation , runwayHeading, runwayWinds, runwayWindText, notesFor } from './calculation.ts';
+import { applyKey, applyQuick, applyWeather, keyAt, canReport, changeConfiguration, confirmValue, confirmWeather, isOldCalculation, reportAgeMinutes, fieldsFor, newCalculation, nextFlight, parse, prefill, reconcileAfterInstall, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation , runwayHeading, runwayWinds, runwayWindText, notesFor, placeOfKey, baseKey, runwayFor, setWindChoice } from './calculation.ts';
 
 const load = (name: string): Aircraft => {
 	const r = validateAircraft(JSON.parse(readFileSync(`aircraft-examples/${name}.json`, 'utf8')));
@@ -457,5 +457,24 @@ describe('manual notes for the pilot\'s choices', () => {
 		a.notes[1].appliesTo = { configurations: ['floats'], landingConditions: ['ice'] };
 		const r = validateAircraft(a);
 		expect(r.ok ? [] : r.problems).toEqual(['Note ski: unknown configuration "floats"', 'Note ski: unknown landing condition "ice"']);
+	});
+});
+
+describe('departure and landing keys', () => {
+	it('tells the place of a key and its base, without callers parsing the prefix', () => {
+		expect(placeOfKey(keyAt('landing', 'rwy'))).toBe('landing');
+		expect(placeOfKey('rwy')).toBe('departure');
+		expect(baseKey(keyAt('landing', 'rwy'))).toBe('rwy');
+		expect(baseKey('qnh')).toBe('qnh');
+	});
+	it('uses the departure runway for landing unless the landing is elsewhere', () => {
+		const c = newCalculation(dr, 'x', NOW);
+		c.airfield = { ident: 'LSZS', name: 'S', date: 'd', runway: { designator: '21', surface: 'ASP', lengthM: 1800 } };
+		c.landingAirfield = { ident: 'LSZH', name: 'Z', date: 'd', runway: { designator: '28', surface: 'ASP', lengthM: 2500 } };
+		expect(runwayFor(c, 'landing')?.designator).toBe('21');
+		c.landingElsewhere = true;
+		expect(runwayFor(c, 'landing')?.designator).toBe('28');
+		setWindChoice(c, 'landing', 'tail3');
+		expect(c.landingWindForDistances).toBe('tail3');
 	});
 });

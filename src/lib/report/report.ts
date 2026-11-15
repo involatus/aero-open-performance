@@ -7,7 +7,7 @@ import type { Calculation as Results } from '../engine/index.ts';
 import type { PerformanceResult } from '../engine/performance.ts';
 import type { DistanceText } from '../app/presentation.ts';
 import { limitText } from '../engine/mass-balance.ts';
-import { canReport, fieldsFor, notesFor, isVariableWind, keyAt, toInput, type Calculation, type Place, runwayHeading, weatherAt, windChoiceAt } from '../app/calculation.ts';
+import { baseKey, canReport, fieldsFor, notesFor, isVariableWind, keyAt, toInput, type Calculation, type Place, runwayHeading, weatherAt, windChoiceAt } from '../app/calculation.ts';
 import { altitudeText, distanceText, enteredWindKept, landingConditions, sourceText, utcText, valueSource, limitBadge, massBalanceRows, windChoiceText, windText, workingRows } from '../app/presentation.ts';
 import { lookupView, type LookupView } from '../app/lookup-grid.ts';
 
@@ -84,7 +84,7 @@ export function deliveryLabel(delivery: Delivery): string {
 
 /** Everything that would change a Report. A difference means the current inputs need a new one. */
 export function fingerprint(a: Aircraft, calc: Calculation): string {
-	return JSON.stringify([a.registration, a.revision, toInput(a, calc), calc.values.place?.trim(), calc.values.name?.trim(), calc.notes, calc.status, calc.weather?.raw ?? null, ...(calc.landingElsewhere ? [calc.values['land:place']?.trim(), calc.landingWeather?.raw ?? null] : [])]);
+	return JSON.stringify([a.registration, a.revision, toInput(a, calc), calc.values.place?.trim(), calc.values.name?.trim(), calc.notes, calc.status, weatherAt(calc, 'departure')?.raw ?? null, ...(calc.landingElsewhere ? [calc.values[keyAt('landing', 'place')]?.trim(), weatherAt(calc, 'landing')?.raw ?? null] : [])]);
 }
 
 /** "Not sent" reports are never removed automatically. */
@@ -117,7 +117,7 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 	const shown = (key: string) => {
 		const f = allFields.find((x) => x.key === key)!;
 		// A runway number alone can be misread, so the report also gives the heading it stands for: "08 (080°)".
-		const h = key === keyAt('departure', 'rwy') || key === keyAt('landing', 'rwy') ? runwayHeading(calc.values[key]) : null;
+		const h = baseKey(key) === 'rwy' ? runwayHeading(calc.values[key]) : null;
 		const value = h !== null ? `${String(h / 10).padStart(2, '0')} (${String(h).padStart(3, '0')}°)` : `${calc.values[key] ?? ''} ${f.unit}`.trim();
 		return { label: f.label, value, source: valueSource(calc, key) };
 	};
@@ -184,11 +184,11 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 			windShort: windShort('departure')
 		},
 		landing: calc.landingElsewhere ? (({ used: _, ...at }) => ({
-			airfield: calc.values['land:place'].trim(), runway: runwayOf('landing'), ...at, windShort: windShort('landing'), rawMetar: weatherAt(calc, 'landing')?.raw ?? null
+			airfield: calc.values[keyAt('landing', 'place')].trim(), runway: runwayOf('landing'), ...at, windShort: windShort('landing'), rawMetar: weatherAt(calc, 'landing')?.raw ?? null
 		}))(placeText('landing')) : null,
 		// The takeoff and landing conditions are in the results band, and the fuel with the mass and balance.
 		conditions: placeRows('departure').map((row, i) => (landingRows ? { ...row, landing: { value: landingRows[i].value, source: landingRows[i].source } } : row)),
-		rawMetar: calc.weather?.raw ?? null,
+		rawMetar: weatherAt(calc, 'departure')?.raw ?? null,
 		massBalance: {
 			...(({ rows, takeoff, landing }) => ({
 				rows: rows.map(({ id, ...row }) => {

@@ -5,7 +5,7 @@
 	import type { Limit } from '#lib/engine/mass-balance.ts';
 	import { limitText } from '#lib/engine/mass-balance.ts';
 	import type { Calculation, ToDo } from '#lib/app/calculation.ts';
-	import { isVariableWind } from '#lib/app/calculation.ts';
+	import { isVariableWind, runwayFor, windChoiceAt } from '#lib/app/calculation.ts';
 	import { altitudeText, armText, landingConditions, limitBadge, statusWord, windChoiceText, windText } from '#lib/app/presentation.ts';
 	import type { PerformanceResult } from '#lib/engine/performance.ts';
 	import CgChart from '../CgChart.svelte';
@@ -26,10 +26,10 @@
 	let limits = $derived(results.massBalance.limits);
 	/** One row of conditions per airfield: the landing one only when it is elsewhere. */
 	let places = $derived([
-		{ title: calc.landingElsewhere ? 'Departure' : '', at: results, variable: isVariableWind(calc), choice: calc.windForDistances ?? 'entered' },
-		...(calc.landingElsewhere ? [{ title: 'Landing', at: landingConditions(results), variable: isVariableWind(calc, 'landing'), choice: calc.landingWindForDistances ?? 'entered' }] : [])
+		{ title: calc.landingElsewhere ? 'Departure' : '', at: results, variable: isVariableWind(calc), choice: windChoiceAt(calc, 'departure') },
+		...(calc.landingElsewhere ? [{ title: 'Landing', at: landingConditions(results), variable: isVariableWind(calc, 'landing'), choice: windChoiceAt(calc, 'landing') }] : [])
 	]);
-	let runways = $derived({ takeoff: calc.airfield?.runway, landing: calc.landingElsewhere ? calc.landingAirfield?.runway : calc.airfield?.runway });
+	let runways = $derived({ takeoff: runwayFor(calc, 'takeoff'), landing: runwayFor(calc, 'landing') });
 	const thousands = (x: number) => x.toLocaleString('en');
 	const mass = (x: number) => thousands(Number(x.toFixed(aircraft.display.massDecimals)));
 	const tone = (s: Limit['status']) => ({ ok: 'ok', warnb: 'todo', fail: 'over' } as const)[limitBadge(s).tone];

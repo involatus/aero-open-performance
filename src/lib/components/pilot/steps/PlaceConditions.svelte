@@ -10,7 +10,7 @@
 	import type { WeatherQuery } from '#lib/weather/provider.ts';
 	import {
 		OLD_REPORT_MINUTES, WEATHER_KEYS, airfieldAt, applyAirfield, applyRunway, applyWeather, confirmWeather, isVariableWind, keyAt,
-		isFromMetar, parse, reportAgeMinutes, runwayHeading, runwayWindText, runwayWinds, weatherAt, windChoiceAt, type Calculation, type Field, type Place
+		isFromMetar, parse, setWindChoice, reportAgeMinutes, runwayHeading, runwayWindText, runwayWinds, weatherAt, windChoiceAt, type Calculation, type Field, type Place
 	} from '#lib/app/calculation.ts';
 	import Button from '../../ui/Button.svelte';
 	import Card from '../../ui/Card.svelte';
@@ -102,7 +102,7 @@
 		if (end) applyRunway(calc, end, place);
 	}
 	function chooseWind(id: WindForDistances) {
-		if (place === 'landing') calc.landingWindForDistances = id; else calc.windForDistances = id;
+		setWindChoice(calc, place, id);
 	}
 
 	async function loadWeather(query: WeatherQuery): Promise<boolean> {

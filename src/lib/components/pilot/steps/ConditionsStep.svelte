@@ -2,7 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import type { Performance } from '#lib/aircraft/schema.ts';
 	import type { Calculation as Results } from '#lib/engine/index.ts';
-	import { OLD_CALCULATION_DAYS, conditionCorrections, isOldCalculation, keyAt, type Calculation, type Field } from '#lib/app/calculation.ts';
+	import { OLD_CALCULATION_DAYS, conditionCorrections, isOldCalculation, placeOfKey, runwayFor, type Calculation, type Field } from '#lib/app/calculation.ts';
 	import Card from '../../ui/Card.svelte';
 	import Segmented from '../../ui/Segmented.svelte';
 	import PlaceConditions from './PlaceConditions.svelte';
@@ -14,12 +14,12 @@
 	} = $props();
 
 	const now = Date.now();
-	const fieldsAt = (place: 'departure' | 'landing') => fields.filter((f) => (place === 'landing') === f.key.startsWith(keyAt('landing', '')));
+	const fieldsAt = (place: 'departure' | 'landing') => fields.filter((f) => placeOfKey(f.key) === place);
 	/** What the airfield list says about each chosen runway, to help choose the matching condition. */
 	let surfaceNote = $derived.by(() => {
 		const line = (r: NonNullable<Calculation['airfield']>['runway'] | undefined, name: string) => (r ? `${name} ${r.designator} is ${r.surface || 'of unknown surface'} in the airfield list.` : '');
-		if (!calc.landingElsewhere) return line(calc.airfield?.runway, 'Runway');
-		return [line(calc.airfield?.runway, 'Departure runway'), line(calc.landingAirfield?.runway, 'Landing runway')].filter(Boolean).join(' ');
+		if (!calc.landingElsewhere) return line(runwayFor(calc, 'takeoff'), 'Runway');
+		return [line(runwayFor(calc, 'takeoff'), 'Departure runway'), line(runwayFor(calc, 'landing'), 'Landing runway')].filter(Boolean).join(' ');
 	});
 </script>
 

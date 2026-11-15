@@ -2,7 +2,7 @@
 	import { Checkbox } from 'bits-ui';
 	import type { Aircraft } from '#lib/aircraft/schema.ts';
 	import type { Limit } from '#lib/engine/mass-balance.ts';
-	import { STEP_NAMES, notesFor, stepOfLimit, type Calculation, type ToDo } from '#lib/app/calculation.ts';
+	import { STEP_NAMES, keyAt, notesFor, stepOfLimit, type Calculation, type ToDo } from '#lib/app/calculation.ts';
 	import { deliveryLabel, type StoredReport } from '#lib/report/report.ts';
 	import Badge from '../../ui/Badge.svelte';
 	import Button from '../../ui/Button.svelte';
@@ -19,6 +19,7 @@
 		closePad: () => void; ongo: (item: ToDo) => void; onstep: (step: number) => void;
 		oncreate: () => void; onshare: (id: string) => void; onopen: (id: string) => void;
 	} = $props();
+	const LANDING_PLACE = keyAt('landing', 'place');
 	/** Only the notes for this flight's configuration and conditions. */
 	let notes = $derived(notesFor(aircraft, calc));
 
@@ -40,7 +41,7 @@
 		{#if calc.landingElsewhere}
 			<label class="flex flex-col gap-1.5" id="w-land:place">
 				<span class="font-bold">Landing airfield</span>
-				<input id="f-land:place" type="text" enterkeyhint="done" autocapitalize="characters" autocorrect="off" spellcheck="false" autocomplete="off" placeholder="Identifier or name" bind:value={calc.values['land:place']} onfocus={closePad} class={textInput(!calc.values['land:place']?.trim())} />
+				<input id="f-land:place" type="text" enterkeyhint="done" autocapitalize="characters" autocorrect="off" spellcheck="false" autocomplete="off" placeholder="Identifier or name" bind:value={calc.values[LANDING_PLACE]} onfocus={closePad} class={textInput(!calc.values[LANDING_PLACE]?.trim())} />
 			</label>
 		{/if}
 		<label class="flex flex-col gap-1.5" id="w-name">

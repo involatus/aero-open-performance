@@ -71,6 +71,18 @@ export const keyAt = (place: Place, key: string) => (place === 'landing' ? `land
 export const airfieldAt = (calc: Calculation, place: Place) => (place === 'landing' ? calc.landingAirfield : calc.airfield) ?? null;
 export const weatherAt = (calc: Calculation, place: Place) => (place === 'landing' ? calc.landingWeather : calc.weather) ?? null;
 export const windChoiceAt = (calc: Calculation, place: Place): WindForDistances => (place === 'landing' ? calc.landingWindForDistances : calc.windForDistances) ?? 'entered';
+/** Sets which wind a place's distances use. */
+export function setWindChoice(calc: Calculation, place: Place, choice: WindForDistances) {
+	if (place === 'landing') calc.landingWindForDistances = choice; else calc.windForDistances = choice;
+}
+/** The place a key belongs to, and the key without its place, so callers never parse the prefix. */
+export const placeOfKey = (key: string): Place => (key.startsWith(keyAt('landing', '')) ? 'landing' : 'departure');
+export const baseKey = (key: string) => (placeOfKey(key) === 'landing' ? key.slice(keyAt('landing', '').length) : key);
+/** Where the landing happens: the landing airfield when elsewhere, otherwise the departure. */
+export const landingPlace = (calc: Pick<Calculation, 'landingElsewhere'>): Place => (calc.landingElsewhere ? 'landing' : 'departure');
+/** The chosen runway the takeoff or landing uses. */
+export const runwayFor = (calc: Calculation, phase: 'takeoff' | 'landing') => airfieldAt(calc, phase === 'landing' ? landingPlace(calc) : 'departure')?.runway ?? null;
+
 /** The places whose conditions the pilot enters: the departure, and the landing when it is elsewhere. */
 export const placesOf = (calc: Pick<Calculation, 'landingElsewhere'>): Place[] => (calc.landingElsewhere ? ['departure', 'landing'] : ['departure']);
 
