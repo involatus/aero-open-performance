@@ -8,7 +8,7 @@ import type { PerformanceResult } from '../engine/performance.ts';
 import { ignoresEnteredTailwind } from '../engine/wind.ts';
 import type { DistanceText } from '../app/presentation.ts';
 import { limitText } from '../engine/mass-balance.ts';
-import { baseKey, canReport, degrees, fieldsFor, magneticWind, notesFor, placeOfKey, runwayAt, runwayText, isVariableWind, keyAt, toInput, type Calculation, type Place, weatherAt, windChoiceAt } from '../app/calculation.ts';
+import { baseKey, canReport, conditionSource, degrees, fieldsFor, magneticWind, notesFor, placeOfKey, runwayAt, runwayText, isVariableWind, keyAt, toInput, type Calculation, type Phase, type Place, weatherAt, windChoiceAt } from '../app/calculation.ts';
 import { altitudeText, distanceText, landingConditions, sourceText, utcText, valueSource, limitBadge, massBalanceRows, windChoiceText, windText, workingRows, type WorkingRow } from '../app/presentation.ts';
 import { lookupView, type LookupView } from '../app/lookup-grid.ts';
 
@@ -19,7 +19,8 @@ export type Delivery = 'notSent' | 'sent' | 'shared';
 export type ReportLookup = { caption: string; source?: string; view: LookupView; step?: number };
 export type ReportWorking = { title: string; rows: WorkingRow[]; tables?: ReportLookup[] };
 /** Ground roll and total come apart for the results band. Reports made before this have only the headline. */
-export type ReportDistance = DistanceText & { condition?: string; groundRoll?: string | null; total?: string | null; mass?: string };
+/** `conditionSource`: where the condition came from when not chosen by the pilot. Reports made before have none. */
+export type ReportDistance = DistanceText & { condition?: string; conditionSource?: string; groundRoll?: string | null; total?: string | null; mass?: string };
 /**
  * The wind in the compact form of EFB summaries: "VRB 2 kt", then the components the distances use,
  * such as "TW 3 kt" or "HW 8 kt · XW 6 kt", and the pilot's choice when it isn't the entered wind.
@@ -145,12 +146,16 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 		};
 	};
 	const thousands = (x: number | null, unit: string | null) => (x === null ? null : `${x.toLocaleString('en')} ${unit ?? ''}`.trim());
-	const distance = (title: string, p: PerformanceResult, m: number): ReportDistance => ({
-		...distanceText(title, p, `${mass(m)} ${u.mass}`),
-		condition: p.conditionLabel,
-		mass: `${mass(m)} ${u.mass}`,
-		...(p.status === 'ok' ? { groundRoll: thousands(p.groundRoll, p.unit), total: thousands(p.total, p.unit) } : {})
-	});
+	const distance = (title: string, phase: Phase, p: PerformanceResult, m: number): ReportDistance => {
+		const source = conditionSource(calc, phase);
+		return {
+			...distanceText(title, p, `${mass(m)} ${u.mass}`),
+			condition: p.conditionLabel,
+			...(source ? { conditionSource: `From ${source}` } : {}),
+			mass: `${mass(m)} ${u.mass}`,
+			...(p.status === 'ok' ? { groundRoll: thousands(p.groundRoll, p.unit), total: thousands(p.total, p.unit) } : {})
+		};
+	};
 	// Each airfield's altitude and wind, worded the same way.
 	const placeText = (place: Place) => {
 		const at = place === 'landing' ? landingConditions(r) : r, choice = windChoiceAt(calc, place);
@@ -180,8 +185,8 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 		departure: calc.values.place.trim(),
 		runway: runwayOf('departure'),
 		results: {
-			takeoff: distance('Takeoff', r.takeoff, r.massBalance.takeoff.mass),
-			landing: distance('Landing', r.landing, r.massBalance.landing.mass),
+			takeoff: distance('Takeoff', 'takeoff', r.takeoff, r.massBalance.takeoff.mass),
+			landing: distance('Landing', 'landing', r.landing, r.massBalance.landing.mass),
 			pressureAltitude: departure.pressureAltitude,
 			densityAltitude: departure.densityAltitude,
 			wind: departure.wind,
@@ -289,9 +294,10 @@ function manualMarks(working: ReportWorking[]) {
 }
 
 /** "Takeoff", the condition, ground roll and distance over or from 50 ft, and the mass. */
-function distanceCell(d: ReportDistance, totalLabel: string) {
+/** `mark`: the source mark for the condition. */
+function distanceCell(d: ReportDistance, totalLabel: string, mark: string) {
 	const title = { text: d.title, bold: true, fontSize: 9.5 };
-	const condition = d.condition ? [{ text: [d.condition, ...sup('P')], fontSize: small, color: INK2 }] : [];
+	const condition = d.condition ? [{ text: [d.condition, ...sup(mark)], fontSize: small, color: INK2 }] : [];
 	if (d.status !== 'ok') return { stack: [title, ...condition, { text: d.headline, bold: true, fontSize: 10, color: AMBER, margin: [0, 4, 0, 0] }] };
 	// The unit is smaller, so a four-digit distance still fits on one line.
 	const big = (v: string) => {
@@ -361,6 +367,8 @@ export function reportDocument(data: ReportData) {
 	// The band marks the conditions and wind choices as chosen by the pilot, so that mark leads the legend.
 	marks.mark('', 'Chosen by pilot');
 	const [DEP, LAND] = ['Departure', 'Landing'];
+	// A condition the airfield list settled shares that list's mark; otherwise the pilot chose it.
+	const conditionMark = (r: ReportDistance, scope: string) => marks.mark(L ? scope : '', r.conditionSource ?? 'Chosen by pilot');
 	const place = (airfield: string, runway: string | null | undefined) => `${airfield}${runway ? ` RWY ${runway}` : ''}`;
 	const warning = [d.preRelease && 'PRE-RELEASE, NOT FOR FLIGHT', d.fictional && 'FICTIONAL AIRCRAFT WITH INVENTED DATA'].filter(Boolean).join(' · ');
 
@@ -416,8 +424,8 @@ export function reportDocument(data: ReportData) {
 			], columnGap: 15, margin: [0, 0, 0, 8] },
 			{
 				table: { widths: ['*', '*', L ? 205 : 150], body: [[
-					distanceCell(d.results.takeoff, 'Over 50 ft'),
-					distanceCell(d.results.landing, 'From 50 ft'),
+					distanceCell(d.results.takeoff, 'Over 50 ft', conditionMark(d.results.takeoff, DEP)),
+					distanceCell(d.results.landing, 'From 50 ft', conditionMark(d.results.landing, L ? LAND : DEP)),
 					atmosphereCell(d.results, L ?? null)
 				]] },
 				layout: {

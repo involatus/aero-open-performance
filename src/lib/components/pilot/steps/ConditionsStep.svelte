@@ -2,7 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import type { Performance } from '#lib/aircraft/schema.ts';
 	import type { Calculation as Results } from '#lib/engine/index.ts';
-	import { OLD_CALCULATION_DAYS, chooseCondition, conditionChoiceAt, conditionCorrections, conditionItemKey, isOldCalculation, placeOfKey, runwayFor, type Calculation, type Field } from '#lib/app/calculation.ts';
+	import { OLD_CALCULATION_DAYS, chooseCondition, conditionChoiceAt, conditionCorrections, conditionItemKey, conditionSettled, isOldCalculation, placeOfKey, runwayFor, type Calculation, type Field } from '#lib/app/calculation.ts';
 	import Card from '../../ui/Card.svelte';
 	import Segmented from '../../ui/Segmented.svelte';
 	import PlaceConditions from './PlaceConditions.svelte';
@@ -48,13 +48,15 @@
 		{#each [['takeoff', 'Takeoff', perf.takeoff, calc.takeoffCondition], ['landing', 'Landing', perf.landing, calc.landingCondition]] as const as [phase, label, list, chosen] (phase)}
 			{@const corrections = conditionCorrections(list.find((c) => c.id === chosen))}
 			{@const by = conditionChoiceAt(calc, phase)}
-			{@const open = list.length > 1 && by !== 'pilot'}
+			{@const open = list.length > 1 && !conditionSettled(calc, phase)}
 			{@const runway = runwayFor(calc, phase)}
 			<div id={`w-${conditionItemKey(phase)}`} class={['-m-2 flex scroll-m-4 flex-col gap-1 rounded-xl p-2', open && 'ring-2 ring-amber']}>
 				<Segmented inline {label} options={list.map((c) => ({ id: c.id, label: c.label }))} value={chosen} onchange={(id) => chooseCondition(calc, phase, id)} />
-				{#if open}
+				{#if by === 'runway' && runway}
+					<p class="text-[13px] text-ink-2 sm:pl-[92px]">From the airfield list: runway {runway.designator} is {runway.surface}.</p>
+				{:else if open}
 					<p class="text-[13px] text-ink sm:pl-[92px]">
-						{#if by === 'airfield' && runway}<strong>Chosen from the airfield list:</strong> runway {runway.designator} is {runway.surface}. Tap it to confirm, or choose another.
+						{#if by === 'airfield' && runway}<strong>Chosen from the airfield list:</strong> runway {runway.designator} is {runway.surface}, but the list can't tell, for example, snow. Tap it to confirm, or choose another.
 						{:else if runway}<strong>Choose the {phase} surface.</strong> Runway {runway.designator}'s surface in the airfield list matches no single condition.
 						{:else}<strong>Choose the {phase} surface.</strong>{/if}
 					</p>

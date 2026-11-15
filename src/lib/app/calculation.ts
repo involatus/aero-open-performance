@@ -13,7 +13,12 @@ import type { WeatherReport } from '../weather/provider.ts';
 
 export type FieldStatus = 'pre' | 'ok' | 'pilot';
 export type Phase = 'takeoff' | 'landing';
-export type ConditionChoice = 'pilot' | 'airfield';
+/**
+ * Who chose a condition. `pilot`: the pilot. `runway`: the chosen runway's surface in the airfield list decides it,
+ * as every other condition is for another surface. `airfield`: that surface suggests it, but the aircraft also has a
+ * condition the list can't judge, such as snow, so the pilot confirms it.
+ */
+export type ConditionChoice = 'pilot' | 'runway' | 'airfield';
 /** The airfield a value belongs to. Landing is at the departure airfield unless the pilot chooses another. */
 export type Place = 'departure' | 'landing';
 /** `runway.heading`: its magnetic heading from the list's measured one; absent in older calculations. */
@@ -32,7 +37,7 @@ export type Calculation = {
 	burnPlan: string;
 	takeoffCondition: string;
 	landingCondition: string;
-	/** Who chose each condition: the pilot, or the app from the runway's surface in the airfield list, to confirm. None means the first condition, still to choose. */
+	/** Who chose each condition. None means the first condition, still to choose. */
 	conditionChoice?: Partial<Record<Phase, ConditionChoice>>;
 	elevationUnit: 'm' | 'ft';
 	/** The pilot may plan with no wind or a 3 kt tailwind. Older saved calculations have none, meaning as entered. */
@@ -350,21 +355,37 @@ function setCondition(calc: Calculation, phase: Phase, id: string, by: Condition
 	calc.conditionChoice = next;
 }
 
+/** Chosen by the pilot, or settled by the chosen runway's surface: nothing left to confirm. */
+export const conditionSettled = (calc: Calculation, phase: Phase) => ['pilot', 'runway'].includes(conditionChoiceAt(calc, phase) ?? '');
+
 /** The pilot's choice, or confirmation of the one the app made. */
 export function chooseCondition(calc: Calculation, phase: Phase, id: string) {
 	setCondition(calc, phase, id, 'pilot');
 }
 
-/** The only condition for the runway's surface in the airfield list. None when the surface is unknown or several conditions fit. */
-export function conditionForRunway(list: Condition[], runway: { surface: string } | null): Condition | null {
+/**
+ * The only condition for the runway's surface in the airfield list, and whether that settles it: it does when every
+ * other condition is for another surface. A condition for any surface, such as snow, is a state the list can't know.
+ * None when the surface is unknown or several conditions fit.
+ */
+export function conditionForRunway(list: Condition[], runway: { surface: string } | null): { condition: Condition; settled: boolean } | null {
 	const kind = runway ? surfaceKind(runway.surface) : 'unknown';
 	const fits = kind === 'unknown' ? [] : list.filter((c) => c.surface === kind);
-	return fits.length === 1 ? fits[0] : null;
+	if (fits.length !== 1) return null;
+	return { condition: fits[0], settled: list.every((c) => c === fits[0] || (c.surface !== undefined && c.surface !== kind)) };
+}
+
+/** Where a condition came from when the airfield list settled it, worded as the other sources: "airfield list LSZK, 2026-11-15". */
+export function conditionSource(calc: Calculation, phase: Phase): string | null {
+	if (conditionChoiceAt(calc, phase) !== 'runway') return null;
+	const airfield = airfieldAt(calc, phase === 'landing' ? landingPlace(calc) : 'departure');
+	return airfield ? `airfield list ${airfield.ident}, ${airfield.date}` : null;
 }
 
 /**
- * Chooses each condition the pilot hasn't from the chosen runway's surface, for the pilot to confirm.
- * When that runway no longer gives one, the app's choice stays but is no longer marked as from the list.
+ * Chooses each condition the pilot hasn't from the chosen runway's surface: settled when no other condition could
+ * apply, otherwise for the pilot to confirm. When that runway no longer gives one, the app's choice stays but is no
+ * longer marked as from the list, so the pilot chooses.
  * Changes nothing when nothing changed, so it can run after any change.
  */
 export function matchConditions(a: Aircraft, calc: Calculation) {
@@ -375,8 +396,8 @@ export function matchConditions(a: Aircraft, calc: Calculation) {
 		if (!list.some((c) => c.id === conditionAt(calc, phase))) { setCondition(calc, phase, list[0].id, null); continue; }
 		if (by === 'pilot') continue;
 		const match = conditionForRunway(list, runwayFor(calc, phase));
-		if (match) setCondition(calc, phase, match.id, 'airfield');
-		else if (by === 'airfield') setCondition(calc, phase, conditionAt(calc, phase), null);
+		if (match) setCondition(calc, phase, match.condition.id, match.settled ? 'runway' : 'airfield');
+		else if (by) setCondition(calc, phase, conditionAt(calc, phase), null);
 	}
 }
 
@@ -497,7 +518,7 @@ export function toDoList(a: Aircraft, calc: Calculation): ToDo[] {
 	const perf = performanceOf(a, calc.configuration);
 	if (perf) {
 		const at = items.findIndex((t) => t.step > 2);
-		const choose = PHASES.filter((p) => perf[p].length > 1 && conditionChoiceAt(calc, p) !== 'pilot')
+		const choose = PHASES.filter((p) => perf[p].length > 1 && !conditionSettled(calc, p))
 			.map((p): ToDo => ({ key: conditionItemKey(p), label: `${conditionChoiceAt(calc, p) === 'airfield' ? 'Confirm' : 'Choose'} ${p} surface`, step: 2 }));
 		items.splice(at < 0 ? items.length : at, 0, ...choose);
 	}

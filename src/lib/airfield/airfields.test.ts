@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { findAirfields, magneticHeading, parseAirfields, runwayNumber, surfaceKind } from './airfields.ts';
-import { applyAirfield, applyRunway, chooseCondition, conditionCorrections, conditionForRunway, fieldsFor, matchConditions, newCalculation, setByPilot, toDoList, toInput } from '../app/calculation.ts';
+import { applyAirfield, applyRunway, chooseCondition, conditionCorrections, conditionForRunway, conditionSource, fieldsFor, matchConditions, newCalculation, setByPilot, toDoList, toInput } from '../app/calculation.ts';
 import { validateAircraft } from '../aircraft/validate.ts';
 
 const data = parseAirfields({
@@ -127,13 +127,27 @@ describe('choosing the condition from the runway surface', () => {
 	};
 	const surfaceItems = (a: ReturnType<typeof aircraft>, c: ReturnType<typeof newCalculation>) => toDoList(a, c).filter((t) => t.key.startsWith('condition:')).map((t) => t.label);
 
-	it('chooses grass for a grass runway, for the pilot to confirm', () => {
+	it('settles grass for a grass runway when every other condition is for another surface', () => {
 		const { a, c } = atRunway();
 		expect([c.takeoffCondition, c.landingCondition]).toEqual(['grass', 'grass']);
-		expect(c.conditionChoice).toEqual({ takeoff: 'airfield', landing: 'airfield' });
-		expect(surfaceItems(a, c)).toEqual(['Confirm takeoff surface', 'Confirm landing surface']);
+		expect(c.conditionChoice).toEqual({ takeoff: 'runway', landing: 'runway' });
+		expect(surfaceItems(a, c)).toEqual([]);
+		expect(conditionSource(c, 'takeoff')).toBe('airfield list LSZF, 2026-11-08');
+	});
+	it('only suggests it when the aircraft has a condition the list cannot judge, such as snow', () => {
+		const a = aircraft('test-dr-style');
+		a.performance.takeoff.push({ ...a.performance.takeoff[1], id: 'snow', label: 'Snow', surface: undefined });
+		delete a.performance.takeoff[2].surface;
+		const c = newCalculation(a, 'x', 0);
+		applyAirfield(c, lszf, '2026-11-08');
+		applyRunway(c, grass08R);
+		matchConditions(a, c);
+		expect(c.takeoffCondition).toBe('grass');
+		expect(c.conditionChoice?.takeoff).toBe('airfield');
+		expect(conditionSource(c, 'takeoff')).toBeNull();
+		expect(surfaceItems(a, c)).toEqual(['Confirm takeoff surface']);
 		chooseCondition(c, 'takeoff', 'grass');
-		expect(surfaceItems(a, c)).toEqual(['Confirm landing surface']);
+		expect(surfaceItems(a, c)).toEqual([]);
 	});
 	it('asks the pilot to choose when nothing is known, as the first condition is only a placeholder', () => {
 		const a = aircraft('test-dr-style'), c = newCalculation(a, 'x', 0);
@@ -167,7 +181,7 @@ describe('choosing the condition from the runway surface', () => {
 	});
 	it('chooses nothing for an unknown surface or when several conditions fit', () => {
 		const list = aircraft('test-sr22-style').performance.takeoff;
-		expect(conditionForRunway(list, { surface: 'GRASS' })?.id).toBe('dryGrass');
+		expect(conditionForRunway(list, { surface: 'GRASS' })?.condition.id).toBe('dryGrass');
 		expect(conditionForRunway(list, { surface: 'X' })).toBeNull();
 		expect(conditionForRunway([...list, { ...list[1], id: 'wet', label: 'Wet grass' }], { surface: 'GRASS' })).toBeNull();
 		expect(conditionForRunway(list, null)).toBeNull();

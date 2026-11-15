@@ -132,7 +132,7 @@ With `landingAt`, the landing distance uses the landing airfield's atmosphere an
 
 A condition has `kind`. `"noData"` gives status `noData`. `"steps"` has `id`, `label`, `distanceUnit` (`m` or `ft`), an ordered list of `steps`, and optional `assumes`.
 
-Either kind may have `surface`: `paved`, `grass`, `gravel` or `water`. It doesn't change the calculation. When the pilot picks a runway from the airfield list whose surface is of that kind, and no other condition in the same list has it, an app may preselect the condition for the pilot to confirm. An airfield list's surface that names two kinds, such as `ASPH-TURF`, matches none.
+Either kind may have `surface`: `paved`, `grass`, `gravel` or `water`. It doesn't change the calculation. When the pilot picks a runway from the airfield list whose surface is of that kind, and no other condition in the same list has it, an app may choose the condition. It counts as the pilot's choice when every other condition in the list names another surface. When another condition has no `surface`, such as snow, the list can't rule it out, so the pilot confirms the choice. An airfield list's surface that names two kinds, such as `ASPH-TURF`, matches none.
 
 Each chain holds two values, `total` and `groundRoll`, both starting empty. Steps run in order. A result stops at the first step that can't continue, with this status:
 

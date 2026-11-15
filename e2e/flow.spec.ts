@@ -142,12 +142,10 @@ test('airfield list: find offline, choose a runway, confirm; unknown fields are 
 	await expect(page.locator('[id="f-rwy"]')).toHaveValue('08');
 	await expect(page.getByText('Runway 08, heading 080°')).toBeVisible();
 	await expect(page.getByText('Runway 08R is GRASS in the airfield list')).toBeVisible();
-	// The only grass condition is chosen from the list, for the pilot to confirm.
+	// The other takeoff condition is for paved runways, so the list's grass settles it: nothing to confirm.
 	const takeoffSurface = page.locator('[id="w-condition:takeoff"]');
 	await expect(takeoffSurface.getByRole('radio', { name: 'Soft grass' })).toBeChecked();
-	await expect(takeoffSurface).toContainText('Chosen from the airfield list');
-	await takeoffSurface.getByRole('radio', { name: 'Soft grass' }).click();
-	await expect(takeoffSurface).not.toContainText('Chosen from the airfield list');
+	await expect(takeoffSurface).toContainText('From the airfield list: runway 08R is GRASS.');
 	await expect(page.locator('#w-rwy')).toContainText('From airfield list LSZF');
 	await page.getByLabel('Departure airfield').fill('Nowhere strip');
 	await page.getByRole('button', { name: 'Find' }).click();

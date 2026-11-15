@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { validateAircraft } from '../aircraft/validate.ts';
 import type { Aircraft } from '../aircraft/schema.ts';
 import { calculate } from '../engine/index.ts';
-import { newCalculation, setByPilot, toInput, type Calculation } from '../app/calculation.ts';
+import { applyAirfield, applyRunway, matchConditions, newCalculation, setByPilot, toInput, type Calculation } from '../app/calculation.ts';
+import { parseAirfields } from '../airfield/airfields.ts';
 import { chartSvg } from './chart.ts';
 import { RESPONSIBILITY, createReportData, deliveryLabel, fingerprint, isExpired, newReportId, reportDocument } from './report.ts';
 
@@ -106,6 +107,18 @@ describe('creating a Report', () => {
 		expect(doc).toContain('unmarked: entered by pilot');
 		expect(doc).not.toContain(', confirmed');
 		expect(doc).toContain('METAR LSXX 061250Z 24008KT 12/06 Q1009');
+	});
+	it('marks a condition the airfield list settled with that list, not as chosen by the pilot', () => {
+		const a = load('test-dr-style'), c = ready(a);
+		const lspf = parseAirfields({ source: 't', date: '2026-11-08', airports: [['LSPF', 'Schmerlat', 1519, 47.69, 8.526, [['07', '25', 'GRASS', 1772]]]] }).airfields[0];
+		delete c.conditionChoice; delete c.values.rwy; delete c.status.rwy;
+		applyAirfield(c, lspf, '2026-11-08');
+		applyRunway(c, lspf.runways[0]);
+		matchConditions(a, c);
+		const d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
+		expect(d.results.takeoff.condition).toBe('Grass');
+		expect(d.results.takeoff.conditionSource).toBe('From airfield list LSPF, 2026-11-08');
+		expect(JSON.stringify(reportDocument(d))).toContain('airfield list LSPF, 2026-11-08');
 	});
 	it('keeps warnings and cites manual sources in the working', () => {
 		const c = ready(a), d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
