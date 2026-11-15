@@ -1,6 +1,7 @@
 /** Open Calculations, saved on this device. Nothing here leaves the device. */
 import * as idb from 'idb-keyval';
 import { reconcileAfterInstall, type Calculation } from './calculation.ts';
+import { readSaved, type SavedMass } from './my-values.ts';
 import { ReleaseError, aircraftWithRules, downloadRelease, offersUpdate, parseIndex, shouldCheck, verifyInstalled, withdrawalReason, type InstalledData, type ReleaseIndex } from '../data/release.ts';
 import { isExpired, type Delivery, type StoredReport } from '../report/report.ts';
 import { makeReport, type ReportSource, type ReportTools } from '../report/make-report.ts';
@@ -9,6 +10,7 @@ const KEY = 'calculations-v1';
 const REPORTS = 'reports-v1';
 const DATA = 'data-release-v1';
 const META = 'data-meta-v1';
+const MY_VALUES = 'my-values-v1';
 const BASE = '/data';
 const PUBLISHED = '/api/data';
 const pdfKey = (id: string) => `report-pdf:${id}`;
@@ -26,6 +28,8 @@ export class AppState {
 	}
 	tabs = $state<Calculation[]>([]);
 	reports = $state<StoredReport[]>([]);
+	/** The pilot's own saved values, such as their weight. Only on this device. */
+	saved = $state<SavedMass[]>([]);
 	current = $state(0);
 	loaded = $state(false);
 	saveFailed = $state(false);
@@ -135,6 +139,11 @@ export class AppState {
 			this.saveFailed = true;
 		}
 		try {
+			this.saved = readSaved(await this.device.store.get(MY_VALUES));
+		} catch {
+			this.saveFailed = true;
+		}
+		try {
 			const stored = (await this.device.store.get<StoredReport[]>(REPORTS)) ?? [];
 			const now = this.device.now();
 			for (const report of stored) if (isExpired(report, now)) await this.device.store.del(pdfKey(report.id));
@@ -203,6 +212,15 @@ export class AppState {
 		if (index < 0 || index >= this.tabs.length) return;
 		this.tabs.splice(index, 1);
 		if (this.current > index || this.current >= this.tabs.length) this.current = Math.max(0, this.current - 1);
+	}
+
+	async setSaved(list: SavedMass[]) {
+		this.saved = list;
+		try {
+			await this.device.store.set(MY_VALUES, $state.snapshot(list));
+		} catch {
+			this.saveFailed = true;
+		}
 	}
 
 	async save() {

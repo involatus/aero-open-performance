@@ -1,0 +1,35 @@
+/**
+ * The pilot's own values, such as their weight or a usual flight bag, kept on this device only.
+ * They are offered as one-tap choices and never filled in by themselves, so an old weight is never
+ * used without the pilot seeing it. Stored in kg, shown in the aircraft's unit.
+ */
+import { convertMass } from '../engine/units.ts';
+
+export type SavedMass = { id: string; label: string; kg: number };
+
+const clean = (label: string) => label.trim().replace(/\s+/g, ' ').slice(0, 30);
+
+/** Adds a value, or replaces the one with the same name. Newest first. */
+export function saveMass(list: SavedMass[], label: string, value: number, unit: string, now: number): SavedMass[] {
+	const name = clean(label);
+	if (!name || !Number.isFinite(value) || value <= 0) return list;
+	const kg = convertMass(value, unit, 'kg');
+	const rest = list.filter((s) => s.label.toLowerCase() !== name.toLowerCase());
+	return [{ id: `m${now.toString(36)}`, label: name, kg }, ...rest];
+}
+
+export function removeMass(list: SavedMass[], id: string): SavedMass[] {
+	return list.filter((s) => s.id !== id);
+}
+
+/** The value as the field takes it, in the aircraft's unit and its decimals. */
+export function massIn(s: SavedMass, unit: string, decimals: number): string {
+	const v = convertMass(s.kg, 'kg', unit);
+	return String(Number(v.toFixed(decimals)));
+}
+
+/** Only what a stored list can safely hold, so a damaged entry is dropped rather than used. */
+export function readSaved(data: unknown): SavedMass[] {
+	if (!Array.isArray(data)) return [];
+	return data.filter((s): s is SavedMass => !!s && typeof s.id === 'string' && typeof s.label === 'string' && !!clean(s.label) && typeof s.kg === 'number' && Number.isFinite(s.kg) && s.kg > 0);
+}

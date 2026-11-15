@@ -105,14 +105,30 @@
 	{/if}
 
 	{#if calc.step === 0}
+		{@const flagged = limits.filter((l) => l.status !== 'ok')}
+		{@const over = limits.filter((l) => l.status === 'exceeded')}
 		<section class="flex flex-col gap-0.5 rounded-xl border border-line bg-surface px-5 py-3.5">
-			<h2 class="mb-1.5 text-[15px] font-semibold">Limits</h2>
-			{#each limits as limit (limit.id)}
-				<div class="flex min-h-9 items-center gap-2.5 text-sm">
-					<Badge tone={tone(limit.status)} text={limitBadge(limit.status).text} />
-					<span><strong>{limit.label}</strong> <span class="text-ink-2">{limitText(aircraft, limit)}</span></span>
-				</div>
-			{/each}
+			<!-- Closed while every limit is OK; a limit to check or exceeded opens it. -->
+			{#key flagged.length > 0}
+				<Collapsible.Root open={flagged.length > 0}>
+					<h2 class="m-0">
+						<Collapsible.Trigger class="group flex min-h-10 w-full items-center gap-2.5 border-0 bg-transparent p-0 text-left text-ink">
+							<span class="text-[15px] font-semibold">Limits</span>
+							<Badge tone={over.length ? 'over' : flagged.length ? 'todo' : 'ok'} text={over.length ? `${over.length} OVER` : flagged.length ? `${flagged.length} CHECK` : `ALL ${limits.length} OK`} />
+							<span class="flex-1 truncate text-[13px] font-normal text-muted">{flagged.map((l) => l.label).join(', ')}</span>
+							<Icon name="chevron-right" class="text-muted transition-transform group-data-[state=open]:rotate-90" />
+						</Collapsible.Trigger>
+					</h2>
+					<Collapsible.Content class="pt-1">
+						{#each limits as limit (limit.id)}
+							<div class="flex min-h-9 items-center gap-2.5 text-sm">
+								<Badge tone={tone(limit.status)} text={limitBadge(limit.status).text} />
+								<span><strong>{limit.label}</strong> <span class="text-ink-2">{limitText(aircraft, limit)}</span></span>
+							</div>
+						{/each}
+					</Collapsible.Content>
+				</Collapsible.Root>
+			{/key}
 			<Collapsible.Root>
 				<Collapsible.Trigger class="mt-1.5 min-h-11 border-0 bg-transparent p-0 font-semibold text-accent">Show the working</Collapsible.Trigger>
 				<Collapsible.Content class="pt-2"><Working {aircraft} {results} /></Collapsible.Content>

@@ -333,7 +333,7 @@
 							<StepNav step={calc.step} left={leftPerStep} over={overPerStep} ongo={goStep} />
 
 							{#if calc.step === 0}
-								<LoadStep {aircraft} {calc} {results} fields={fields[0]} {numberField} />
+								<LoadStep {aircraft} {calc} {results} fields={fields[0]} {numberField} saved={app.saved} onsaved={(list) => app.setSaved(list)} />
 							{:else if calc.step === 1}
 								<FuelStep {aircraft} {calc} {results} fields={fields[1]} {numberField} />
 							{:else if calc.step === 2}
