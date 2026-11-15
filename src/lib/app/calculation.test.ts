@@ -21,6 +21,7 @@ function ready(a: Aircraft): Calculation {
 	set('time', '1'); set('flow', '20'); set('elev', '100'); set('rwy', '9'); set('qnh', '1013'); set('oat', '15'); set('wdir', '90'); set('wspd', '5');
 	c.values.place = 'LSXX'; c.values.name = 'A Pilot';
 	a.notes.forEach((n) => { c.notes[n.id] = true; });
+	c.conditionChoice = { takeoff: 'pilot', landing: 'pilot' };
 	return c;
 }
 

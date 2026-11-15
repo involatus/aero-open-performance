@@ -1,5 +1,5 @@
 {
-	"formatVersion": "0.1.0",
+	"formatVersion": "0.4.0",
 	"registration": "TEST-GL",
 	"type": "Fictional GlaStar-style",
 	"revision": 1,
@@ -315,7 +315,8 @@
 						],
 						"source": "test"
 					}
-				]
+				],
+				"surface": "paved"
 			},
 			{
 				"kind": "steps",
@@ -353,7 +354,8 @@
 						],
 						"source": "test"
 					}
-				]
+				],
+				"surface": "grass"
 			}
 		],
 		"landing": [
@@ -387,12 +389,13 @@
 						],
 						"source": "test"
 					}
-				]
+				],
+				"surface": "paved"
 			},
 			{
 				"kind": "steps",
 				"id": "mixedUnits",
-				"label": "Table in kg and \u00b0F",
+				"label": "Table in kg and °F",
 				"distanceUnit": "m",
 				"steps": [
 					{

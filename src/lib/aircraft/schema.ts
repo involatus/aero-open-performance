@@ -5,7 +5,7 @@
 import * as v from 'valibot';
 import type { OperatorRules } from './operator-rules.ts';
 
-export const FORMAT_VERSION = '0.3.0';
+export const FORMAT_VERSION = '0.4.0';
 
 const Text = v.pipe(v.string(), v.minLength(1));
 const Id = v.pipe(v.string(), v.regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/));
@@ -20,6 +20,10 @@ export const VolumeUnit = v.picklist(['L', 'USgal']);
 export const DistanceUnit = v.picklist(['m', 'ft']);
 export const OutOfRange = v.picklist(['none', 'nearest', 'nearestWarn']);
 export const Output = v.picklist(['total', 'groundRoll']);
+/** The runway surface a condition is for, so the app can preselect it from the airfield list. */
+export const SURFACES = ['paved', 'grass', 'gravel', 'water'] as const;
+export type Surface = (typeof SURFACES)[number];
+const SurfaceOf = v.picklist(SURFACES);
 export const AxisInput = v.picklist(['pressureAltitude', 'densityAltitude', 'elevation', 'temperature', 'mass']);
 
 const Source = v.strictObject({
@@ -136,9 +140,10 @@ const Condition = v.variant('kind', [
 		label: Text,
 		distanceUnit: DistanceUnit,
 		steps: v.pipe(v.array(Step), v.minLength(1)),
-		assumes: v.optional(Assumes)
+		assumes: v.optional(Assumes),
+		surface: v.optional(SurfaceOf)
 	}),
-	v.strictObject({ kind: v.literal('noData'), id: Id, label: Text })
+	v.strictObject({ kind: v.literal('noData'), id: Id, label: Text, surface: v.optional(SurfaceOf) })
 ]);
 const Performance = v.strictObject({
 	takeoff: v.pipe(v.array(Condition), v.minLength(1)),

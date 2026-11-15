@@ -21,6 +21,7 @@ function ready(a: Aircraft): Calculation {
 	for (const [k, v] of [['time', '1'], ['flow', '20'], ['elev', '100'], ['rwy', '9'], ['qnh', '1013'], ['oat', '15'], ['wdir', '90'], ['wspd', '5']]) setByPilot(c, k, v);
 	c.values.place = 'LSXX'; c.values.name = 'A Pilot';
 	a.notes.forEach((n) => { c.notes[n.id] = true; });
+	c.conditionChoice = { takeoff: 'pilot', landing: 'pilot' };
 	return c;
 }
 const meta = (a: Aircraft, c: Calculation, r = calculate(a, toInput(a, c))) => ({ id: 'AOP-TEST', now: NOW, toolVersion: '0.1.0', dataRelease: 'Demo data', lastDataCheck: 'n/a', preRelease: true, chartSvg: chartSvg(a, r, c.configuration) });

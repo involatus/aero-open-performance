@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import type { Aircraft, Condition, Step } from '#lib/aircraft/schema.ts';
+	import { SURFACES, type Aircraft, type Condition, type Step, type Surface } from '#lib/aircraft/schema.ts';
 	import { defaultSource, makeId, move, sourceFor } from '#lib/admin/editing.ts';
 	import Num from './Num.svelte';
 
 	type StepsCondition = Extract<Condition, { kind: 'steps' }>;
+	const SURFACE_WORDS: Record<Surface, string> = { paved: 'Paved (asphalt, concrete)', grass: 'Grass', gravel: 'Gravel', water: 'Water' };
 	type Output = 'total' | 'groundRoll';
 	type WindRule = NonNullable<Extract<Step, { type: 'wind' }>['headwind']>;
 	import SourcePick from './SourcePick.svelte';
@@ -127,6 +128,7 @@
 		<div class="adm-row">
 			<label class="adm-field">Name *<input class="adm" placeholder="e.g. Dry grass" value={c.label} oninput={(e) => { c.label = e.currentTarget.value; touch(); }} /></label>
 			{#if c.kind === 'steps'}<label class="adm-field">Distances in<select class="adm" value={c.distanceUnit} onchange={(e) => { c.distanceUnit = e.currentTarget.value as 'm' | 'ft'; touch(); }}><option value="m">metres</option><option value="ft">feet</option></select></label>{/if}
+			<label class="adm-field">For runways of<select class="adm" value={c.surface ?? ''} onchange={(e) => { const v = e.currentTarget.value as Surface | ''; if (v) c.surface = v; else delete c.surface; touch(); }}><option value="">Any surface</option>{#each SURFACES as k (k)}<option value={k}>{SURFACE_WORDS[k]}</option>{/each}</select><span class="adm-hint">Chosen for pilots, to confirm, when the airfield list gives this surface and no other condition has it.</span></label>
 		</div>
 		<label class="adm-check"><input type="checkbox" checked={c.kind === 'noData'} onchange={(e) => setKind(c, e.currentTarget.checked)} /> The manual has no data for this: pilots decide themselves</label>
 		{#if c.kind === 'steps'}

@@ -2,7 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import type { Performance } from '#lib/aircraft/schema.ts';
 	import type { Calculation as Results } from '#lib/engine/index.ts';
-	import { OLD_CALCULATION_DAYS, conditionCorrections, isOldCalculation, placeOfKey, runwayFor, type Calculation, type Field } from '#lib/app/calculation.ts';
+	import { OLD_CALCULATION_DAYS, chooseCondition, conditionChoiceAt, conditionCorrections, conditionItemKey, isOldCalculation, placeOfKey, runwayFor, type Calculation, type Field } from '#lib/app/calculation.ts';
 	import Card from '../../ui/Card.svelte';
 	import Segmented from '../../ui/Segmented.svelte';
 	import PlaceConditions from './PlaceConditions.svelte';
@@ -47,8 +47,18 @@
 	<Card title="Runway surface" description={surfaceNote ? `${surfaceNote} Choose the matching condition.` : 'Choose the condition that matches the runway.'}>
 		{#each [['takeoff', 'Takeoff', perf.takeoff, calc.takeoffCondition], ['landing', 'Landing', perf.landing, calc.landingCondition]] as const as [phase, label, list, chosen] (phase)}
 			{@const corrections = conditionCorrections(list.find((c) => c.id === chosen))}
-			<div class="flex flex-col gap-1">
-				<Segmented inline {label} options={list.map((c) => ({ id: c.id, label: c.label }))} value={chosen} onchange={(id) => { if (phase === 'takeoff') calc.takeoffCondition = id; else calc.landingCondition = id; }} />
+			{@const by = conditionChoiceAt(calc, phase)}
+			{@const open = list.length > 1 && by !== 'pilot'}
+			{@const runway = runwayFor(calc, phase)}
+			<div id={`w-${conditionItemKey(phase)}`} class={['-m-2 flex scroll-m-4 flex-col gap-1 rounded-xl p-2', open && 'ring-2 ring-amber']}>
+				<Segmented inline {label} options={list.map((c) => ({ id: c.id, label: c.label }))} value={chosen} onchange={(id) => chooseCondition(calc, phase, id)} />
+				{#if open}
+					<p class="text-[13px] text-ink sm:pl-[92px]">
+						{#if by === 'airfield' && runway}<strong>Chosen from the airfield list:</strong> runway {runway.designator} is {runway.surface}. Tap it to confirm, or choose another.
+						{:else if runway}<strong>Choose the {phase} surface.</strong> Runway {runway.designator}'s surface in the airfield list matches no single condition.
+						{:else}<strong>Choose the {phase} surface.</strong>{/if}
+					</p>
+				{/if}
 				<p class="text-[13px] text-muted sm:pl-[92px]">{corrections.length ? `Corrections: ${corrections.join('; ')}.` : 'No correction beyond the table and wind.'}</p>
 			</div>
 		{/each}

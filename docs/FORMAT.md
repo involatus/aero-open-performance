@@ -1,6 +1,6 @@
 # Aircraft data format and calculation rules
 
-Format version 0.3.0. Version 0.3.0 added `appliesTo` on notes and `carries` on stations, and 0.2.0 added Operator Rules to the release index. Older files are still read. This document is the complete definition of how an aircraft file is read and calculated. Another implementation must be able to produce the same results from this document alone. The machine-readable shape is in [schema/aircraft.schema.json](../schema/aircraft.schema.json), and examples are in [aircraft-examples/](../aircraft-examples/). All example values are invented.
+Format version 0.4.0. Version 0.4.0 added `surface` on conditions, 0.3.0 added `appliesTo` on notes and `carries` on stations, and 0.2.0 added Operator Rules to the release index. Older files are still read. This document is the complete definition of how an aircraft file is read and calculated. Another implementation must be able to produce the same results from this document alone. The machine-readable shape is in [schema/aircraft.schema.json](../schema/aircraft.schema.json), and examples are in [aircraft-examples/](../aircraft-examples/). All example values are invented.
 
 One strict JSON file describes one registered aircraft. Unknown fields are errors. Every value stays in the manual's own units. Nothing has a hidden default.
 
@@ -128,6 +128,8 @@ With `landingAt`, the landing distance uses the landing airfield's atmosphere an
 ## Performance
 
 A condition has `kind`. `"noData"` gives status `noData`. `"steps"` has `id`, `label`, `distanceUnit` (`m` or `ft`), an ordered list of `steps`, and optional `assumes`.
+
+Either kind may have `surface`: `paved`, `grass`, `gravel` or `water`. It doesn't change the calculation. When the pilot picks a runway from the airfield list whose surface is of that kind, and no other condition in the same list has it, an app may preselect the condition for the pilot to confirm. An airfield list's surface that names two kinds, such as `ASPH-TURF`, matches none.
 
 Each chain holds two values, `total` and `groundRoll`, both starting empty. Steps run in order. A result stops at the first step that can't continue, with this status:
 

@@ -22,7 +22,7 @@
 	import { describeChanges, isStale, STALE_DAYS } from '#lib/data/release.ts';
 	import {
 		STEP_NAMES, applyKey, applyQuick, canReport, confirmValue, fieldsFor, newCalculation, nextFlight,
-		performanceOf, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation as Calc, type Field, type ToDo
+		matchConditions, performanceOf, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation as Calc, type Field, type ToDo
 	} from '#lib/app/calculation.ts';
 	import { calculate } from '#lib/engine/index.ts';
 	import { renderPdf } from '#lib/report/pdf.ts';
@@ -89,6 +89,9 @@
 		// iPadOS keeps the app open in the background for days, so coming back is also a time to look for new data, at most hourly.
 		document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { now = Date.now(); app.check(); } else saveNow(); });
 	});
+
+	// Preselects the takeoff and landing conditions from the chosen runways' surfaces, whatever changed them.
+	$effect(() => { if (aircraft && calc) matchConditions(aircraft, calc); });
 
 	$effect(() => {
 		if (!app.loaded) return;

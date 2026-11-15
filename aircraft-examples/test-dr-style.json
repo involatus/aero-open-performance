@@ -1,5 +1,5 @@
 {
-	"formatVersion": "0.1.0",
+	"formatVersion": "0.4.0",
 	"registration": "TEST-DR",
 	"type": "Fictional DR-style",
 	"revision": 1,
@@ -356,7 +356,8 @@
 						"value": 0.6,
 						"source": "test"
 					}
-				]
+				],
+				"surface": "paved"
 			},
 			{
 				"kind": "steps",
@@ -393,7 +394,8 @@
 						"value": 0.7,
 						"source": "test"
 					}
-				]
+				],
+				"surface": "grass"
 			}
 		],
 		"landing": [
@@ -411,12 +413,14 @@
 				"assumes": {
 					"text": "the printed mass, with no altitude or temperature correction",
 					"inputs": []
-				}
+				},
+				"surface": "paved"
 			},
 			{
 				"kind": "noData",
 				"id": "grass",
-				"label": "Grass"
+				"label": "Grass",
+				"surface": "grass"
 			}
 		]
 	},

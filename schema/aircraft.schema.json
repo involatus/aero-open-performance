@@ -1065,6 +1065,15 @@
 											"inputs"
 										],
 										"additionalProperties": false
+									},
+									"surface": {
+										"enum": [
+											"paved",
+											"grass",
+											"gravel",
+											"water"
+										],
+										"type": "string"
 									}
 								},
 								"required": [
@@ -1089,6 +1098,15 @@
 									"label": {
 										"type": "string",
 										"minLength": 1
+									},
+									"surface": {
+										"enum": [
+											"paved",
+											"grass",
+											"gravel",
+											"water"
+										],
+										"type": "string"
 									}
 								},
 								"required": [
@@ -1467,6 +1485,15 @@
 											"inputs"
 										],
 										"additionalProperties": false
+									},
+									"surface": {
+										"enum": [
+											"paved",
+											"grass",
+											"gravel",
+											"water"
+										],
+										"type": "string"
 									}
 								},
 								"required": [
@@ -1491,6 +1518,15 @@
 									"label": {
 										"type": "string",
 										"minLength": 1
+									},
+									"surface": {
+										"enum": [
+											"paved",
+											"grass",
+											"gravel",
+											"water"
+										],
+										"type": "string"
 									}
 								},
 								"required": [
@@ -2023,6 +2059,15 @@
 																"inputs"
 															],
 															"additionalProperties": false
+														},
+														"surface": {
+															"enum": [
+																"paved",
+																"grass",
+																"gravel",
+																"water"
+															],
+															"type": "string"
 														}
 													},
 													"required": [
@@ -2047,6 +2092,15 @@
 														"label": {
 															"type": "string",
 															"minLength": 1
+														},
+														"surface": {
+															"enum": [
+																"paved",
+																"grass",
+																"gravel",
+																"water"
+															],
+															"type": "string"
 														}
 													},
 													"required": [
@@ -2425,6 +2479,15 @@
 																"inputs"
 															],
 															"additionalProperties": false
+														},
+														"surface": {
+															"enum": [
+																"paved",
+																"grass",
+																"gravel",
+																"water"
+															],
+															"type": "string"
 														}
 													},
 													"required": [
@@ -2449,6 +2512,15 @@
 														"label": {
 															"type": "string",
 															"minLength": 1
+														},
+														"surface": {
+															"enum": [
+																"paved",
+																"grass",
+																"gravel",
+																"water"
+															],
+															"type": "string"
 														}
 													},
 													"required": [

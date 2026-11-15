@@ -29,6 +29,10 @@ async function getMetar(page: Page) {
 	if (!(await button.isVisible())) await page.getByRole('button', { name: /^(Get a METAR|Use another station)$/ }).click();
 	await button.click();
 }
+/** Confirms the takeoff and landing conditions as they stand, as a pilot taps the chosen one. */
+async function confirmSurfaces(page: Page) {
+	for (const phase of ['takeoff', 'landing']) await page.locator(`[id="w-condition:${phase}"]`).getByRole('radio', { checked: true }).click();
+}
 async function type(page: Page, id: string, value: string) {
 	await page.locator(`[id="f-${id}"]`).click();
 	for (const key of value) await page.locator('.keys button', { hasText: new RegExp(`^${key === '.' ? '\\.' : key}$`) }).click();
@@ -69,6 +73,7 @@ test('full flow: confirm, block on a limit, next flight, and keep it after a rel
 	await stepButton(page, '3 · Conditions').click();
 	for (const [id, value] of [['elev', '500'], ['rwy', '9'], ['qnh', '1013'], ['oat', '15'], ['wdir', '90'], ['wspd', '5']]) await type(page, id, value);
 	await page.locator('.keys button', { hasText: 'Done' }).click();
+	await confirmSurfaces(page);
 
 	await stepButton(page, '4 · Send').click();
 	await page.locator('#f-place').fill('LSXX');
@@ -181,6 +186,7 @@ test('report: created, shared, permanent, and stale after a change', async ({ pa
 	await stepButton(page, '3 · Conditions').click();
 	for (const [id, value] of [['elev', '500'], ['rwy', '9'], ['qnh', '1013'], ['oat', '15'], ['wdir', '90'], ['wspd', '5']]) await type(page, id, value);
 	await page.locator('.keys button', { hasText: 'Done' }).click();
+	await confirmSurfaces(page);
 	await stepButton(page, '4 · Send').click();
 	await expect(page.getByRole('button', { name: 'Create report' })).toBeDisabled();
 	await page.locator('#f-place').fill('LSXX');
@@ -508,6 +514,8 @@ test('landing at another airfield: its own conditions for the landing, on the Re
 	await stepButton(page, '3 · Conditions').click();
 	for (const [id, value] of [['elev', '400'], ['rwy', '9'], ['qnh', '1013'], ['oat', '15'], ['wdir', '90'], ['wspd', '5']]) await type(page, id, value);
 	await page.getByRole('button', { name: 'Close keypad' }).click();
+	await expect(stepButton(page, '3 · Conditions')).toContainText('2 to do');
+	await confirmSurfaces(page);
 	const results = page.getByRole('complementary', { name: 'Results' });
 	const landing = results.getByText(/^Landing · /).locator('..');
 	const atDeparture = await landing.textContent();

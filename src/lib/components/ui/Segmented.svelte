@@ -16,11 +16,11 @@
 
 <div class={['flex min-w-0 gap-x-3 gap-y-1.5', inline ? 'flex-wrap items-center' : 'flex-col']}>
 	<span id={id} class={['label-caps', inline && 'flex-[0_0_80px]']}>{label}</span>
-	<!-- One option is always chosen, so tapping the current one leaves it selected. -->
+	<!-- One option is always chosen, so tapping the current one leaves it selected and reports it again, as a confirmation. -->
 	<ToggleGroup.Root
 		type="single"
 		{value}
-		onValueChange={(next) => { if (next) onchange(next); }}
+		onValueChange={(next) => onchange(next || value)}
 		aria-labelledby={id}
 		style={`grid-template-columns: repeat(auto-fit, minmax(${minWidth}px, 1fr))`}
 		class={['grid min-w-0 gap-1 rounded-[10px] bg-canvas p-1', inline && 'flex-[1_1_440px]']}

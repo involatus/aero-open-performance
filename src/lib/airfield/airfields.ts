@@ -2,13 +2,14 @@
  * Airfields from OurAirports, a community database kept on the device for offline use.
  * Every value it gives is a Prefilled Value the pilot checks against official sources.
  */
+import type { Surface } from '../aircraft/schema.ts';
 import { M_PER_FT } from '../engine/units.ts';
 import { toMagnetic } from '../weather/variation.ts';
 /** `headingTrue`: the runway's measured heading from OurAirports, true north; null where it has none. */
 export type RunwayEnd = { designator: string; number: number; surface: string; surfaceKind: SurfaceKind; lengthM: number | null; headingTrue: number | null };
 export type Airfield = { ident: string; name: string; elevationFt: number | null; lat: number; lon: number; runways: RunwayEnd[] };
 export type AirfieldData = { source: string; date: string; airfields: Airfield[] };
-export type SurfaceKind = 'paved' | 'grass' | 'gravel' | 'water' | 'unknown';
+export type SurfaceKind = Surface | 'unknown';
 
 // Each runway: both ends, surface, length in ft, then each end's true heading (lists made before carry no headings).
 type Raw = { source: string; date: string; airports: [string, string, number | null, number, number, [string, string, string, number | null, (number | null)?, (number | null)?][]][] };
@@ -19,8 +20,15 @@ const KIND: [RegExp, SurfaceKind][] = [
 	[/^(gvl|grv|gravel)/i, 'gravel'],
 	[/^water/i, 'water']
 ];
+const kindOf = (word: string): SurfaceKind => KIND.find(([re]) => re.test(word))?.[1] ?? 'unknown';
+/**
+ * The kind of the first word, such as TURF in TURF-G. A later word of another kind, as in ASPH-TURF or
+ * "Concrete and turf.", makes it unknown. Single letters after the first word are conditions, such as G for good.
+ */
 export function surfaceKind(raw: string): SurfaceKind {
-	return KIND.find(([re]) => re.test(raw.trim()))?.[1] ?? 'unknown';
+	const [first, ...rest] = raw.trim().split(/[^\p{L}]+/u).filter(Boolean);
+	const kind = first ? kindOf(first) : 'unknown';
+	return rest.some((w) => w.length > 1 && ![kind, 'unknown'].includes(kindOf(w))) ? 'unknown' : kind;
 }
 
 /** "08", "26L" and "08R" give 8, 26 and 8. Helipads and letters-only ends give null. */

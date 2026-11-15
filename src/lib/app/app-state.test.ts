@@ -91,6 +91,7 @@ describe('app state on a device', () => {
 		for (const [k, v] of [['time', '1'], ['flow', '20'], ['elev', '100'], ['rwy', '9'], ['qnh', '1013'], ['oat', '15'], ['wdir', '90'], ['wspd', '5']]) setByPilot(c, k, v);
 		c.values.place = 'LSXX'; c.values.name = 'A Pilot';
 		a.notes.forEach((n) => { c.notes[n.id] = true; });
+	c.conditionChoice = { takeoff: 'pilot', landing: 'pilot' };
 		const results = calculate(a, toInput(a, c));
 		const tools = { random: new Uint8Array([1, 2, 3, 4]), render: async () => new Blob(['%PDF']) };
 		const report = await app.createReport({ aircraft: a, calc: c, results, toolVersion: 'test' }, tools);
