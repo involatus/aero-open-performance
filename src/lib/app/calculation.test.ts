@@ -4,7 +4,7 @@ import fc from 'fast-check';
 import { validateAircraft } from '../aircraft/validate.ts';
 import type { Aircraft } from '../aircraft/schema.ts';
 import { calculate } from '../engine/index.ts';
-import { applyKey, applyQuick, applyWeather, keyAt, canReport, changeConfiguration, confirmValue, confirmWeather, isOldCalculation, reportAgeMinutes, fieldsFor, newCalculation, nextFlight, parse, prefill, reconcileAfterInstall, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation , runwayHeading } from './calculation.ts';
+import { applyKey, applyQuick, applyWeather, keyAt, canReport, changeConfiguration, confirmValue, confirmWeather, isOldCalculation, reportAgeMinutes, fieldsFor, newCalculation, nextFlight, parse, prefill, reconcileAfterInstall, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation , runwayHeading, runwayWinds, runwayWindText } from './calculation.ts';
 
 const load = (name: string): Aircraft => {
 	const r = validateAircraft(JSON.parse(readFileSync(`aircraft-examples/${name}.json`, 'utf8')));
@@ -403,5 +403,28 @@ describe('runway number', () => {
 		expect(runwayHeading('8')).toBe(80);
 		expect(runwayHeading('36')).toBe(360);
 		expect(runwayHeading('')).toBeNull();
+	});
+});
+
+describe('wind on each runway', () => {
+	const runways = [{ designator: '03', number: 3 }, { designator: '21', number: 21 }];
+	it('splits the wind for every runway and marks the one most into it', () => {
+		const { winds, intoWind } = runwayWinds(runways, '30', '10');
+		expect(winds.get('03')!.headwind).toBeCloseTo(10, 6);
+		expect(winds.get('21')!.headwind).toBeCloseTo(-10, 6);
+		expect(intoWind).toBe('03');
+		expect(runwayWindText(winds.get('21')!)).toBe('Tailwind 10 kt');
+		expect(runwayWindText(runwayWinds(runways, '120', '10').winds.get('03')!)).toBe('cross 10 kt');
+		expect(runwayWindText(runwayWinds(runways, '60', '10').winds.get('03')!)).toBe('Headwind 9 kt · cross 5 kt');
+	});
+	it('counts variable wind as a tailwind everywhere, so no runway is into wind', () => {
+		const { winds, intoWind } = runwayWinds(runways, 'VRB', '3');
+		expect(intoWind).toBeNull();
+		expect(runwayWindText(winds.get('03')!)).toBe('Variable: tailwind 3 kt');
+	});
+	it('says nothing without a full wind, and marks no runway in calm', () => {
+		expect(runwayWinds(runways, undefined, '5').winds.size).toBe(0);
+		expect(runwayWinds(runways, '30', '0').intoWind).toBeNull();
+		expect(runwayWindText(runwayWinds(runways, '30', '0').winds.get('03')!)).toBe('Calm');
 	});
 });

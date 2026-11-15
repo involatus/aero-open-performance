@@ -99,6 +99,32 @@ export function runwayHeading(text: string | undefined): number | null {
 	const n = parse(text);
 	return n === null ? null : n * 10;
 }
+export type RunwayWind = { headwind: number; crosswind: number; variable: boolean };
+/**
+ * Each runway's wind components from the entered wind, and the runway most into the wind, so a pilot who
+ * doesn't know the active runway yet can see the choice. Variable wind counts as a tailwind on every runway,
+ * as in the calculation, so no runway is "into wind" then. Runway numbers stand for the heading, as elsewhere.
+ */
+export function runwayWinds(runways: Array<{ designator: string; number: number }>, wdir: string | undefined, wspd: string | undefined) {
+	const speed = parse(wspd), variable = wdir === VARIABLE_WIND, direction = variable ? null : parse(wdir);
+	const winds = new Map<string, RunwayWind>();
+	if (speed === null || (!variable && direction === null)) return { winds, intoWind: null as string | null };
+	for (const r of runways) {
+		if (variable) { winds.set(r.designator, { headwind: -speed, crosswind: 0, variable }); continue; }
+		const angle = ((direction! - r.number * 10) * Math.PI) / 180;
+		winds.set(r.designator, { headwind: speed * Math.cos(angle), crosswind: Math.abs(speed * Math.sin(angle)), variable });
+	}
+	let intoWind: string | null = null, best = 0.5;
+	if (!variable) for (const [d, w] of winds) if (w.headwind > best) { best = w.headwind; intoWind = d; }
+	return { winds, intoWind };
+}
+/** "Headwind 6 kt · cross 2 kt", in whole knots. */
+export function runwayWindText(w: RunwayWind): string {
+	if (w.variable) return `Variable: tailwind ${Math.round(-w.headwind)} kt`;
+	const along = Math.round(Math.abs(w.headwind)), cross = Math.round(w.crosswind);
+	if (!along && !cross) return 'Calm';
+	return [along ? `${w.headwind > 0 ? 'Headwind' : 'Tailwind'} ${along} kt` : '', cross ? `cross ${cross} kt` : ''].filter(Boolean).join(' · ');
+}
 function runwayHint(text: string | undefined) {
 	const h = runwayHeading(text);
 	return h === null ? 'Runway number, such as 08 for 080°' : `Runway ${String(h / 10).padStart(2, '0')}, heading ${String(h).padStart(3, '0')}°`;

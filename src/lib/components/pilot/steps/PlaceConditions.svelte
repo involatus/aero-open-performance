@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, untrack, type Snippet } from 'svelte';
-	import { ToggleGroup } from 'bits-ui';
+	import { Collapsible, ToggleGroup } from 'bits-ui';
 	import type { WindForDistances } from '#lib/aircraft/schema.ts';
 	import type { Calculation as Results } from '#lib/engine/index.ts';
 	import { WIND_CHOICES, enteredWindKept, landingConditions, windText } from '#lib/app/presentation.ts';
@@ -9,7 +9,7 @@
 	import type { WeatherQuery } from '#lib/weather/provider.ts';
 	import {
 		OLD_REPORT_MINUTES, WEATHER_KEYS, airfieldAt, applyAirfield, applyRunway, applyWeather, confirmWeather, isVariableWind, keyAt,
-		parse, reportAgeMinutes, runwayHeading, weatherAt, windChoiceAt, type Calculation, type Field, type Place
+		parse, reportAgeMinutes, runwayHeading, runwayWindText, runwayWinds, weatherAt, windChoiceAt, type Calculation, type Field, type Place
 	} from '#lib/app/calculation.ts';
 	import Button from '../../ui/Button.svelte';
 	import Card from '../../ui/Card.svelte';
@@ -38,6 +38,8 @@
 	let airfieldFound = $state<Airfield | null>(null);
 	let weatherBusy = $state(false);
 	let weatherMessage = $state('');
+	/** Says when the app fetched or refreshed the weather by itself, so nothing changes unseen. */
+	let weatherNote = $state('');
 
 	let chosen = $derived(airfieldAt(calc, place));
 	let weather = $derived(weatherAt(calc, place));
@@ -59,12 +61,20 @@
 		];
 	});
 	let showRunways = $derived(airfieldFound !== null && chosen?.ident === airfieldFound.ident);
+	let runwayWind = $derived(airfieldFound ? runwayWinds(airfieldFound.runways, calc.values[k('wdir')], calc.values[k('wspd')]) : null);
 
 	// The runway list isn't saved with the calculation, so it is looked up again on return to this step.
 	onMount(() => {
 		const ident = chosen?.ident;
 		if (!ident) return;
-		loadAirfields().then((data) => { airfieldFound = data.airfields.find((a) => a.ident === ident) ?? null; }).catch(() => {});
+		loadAirfields().then((data) => {
+			airfieldFound = data.airfields.find((a) => a.ident === ident) ?? null;
+			if (!airfieldFound) return;
+			// Back on this step: no report yet, or an old one nobody has confirmed, is fetched again.
+			const age = reportAgeMinutes(weather, Date.now());
+			if (!weather) autoWeather(airfieldFound, '');
+			else if (age !== null && age > OLD_REPORT_MINUTES && weatherToConfirm) autoWeather(airfieldFound, `Weather refreshed: the earlier report was ${age} minutes old.`);
+		}).catch(() => {});
 	});
 
 	async function findAirfield() {
@@ -81,6 +91,12 @@
 	function chooseAirfield(a: Airfield) {
 		airfieldFound = a; airfieldMatches = []; airfieldQuery = a.ident;
 		applyAirfield(calc, a, airfieldDate, place);
+		autoWeather(a, '');
+	}
+	/** The field's own METAR, or the nearest station's when it has none. */
+	async function autoWeather(a: Airfield, note: string) {
+		weatherNote = '';
+		if (await loadWeather({ lat: a.lat, lon: a.lon })) weatherNote = note;
 	}
 	function chooseRunway(designator: string) {
 		const end = airfieldFound?.runways.find((r) => r.designator === designator);
@@ -90,14 +106,15 @@
 		if (place === 'landing') calc.landingWindForDistances = id; else calc.windForDistances = id;
 	}
 
-	async function loadWeather(query: WeatherQuery) {
-		if (weatherBusy) return;
+	async function loadWeather(query: WeatherQuery): Promise<boolean> {
+		if (weatherBusy) return false;
 		const target = calc;
 		weatherBusy = true; weatherMessage = '';
 		closePad();
 		const result = await lookUpWeather(query);
 		if (result.ok) { now = Date.now(); applyWeather(target, result.report, now, place); } else weatherMessage = result.message;
 		weatherBusy = false;
+		return result.ok;
 	}
 	const getStationWeather = () => loadWeather({ station: calc.values[k('station')] ?? '' });
 	/** From the chosen airfield when there is one, so a field without a METAR gets its nearest station. */
@@ -144,20 +161,62 @@
 		</div>
 	{/if}
 	{#if showRunways && airfieldFound}
+		<p id={idOf('airfield-found')} class="text-[13px] text-ink-2"><strong>{airfieldFound.ident} {airfieldFound.name}</strong>{#if airfieldFound.elevationFt !== null}{' · '}<span class="num">{airfieldFound.elevationFt} ft</span>{/if} · list of {airfieldDate}</p>
+	{/if}
+
+	<!-- The weather comes with the airfield, so the runway can be chosen with the wind in view. -->
+	<div class="flex flex-col gap-2" aria-live="polite">
+		{#if weatherBusy}
+			<p class="rounded-lg bg-subtle px-3.5 py-3 text-sm text-ink-2">Getting the weather{showRunways && airfieldFound ? ` for ${airfieldFound.ident}` : ''}…</p>
+		{:else if weather}
+			<div class="metar flex flex-col gap-1 rounded-lg bg-subtle px-3.5 py-3">
+				<span class="label-caps text-[11px]">Weather{place === 'landing' ? ' now, not at your arrival' : ''}</span>
+				<code class="raw num text-sm break-words">{weather.raw}</code>
+				<span class="text-[13px] text-muted">{weather.stationName ?? weather.station}{weather.distanceKm !== null ? `, ${weather.distanceKm.toFixed(1)} km away` : ', on the field'}{metarAge !== null ? ` · ${metarAge} minutes old` : ''}</span>
+				{#if weatherNote}<p class="text-[13px] font-semibold text-ink-2">{weatherNote}</p>{/if}
+				{#if metarAge !== null && metarAge > OLD_REPORT_MINUTES}<div class="banner notsent mt-1" role="alert">This report is {metarAge} minutes old. Check it is still valid, or enter current values.</div>{/if}
+				{#each weather.flags as flag (flag)}<p class="flag text-sm font-semibold text-amber">{flag}</p>{/each}
+			</div>
+		{/if}
+		{#if weatherMessage}<div class="banner unk" role="status">{weatherMessage}</div>{/if}
+		<Collapsible.Root open={!showRunways && !weather}>
+			<div class="flex flex-wrap gap-x-4">
+				{#if showRunways && airfieldFound}<button type="button" class="min-h-9 border-0 bg-transparent p-0 text-sm font-semibold text-accent" disabled={weatherBusy} onclick={() => autoWeather(airfieldFound!, '')}>Refresh the weather</button>{/if}
+				<Collapsible.Trigger class="min-h-9 border-0 bg-transparent p-0 text-sm font-semibold text-accent">{showRunways ? 'Use another station' : 'Get a METAR'}</Collapsible.Trigger>
+			</div>
+			<Collapsible.Content class="flex flex-wrap items-end gap-2 pt-2">
+				<label class="flex min-w-0 flex-[1_1_160px] flex-col gap-1.5">
+					<span class="label-caps">Weather station</span>
+					<input
+						id={idOf('f-station')} type="text" enterkeyhint="search" autocapitalize="characters" autocorrect="off" spellcheck="false" autocomplete="off" maxlength="4"
+						placeholder="e.g. LSZH" bind:value={calc.values[k('station')]} onfocus={closePad} onkeydown={enter(getStationWeather)}
+						class={[textInput, 'num text-lg font-semibold tracking-[0.06em] uppercase placeholder:font-sans placeholder:text-base placeholder:font-normal placeholder:tracking-normal placeholder:normal-case']}
+					/>
+				</label>
+				<Button size="lg" disabled={weatherBusy} onclick={getStationWeather}>{weatherBusy ? 'Loading' : 'Get METAR'}</Button>
+				<Button size="lg" disabled={weatherBusy} onclick={getNearestWeather}>Nearest</Button>
+			</Collapsible.Content>
+		</Collapsible.Root>
+	</div>
+
+	{#if showRunways && airfieldFound}
 		<div class="flex flex-col gap-1.5">
-			<p id={idOf('airfield-found')} class="text-[13px] text-ink-2"><strong>{airfieldFound.ident} {airfieldFound.name}</strong>{#if airfieldFound.elevationFt !== null}{' · '}<span class="num">{airfieldFound.elevationFt} ft</span>{/if} · list of {airfieldDate}</p>
 			<span class="label-caps" id={idOf('runway-label')}>Runway</span>
-			<ToggleGroup.Root type="single" value={chosen?.runway?.designator ?? ''} onValueChange={(d) => { if (d) chooseRunway(d); }} aria-labelledby={idOf('runway-label')} class="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
+			<ToggleGroup.Root type="single" value={chosen?.runway?.designator ?? ''} onValueChange={(d) => { if (d) chooseRunway(d); }} aria-labelledby={idOf('runway-label')} class="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2">
 				{#each airfieldFound.runways as end (end.designator)}
+					{@const w = runwayWind?.winds.get(end.designator)}
+					{@const into = runwayWind?.intoWind === end.designator}
 					<ToggleGroup.Item
 						value={end.designator}
 						class="group flex min-h-14 flex-col justify-center gap-px rounded-lg border border-line-strong bg-surface px-3 py-1.5 text-left font-normal text-ink data-[state=on]:border-2 data-[state=on]:border-accent data-[state=on]:bg-accent-soft data-[state=on]:px-[11px] data-[state=on]:text-accent-strong"
 					>
-						<span><span class="num text-xl font-semibold">{end.designator}</span> <span class="num text-[13px] text-muted group-data-[state=on]:text-inherit">{heading(end)}</span></span>
+						<span class="flex items-baseline gap-1.5"><span class="num text-xl font-semibold">{end.designator}</span> <span class="num text-[13px] text-muted group-data-[state=on]:text-inherit">{heading(end)}</span>{#if into}<span class="ml-auto rounded-full bg-good-bg px-2 py-px text-[11px] font-semibold text-good">Into wind</span>{/if}</span>
 						<span class="text-[13px] text-ink-2 group-data-[state=on]:text-inherit">{surfaceText(end)}{end.lengthM ? ` · ${end.lengthM} m` : ''}</span>
+						{#if w}<span class={['num text-[13px] group-data-[state=on]:text-inherit', w.headwind < -0.5 ? 'font-semibold text-amber' : 'text-ink-2']}>{runwayWindText(w)}</span>{/if}
 					</ToggleGroup.Item>
 				{/each}
 			</ToggleGroup.Root>
+			{#if runwayWind?.winds.size}<p class="text-[13px] text-muted">Wind from {weather && calc.sources[k('wdir')]?.startsWith('METAR') ? `the ${weather.station} METAR` : 'your entry below'}. Use the runway in use: ATIS or the tower may differ.</p>{/if}
 		</div>
 	{/if}
 	<div class="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
@@ -165,28 +224,7 @@
 	</div>
 </Card>
 
-<Card title={named ? `${word} weather` : 'Weather'} description={place === 'landing' ? 'A METAR is the weather now, not at your arrival. Check it again before landing.' : undefined}>
-	<div class="flex flex-wrap items-end gap-2">
-		<label class="flex min-w-0 flex-[1_1_160px] flex-col gap-1.5">
-			<span class="label-caps">Weather station</span>
-			<input
-				id={idOf('f-station')} type="text" enterkeyhint="search" autocapitalize="characters" autocorrect="off" spellcheck="false" autocomplete="off" maxlength="4"
-				placeholder="e.g. LSZH" bind:value={calc.values[k('station')]} onfocus={closePad} onkeydown={enter(getStationWeather)}
-				class={[textInput, 'num text-lg font-semibold tracking-[0.06em] uppercase placeholder:font-sans placeholder:text-base placeholder:font-normal placeholder:tracking-normal placeholder:normal-case']}
-			/>
-		</label>
-		<Button size="lg" disabled={weatherBusy} onclick={getStationWeather}>{weatherBusy ? 'Loading' : 'Get METAR'}</Button>
-		<Button size="lg" disabled={weatherBusy} onclick={getNearestWeather}>Nearest</Button>
-	</div>
-	{#if weatherMessage}<div class="banner unk" role="status">{weatherMessage}</div>{/if}
-	{#if weather}
-		<div class="metar flex flex-col gap-1 rounded-lg bg-subtle px-3.5 py-3">
-			<code class="raw num text-sm break-words">{weather.raw}</code>
-			<span class="text-[13px] text-muted">{weather.stationName ?? weather.station}{weather.distanceKm !== null ? `, ${weather.distanceKm.toFixed(1)} km away` : ', on the field'}{metarAge !== null ? ` · ${metarAge} minutes old` : ''}</span>
-			{#if metarAge !== null && metarAge > OLD_REPORT_MINUTES}<div class="banner notsent mt-1" role="alert">This report is {metarAge} minutes old. Check it is still valid, or enter current values.</div>{/if}
-			{#each weather.flags as flag (flag)}<p class="flag text-sm font-semibold text-amber">{flag}</p>{/each}
-		</div>
-	{/if}
+<Card title={named ? `${word} weather to check` : 'Weather to check'} description={weather ? `Filled in from the ${weather.station} METAR. Compare with ATIS, change what differs, then confirm.` : 'Enter the values from ATIS, or find the airfield above to fetch its METAR.'}>
 	<div class="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
 		{#each weatherFields as field (field.key)}{@render numberField(field)}{/each}
 	</div>
