@@ -2,7 +2,7 @@
 	"formatVersion": "0.4.0",
 	"registration": "TEST-SR",
 	"type": "Fictional SR22-style",
-	"revision": 1,
+	"revision": 2,
 	"fictional": true,
 	"units": {
 		"mass": "lb",

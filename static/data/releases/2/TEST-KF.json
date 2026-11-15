@@ -1,0 +1,474 @@
+{
+	"formatVersion": "0.1.0",
+	"registration": "TEST-KF",
+	"type": "Fictional Kitfox-style",
+	"revision": 1,
+	"fictional": true,
+	"units": {
+		"mass": "kg",
+		"arm": "cm",
+		"volume": "L"
+	},
+	"display": {
+		"massDecimals": 1,
+		"armDecimals": 1
+	},
+	"sources": {
+		"test": {
+			"document": "Fictional test manual. All values are invented.",
+			"revision": "1",
+			"page": "1"
+		}
+	},
+	"stations": [
+		{
+			"id": "seats",
+			"label": "Pilot and passenger",
+			"arm": 44,
+			"source": "test"
+		},
+		{
+			"id": "baggage",
+			"label": "Baggage",
+			"arm": 103,
+			"maxMass": 20,
+			"source": "test"
+		}
+	],
+	"tanks": [
+		{
+			"id": "main",
+			"label": "Wing tanks",
+			"arm": 35,
+			"capacity": 90,
+			"density": 0.72,
+			"source": "test"
+		}
+	],
+	"combinedLimits": [],
+	"massLimits": {
+		"maxTakeoff": {
+			"value": 544,
+			"source": "test"
+		},
+		"maxLanding": {
+			"value": 544,
+			"source": "test"
+		}
+	},
+	"envelope": {
+		"points": [
+			{
+				"mass": 250,
+				"arm": 26
+			},
+			{
+				"mass": 544,
+				"arm": 26
+			},
+			{
+				"mass": 544,
+				"arm": 40.6
+			},
+			{
+				"mass": 250,
+				"arm": 40.6
+			}
+		],
+		"source": "test"
+	},
+	"burnPlans": [
+		{
+			"id": "even",
+			"label": "Evenly",
+			"type": "even"
+		}
+	],
+	"defaultBurnPlan": "even",
+	"notes": [],
+	"tables": {
+		"takeoff": {
+			"axes": [
+				{
+					"name": "Altitude",
+					"input": "pressureAltitude",
+					"unit": "ft",
+					"values": [
+						0,
+						2000,
+						4000
+					],
+					"below": "none",
+					"above": "none"
+				},
+				{
+					"name": "Temperature",
+					"input": "temperature",
+					"unit": "C",
+					"values": [
+						0,
+						15,
+						30
+					],
+					"below": "nearest",
+					"above": "nearestWarn"
+				}
+			],
+			"outputs": {
+				"total": [
+					[
+						400,
+						430,
+						460
+					],
+					[
+						500,
+						540,
+						580
+					],
+					[
+						610,
+						660,
+						710
+					]
+				],
+				"groundRoll": [
+					[
+						150,
+						165,
+						180
+					],
+					[
+						185,
+						205,
+						225
+					],
+					[
+						225,
+						250,
+						275
+					]
+				]
+			},
+			"source": "test"
+		}
+	},
+	"performance": {
+		"takeoff": [
+			{
+				"kind": "steps",
+				"id": "hard",
+				"label": "Hard",
+				"distanceUnit": "m",
+				"steps": [
+					{
+						"type": "lookup",
+						"table": "takeoff"
+					},
+					{
+						"type": "wind",
+						"headwind": {
+							"mode": "proportional",
+							"percent": 1,
+							"perKnots": 1,
+							"above": "none"
+						},
+						"tailwind": {
+							"mode": "proportional",
+							"percent": 10,
+							"perKnots": 2,
+							"above": "none"
+						},
+						"applies": [
+							"total",
+							"groundRoll"
+						],
+						"source": "test"
+					}
+				]
+			}
+		],
+		"landing": [
+			{
+				"kind": "steps",
+				"id": "hard",
+				"label": "Hard",
+				"distanceUnit": "m",
+				"steps": [
+					{
+						"type": "fixed",
+						"total": 418,
+						"source": "test"
+					}
+				],
+				"assumes": {
+					"text": "sea level, 15 °C",
+					"inputs": [
+						{
+							"input": "pressureAltitude",
+							"value": 0,
+							"unit": "ft"
+						},
+						{
+							"input": "temperature",
+							"value": 15,
+							"unit": "C"
+						}
+					]
+				}
+			}
+		]
+	},
+	"configurations": [
+		{
+			"id": "standard",
+			"label": "Standard",
+			"weighing": {
+				"mass": 315,
+				"moment": 9250,
+				"date": "2026-01-01",
+				"source": "test"
+			}
+		}
+	],
+	"handCases": [
+		{
+			"id": "kf-standard",
+			"label": "Sea level and 15 C: the fixed landing value applies with no warning",
+			"author": "Project test suite (fictional)",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"seats": {
+						"mass": 150
+					},
+					"baggage": {
+						"mass": 0
+					}
+				},
+				"fuel": {
+					"main": 60
+				},
+				"burnPlan": "even",
+				"flightTimeHours": 0,
+				"fuelFlow": 0,
+				"elevation": {
+					"value": 0,
+					"unit": "ft"
+				},
+				"qnh": 1013.25,
+				"oat": 15,
+				"windDirection": 0,
+				"windSpeed": 0,
+				"runwayHeading": 0,
+				"takeoffCondition": "hard",
+				"landingCondition": "hard"
+			},
+			"expected": {
+				"takeoffMass": 508.2,
+				"takeoffArm": 34.163715072805985,
+				"takeoff": {
+					"status": "ok",
+					"total": 430,
+					"groundRoll": 165
+				},
+				"landing": {
+					"status": "ok",
+					"total": 418
+				},
+				"exceeded": []
+			}
+		},
+		{
+			"id": "kf-elsewhere",
+			"label": "Elsewhere the landing value is unchanged and carries a warning",
+			"author": "Project test suite (fictional)",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"seats": {
+						"mass": 150
+					},
+					"baggage": {
+						"mass": 0
+					}
+				},
+				"fuel": {
+					"main": 60
+				},
+				"burnPlan": "even",
+				"flightTimeHours": 0,
+				"fuelFlow": 0,
+				"elevation": {
+					"value": 2000,
+					"unit": "ft"
+				},
+				"qnh": 1013.25,
+				"oat": 15,
+				"windDirection": 0,
+				"windSpeed": 0,
+				"runwayHeading": 0,
+				"takeoffCondition": "hard",
+				"landingCondition": "hard"
+			},
+			"expected": {
+				"takeoff": {
+					"status": "ok",
+					"total": 540,
+					"groundRoll": 205
+				},
+				"landing": {
+					"status": "ok",
+					"total": 418
+				},
+				"exceeded": []
+			}
+		},
+		{
+			"id": "kf-baggage",
+			"label": "Baggage over its limit",
+			"author": "Project test suite (fictional)",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"seats": {
+						"mass": 100
+					},
+					"baggage": {
+						"mass": 25
+					}
+				},
+				"fuel": {
+					"main": 20
+				},
+				"burnPlan": "even",
+				"flightTimeHours": 0,
+				"fuelFlow": 0,
+				"elevation": {
+					"value": 0,
+					"unit": "ft"
+				},
+				"qnh": 1013.25,
+				"oat": 15,
+				"windDirection": 0,
+				"windSpeed": 0,
+				"runwayHeading": 0,
+				"takeoffCondition": "hard",
+				"landingCondition": "hard"
+			},
+			"expected": {
+				"exceeded": [
+					"station:baggage"
+				]
+			}
+		},
+		{
+			"id": "kf-between",
+			"label": "Between table values, aft loading",
+			"author": "Project test suite (fictional), expected values from the separate reference calculator",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"seats": {
+						"mass": 180
+					},
+					"baggage": {
+						"mass": 20
+					}
+				},
+				"fuel": {
+					"main": 60
+				},
+				"burnPlan": "even",
+				"flightTimeHours": 0,
+				"fuelFlow": 0,
+				"elevation": {
+					"value": 1000,
+					"unit": "ft"
+				},
+				"qnh": 1013.25,
+				"oat": 7.5,
+				"windDirection": 0,
+				"windSpeed": 0,
+				"runwayHeading": 0,
+				"takeoffCondition": "hard",
+				"landingCondition": "hard"
+			},
+			"expected": {
+				"takeoffMass": 558.2,
+				"takeoffArm": 37.15872447151558,
+				"landingMass": 558.2,
+				"landingArm": 37.15872447151558,
+				"takeoff": {
+					"status": "ok",
+					"total": 468,
+					"groundRoll": 177
+				},
+				"landing": {
+					"status": "ok",
+					"total": 418
+				},
+				"exceeded": [
+					"landingCg",
+					"landingMass",
+					"takeoffCg",
+					"takeoffMass"
+				]
+			}
+		},
+		{
+			"id": "kf-forward",
+			"label": "Forward loading",
+			"author": "Project test suite (fictional), expected values from the separate reference calculator",
+			"date": "2026-11-06",
+			"input": {
+				"configuration": "standard",
+				"loads": {
+					"seats": {
+						"mass": 60
+					},
+					"baggage": {
+						"mass": 0
+					}
+				},
+				"fuel": {
+					"main": 15
+				},
+				"burnPlan": "even",
+				"flightTimeHours": 0,
+				"fuelFlow": 0,
+				"elevation": {
+					"value": 0,
+					"unit": "ft"
+				},
+				"qnh": 1013.25,
+				"oat": 15,
+				"windDirection": 0,
+				"windSpeed": 0,
+				"runwayHeading": 0,
+				"takeoffCondition": "hard",
+				"landingCondition": "hard"
+			},
+			"expected": {
+				"takeoffMass": 385.8,
+				"takeoffArm": 31.79885951270088,
+				"landingMass": 385.8,
+				"landingArm": 31.79885951270088,
+				"takeoff": {
+					"status": "ok",
+					"total": 430,
+					"groundRoll": 165
+				},
+				"landing": {
+					"status": "ok",
+					"total": 418
+				},
+				"exceeded": []
+			}
+		}
+	]
+}

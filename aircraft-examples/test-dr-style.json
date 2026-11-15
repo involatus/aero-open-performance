@@ -2,7 +2,7 @@
 	"formatVersion": "0.4.0",
 	"registration": "TEST-DR",
 	"type": "Fictional DR-style",
-	"revision": 1,
+	"revision": 2,
 	"fictional": true,
 	"units": {
 		"mass": "kg",

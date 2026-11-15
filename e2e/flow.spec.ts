@@ -142,6 +142,12 @@ test('airfield list: find offline, choose a runway, confirm; unknown fields are 
 	await expect(page.locator('[id="f-rwy"]')).toHaveValue('08');
 	await expect(page.getByText('Runway 08, heading 080°')).toBeVisible();
 	await expect(page.getByText('Runway 08R is GRASS in the airfield list')).toBeVisible();
+	// The only grass condition is chosen from the list, for the pilot to confirm.
+	const takeoffSurface = page.locator('[id="w-condition:takeoff"]');
+	await expect(takeoffSurface.getByRole('radio', { name: 'Soft grass' })).toBeChecked();
+	await expect(takeoffSurface).toContainText('Chosen from the airfield list');
+	await takeoffSurface.getByRole('radio', { name: 'Soft grass' }).click();
+	await expect(takeoffSurface).not.toContainText('Chosen from the airfield list');
 	await expect(page.locator('#w-rwy')).toContainText('From airfield list LSZF');
 	await page.getByLabel('Departure airfield').fill('Nowhere strip');
 	await page.getByRole('button', { name: 'Find' }).click();
@@ -355,14 +361,15 @@ test('new data: nothing changes until Install, then the calculation is redone wi
 	await expect(page.locator('[id="w-flow"]')).not.toContainText('From aircraft data');
 
 	const index = await realIndex(page);
-	await page.route('**/data/index.json', (route) => route.fulfill({ json: { ...index, release: 2, notes: 'Example update.' } }));
+	const next = index.release + 1;
+	await page.route('**/data/index.json', (route) => route.fulfill({ json: { ...index, release: next, notes: 'Example update.' } }));
 	await checkForNewData(page);
-	await expect(page.getByText('New data available: Release 2. Example update.')).toBeVisible();
+	await expect(page.getByText(`New data available: Release ${next}. Example update.`)).toBeVisible();
 	await expect(page.locator('#f-flow')).toHaveValue('12');
 
 	await page.getByRole('button', { name: 'Install' }).click();
 	await expect(page.getByText('New data available')).toBeHidden();
-	await expect(page.getByText('Recalculated with Release 2')).toBeVisible();
+	await expect(page.getByText(`Recalculated with Release ${next}`)).toBeVisible();
 	// What the pilot typed survives an install.
 	await expect(page.locator('#f-flow')).toHaveValue('12');
 	expect(errors).toEqual([]);
@@ -372,11 +379,11 @@ test('a bad download keeps the last verified release', async ({ page }) => {
 	await page.goto('/');
 	await page.getByRole('button', { name: /^TEST-DR/ }).click();
 	const index = await realIndex(page);
-	const bad = { ...index, release: 2, aircraft: index.aircraft.map((e: { sha256: string }, i: number) => (i === 0 ? { ...e, sha256: 'a'.repeat(64) } : e)) };
+	const bad = { ...index, release: index.release + 1, aircraft: index.aircraft.map((e: { sha256: string }, i: number) => (i === 0 ? { ...e, sha256: 'a'.repeat(64) } : e)) };
 	await page.route('**/data/index.json', (route) => route.fulfill({ json: bad }));
 	await checkForNewData(page);
 	await page.getByRole('button', { name: 'Install' }).click();
-	await expect(page.getByText('Update failed, still using Release 1')).toBeVisible();
+	await expect(page.getByText(`Update failed, still using Release ${index.release}`)).toBeVisible();
 	await expect(summary(page)).toBeVisible();
 	await page.unroute('**/data/index.json');
 	await page.route('**/data/index.json', (route) => route.abort());
@@ -389,7 +396,7 @@ test('a withdrawn aircraft is blocked at once, before Install, with the reason',
 	await page.getByRole('button', { name: /^TEST-DR/ }).click();
 	await expect(summary(page)).toBeVisible();
 	const index = await realIndex(page);
-	const withdrawn = { ...index, release: 2, aircraft: index.aircraft.map((e: { registration: string; type: string; revision: number }) => (e.registration === 'TEST-DR' ? { registration: e.registration, type: e.type, revision: e.revision, withdrawn: { reason: 'Data error found' } } : e)) };
+	const withdrawn = { ...index, release: index.release + 1, aircraft: index.aircraft.map((e: { registration: string; type: string; revision: number }) => (e.registration === 'TEST-DR' ? { registration: e.registration, type: e.type, revision: e.revision, withdrawn: { reason: 'Data error found' } } : e)) };
 	await page.route('**/data/index.json', (route) => route.fulfill({ json: withdrawn }));
 	await checkForNewData(page);
 	await expect(page.getByRole('alert')).toContainText('Data error found');
