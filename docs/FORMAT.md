@@ -1,6 +1,6 @@
 # Aircraft data format and calculation rules
 
-Format version 0.2.0. Version 0.2.0 added Operator Rules to the release index; aircraft files are unchanged, and 0.1.0 files are still read. This document is the complete definition of how an aircraft file is read and calculated. Another implementation must be able to produce the same results from this document alone. The machine-readable shape is in [schema/aircraft.schema.json](../schema/aircraft.schema.json), and examples are in [aircraft-examples/](../aircraft-examples/). All example values are invented.
+Format version 0.3.0. Version 0.3.0 added `appliesTo` on notes, and 0.2.0 added Operator Rules to the release index. Older files are still read. This document is the complete definition of how an aircraft file is read and calculated. Another implementation must be able to produce the same results from this document alone. The machine-readable shape is in [schema/aircraft.schema.json](../schema/aircraft.schema.json), and examples are in [aircraft-examples/](../aircraft-examples/). All example values are invented.
 
 One strict JSON file describes one registered aircraft. Unknown fields are errors. Every value stays in the manual's own units. Nothing has a hidden default.
 
@@ -23,7 +23,7 @@ One strict JSON file describes one registered aircraft. Unknown fields are error
 | `mac` | Optional: `leadingEdgeArm`, `length`, `source`. Required if the envelope uses `percentMac` |
 | `burnPlans`, `defaultBurnPlan` | Burn Plans and the preselected one |
 | `fuelFlow`, `crosswind` | Optional `{ value, source }`. Fuel flow is volume per hour, and crosswind is in knots |
-| `notes` | Manual rules for the pilot to confirm: `id`, `text`, `source` |
+| `notes` | Manual rules for the pilot to confirm: `id`, `text`, `source`, and optional `appliesTo` with `configurations`, `takeoffConditions` and `landingConditions` id lists. A note is shown, asked for and printed only when every list it has holds the pilot's choice; a missing list means any choice |
 | `tables` | Named tables. Each has `axes`, `outputs`, `source` and, once a person compared it with the manual, `checked` |
 | `performance` | `takeoff` and `landing`, each a list of conditions |
 | `configurations` | At least one Configuration |

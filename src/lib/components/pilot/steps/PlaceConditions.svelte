@@ -132,6 +132,13 @@
 		);
 	}
 
+	/** The station, plus how far away it is when it isn't this airfield. */
+	function stationLine(w: NonNullable<typeof weather>) {
+		const name = `${w.station}${w.stationName ? ` ${w.stationName}` : ''}`;
+		if ((chosen && w.station === chosen.ident) || (w.distanceKm !== null && w.distanceKm < 1)) return name;
+		if (w.distanceKm !== null) return `${name}, ${w.distanceKm.toFixed(1)} km away`;
+		return chosen ? `${name}, not ${chosen.ident}` : name;
+	}
 	const surfaceText = (end: RunwayEnd) => {
 		const text = end.surfaceKind === 'unknown' ? end.surface || 'Surface unknown' : end.surfaceKind;
 		return text.charAt(0).toUpperCase() + text.slice(1);
@@ -172,7 +179,7 @@
 			<div class="metar flex flex-col gap-1 rounded-lg bg-subtle px-3.5 py-3">
 				<span class="label-caps text-[11px]">Weather{place === 'landing' ? ' now, not at your arrival' : ''}</span>
 				<code class="raw num text-sm break-words">{weather.raw}</code>
-				<span class="text-[13px] text-muted">{weather.stationName ?? weather.station}{weather.distanceKm !== null ? `, ${weather.distanceKm.toFixed(1)} km away` : ', on the field'}{metarAge !== null ? ` · ${metarAge} minutes old` : ''}</span>
+				<span class="text-[13px] text-muted">{stationLine(weather)}{metarAge !== null ? ` · ${metarAge} minutes old` : ''}</span>
 				{#if weatherNote}<p class="text-[13px] font-semibold text-ink-2">{weatherNote}</p>{/if}
 				{#if metarAge !== null && metarAge > OLD_REPORT_MINUTES}<div class="banner notsent mt-1" role="alert">This report is {metarAge} minutes old. Check it is still valid, or enter current values.</div>{/if}
 				{#each weather.flags as flag (flag)}<p class="flag text-sm font-semibold text-amber">{flag}</p>{/each}
@@ -210,7 +217,7 @@
 						value={end.designator}
 						class="group flex min-h-14 flex-col justify-center gap-px rounded-lg border border-line-strong bg-surface px-3 py-1.5 text-left font-normal text-ink data-[state=on]:border-2 data-[state=on]:border-accent data-[state=on]:bg-accent-soft data-[state=on]:px-[11px] data-[state=on]:text-accent-strong"
 					>
-						<span class="flex items-baseline gap-1.5"><span class="num text-xl font-semibold">{end.designator}</span> <span class="num text-[13px] text-muted group-data-[state=on]:text-inherit">{heading(end)}</span>{#if into}<span class="ml-auto rounded-full bg-good-bg px-2 py-px text-[11px] font-semibold text-good">Into wind</span>{/if}</span>
+						<span class="flex items-baseline gap-1.5"><span class="num text-xl font-semibold">{end.designator}</span> <span class="num text-[13px] text-muted group-data-[state=on]:text-inherit">{heading(end)}</span>{#if into}<span class="ml-auto rounded-full bg-good-bg px-2 py-px text-[11px] font-semibold text-good">Headwind</span>{/if}</span>
 						<span class="text-[13px] text-ink-2 group-data-[state=on]:text-inherit">{surfaceText(end)}{end.lengthM ? ` · ${end.lengthM} m` : ''}</span>
 						{#if w}<span class={['num text-[13px] group-data-[state=on]:text-inherit', w.headwind < -0.5 ? 'font-semibold text-amber' : 'text-ink-2']}>{runwayWindText(w)}</span>{/if}
 					</ToggleGroup.Item>

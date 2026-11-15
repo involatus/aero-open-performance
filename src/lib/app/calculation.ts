@@ -351,6 +351,12 @@ export function isUnusual(field: Field, text: string | undefined): boolean {
 	return n !== null && (n < field.range[0] || n > field.range[1]);
 }
 
+/** The manual notes for the pilot's choices: a ski note only with skis, for example. */
+export function notesFor(a: Aircraft, calc: Pick<Calculation, 'configuration' | 'takeoffCondition' | 'landingCondition'>) {
+	const has = (list: string[] | undefined, id: string) => !list || list.includes(id);
+	return a.notes.filter((n) => has(n.appliesTo?.configurations, calc.configuration) && has(n.appliesTo?.takeoffConditions, calc.takeoffCondition) && has(n.appliesTo?.landingConditions, calc.landingCondition));
+}
+
 /** Which step fixes a given limit. */
 export function stepOfLimit(id: string): number {
 	if (id === 'takeoffMass' || id === 'takeoffCg' || id.startsWith('station:') || id.startsWith('combined:')) return 0;
@@ -379,7 +385,7 @@ export function toDoList(a: Aircraft, calc: Calculation): ToDo[] {
 	if (!calc.values.place?.trim()) items.push({ key: 'place', label: 'Enter departure airfield', step: 3 });
 	if (calc.landingElsewhere && !calc.values['land:place']?.trim()) items.push({ key: 'land:place', label: 'Enter landing airfield', step: 3 });
 	if (!calc.values.name?.trim()) items.push({ key: 'name', label: 'Enter pilot name', step: 3 });
-	a.notes.forEach((n) => { if (!calc.notes[n.id]) items.push({ key: `note:${n.id}`, label: 'Confirm manual note', step: 3 }); });
+	notesFor(a, calc).forEach((n) => { if (!calc.notes[n.id]) items.push({ key: `note:${n.id}`, label: 'Confirm manual note', step: 3 }); });
 	return items;
 }
 

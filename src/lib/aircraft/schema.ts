@@ -5,7 +5,7 @@
 import * as v from 'valibot';
 import type { OperatorRules } from './operator-rules.ts';
 
-export const FORMAT_VERSION = '0.2.0';
+export const FORMAT_VERSION = '0.3.0';
 
 const Text = v.pipe(v.string(), v.minLength(1));
 const Id = v.pipe(v.string(), v.regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/));
@@ -59,7 +59,10 @@ const BurnPlan = v.variant('type', [
 	v.strictObject({ id: Id, label: Text, type: v.literal('even') }),
 	v.strictObject({ id: Id, label: Text, type: v.literal('sequence'), tanks: v.pipe(v.array(Id), v.minLength(1)) })
 ]);
-const Note = v.strictObject({ id: Id, text: Text, source: SourceRef });
+const Ids = v.pipe(v.array(Id), v.minLength(1));
+// A note only for some choices, such as skis. A missing list means any choice.
+const NoteAppliesTo = v.strictObject({ configurations: v.optional(Ids), takeoffConditions: v.optional(Ids), landingConditions: v.optional(Ids) });
+const Note = v.strictObject({ id: Id, text: Text, source: SourceRef, appliesTo: v.optional(NoteAppliesTo) });
 const Weighing = v.strictObject({ mass: Positive, moment: Num, date: Text, source: SourceRef });
 
 const Axis = v.strictObject({

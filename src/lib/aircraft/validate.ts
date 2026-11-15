@@ -82,7 +82,15 @@ export function validateAircraft(data: unknown): Validation {
 		src(`Limit ${l.id}`, l.source);
 		l.stations.forEach((s) => { if (!stationIds.has(s)) problems.push(`Limit ${l.id}: unknown station "${s}"`); });
 	});
-	a.notes.forEach((n) => src(`Note ${n.id}`, n.source));
+	const configIds = new Set(a.configurations.map((c) => c.id));
+	const conditionIds = (phase: 'takeoff' | 'landing') => new Set([a.performance, ...a.configurations.map((c) => c.performance)].flatMap((p) => (p && p !== 'none' ? p[phase].map((c) => c.id) : [])));
+	a.notes.forEach((n) => {
+		src(`Note ${n.id}`, n.source);
+		const t = n.appliesTo;
+		t?.configurations?.forEach((id) => { if (!configIds.has(id)) problems.push(`Note ${n.id}: unknown configuration "${id}"`); });
+		t?.takeoffConditions?.forEach((id) => { if (!conditionIds('takeoff').has(id)) problems.push(`Note ${n.id}: unknown takeoff condition "${id}"`); });
+		t?.landingConditions?.forEach((id) => { if (!conditionIds('landing').has(id)) problems.push(`Note ${n.id}: unknown landing condition "${id}"`); });
+	});
 	a.burnPlans.forEach((p) => {
 		if (p.type === 'sequence') {
 			p.tanks.forEach((t) => { if (!tankIds.has(t)) problems.push(`Burn plan ${p.id}: unknown tank "${t}"`); });

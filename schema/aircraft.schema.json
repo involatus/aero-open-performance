@@ -522,6 +522,37 @@
 					"source": {
 						"type": "string",
 						"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+					},
+					"appliesTo": {
+						"type": "object",
+						"properties": {
+							"configurations": {
+								"type": "array",
+								"items": {
+									"type": "string",
+									"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+								},
+								"minItems": 1
+							},
+							"takeoffConditions": {
+								"type": "array",
+								"items": {
+									"type": "string",
+									"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+								},
+								"minItems": 1
+							},
+							"landingConditions": {
+								"type": "array",
+								"items": {
+									"type": "string",
+									"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+								},
+								"minItems": 1
+							}
+						},
+						"required": [],
+						"additionalProperties": false
 					}
 				},
 				"required": [

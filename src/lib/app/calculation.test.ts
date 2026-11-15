@@ -4,7 +4,7 @@ import fc from 'fast-check';
 import { validateAircraft } from '../aircraft/validate.ts';
 import type { Aircraft } from '../aircraft/schema.ts';
 import { calculate } from '../engine/index.ts';
-import { applyKey, applyQuick, applyWeather, keyAt, canReport, changeConfiguration, confirmValue, confirmWeather, isOldCalculation, reportAgeMinutes, fieldsFor, newCalculation, nextFlight, parse, prefill, reconcileAfterInstall, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation , runwayHeading, runwayWinds, runwayWindText } from './calculation.ts';
+import { applyKey, applyQuick, applyWeather, keyAt, canReport, changeConfiguration, confirmValue, confirmWeather, isOldCalculation, reportAgeMinutes, fieldsFor, newCalculation, nextFlight, parse, prefill, reconcileAfterInstall, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation , runwayHeading, runwayWinds, runwayWindText, notesFor } from './calculation.ts';
 
 const load = (name: string): Aircraft => {
 	const r = validateAircraft(JSON.parse(readFileSync(`aircraft-examples/${name}.json`, 'utf8')));
@@ -426,5 +426,36 @@ describe('wind on each runway', () => {
 		expect(runwayWinds(runways, undefined, '5').winds.size).toBe(0);
 		expect(runwayWinds(runways, '30', '0').intoWind).toBeNull();
 		expect(runwayWindText(runwayWinds(runways, '30', '0').winds.get('03')!)).toBe('Calm');
+	});
+});
+
+describe('manual notes for the pilot\'s choices', () => {
+	const withConfigs = (): Aircraft => {
+		const a = structuredClone(dr);
+		a.configurations = [a.configurations[0], { ...a.configurations[0], id: 'skis', label: 'Skis' }];
+		a.notes = [
+			{ id: 'always', text: 'Always', source: a.notes[0].source },
+			{ id: 'ski', text: 'With skis only', source: a.notes[0].source, appliesTo: { configurations: ['skis'] } },
+			{ id: 'grass', text: 'Grass takeoff on skis', source: a.notes[0].source, appliesTo: { configurations: ['skis'], takeoffConditions: ['grass'] } }
+		];
+		return a;
+	};
+	it('shows a note only when every choice it names is picked', () => {
+		const a = withConfigs(), c = newCalculation(a, 'x', NOW);
+		expect(notesFor(a, c).map((n) => n.id)).toEqual(['always']);
+		c.configuration = 'skis';
+		expect(notesFor(a, c).map((n) => n.id)).toEqual(['always', 'ski']);
+		c.takeoffCondition = 'grass';
+		expect(notesFor(a, c).map((n) => n.id)).toEqual(['always', 'ski', 'grass']);
+	});
+	it('asks to confirm only the notes that apply', () => {
+		const a = withConfigs(), c = newCalculation(a, 'x', NOW);
+		expect(toDoList(a, c).filter((t) => t.key.startsWith('note:')).map((t) => t.key)).toEqual(['note:always']);
+	});
+	it('refuses a note naming a choice the aircraft doesn\'t have', () => {
+		const a = withConfigs();
+		a.notes[1].appliesTo = { configurations: ['floats'], landingConditions: ['ice'] };
+		const r = validateAircraft(a);
+		expect(r.ok ? [] : r.problems).toEqual(['Note ski: unknown configuration "floats"', 'Note ski: unknown landing condition "ice"']);
 	});
 });

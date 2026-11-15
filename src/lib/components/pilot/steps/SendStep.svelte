@@ -2,7 +2,7 @@
 	import { Checkbox } from 'bits-ui';
 	import type { Aircraft } from '#lib/aircraft/schema.ts';
 	import type { Limit } from '#lib/engine/mass-balance.ts';
-	import { STEP_NAMES, stepOfLimit, type Calculation, type ToDo } from '#lib/app/calculation.ts';
+	import { STEP_NAMES, notesFor, stepOfLimit, type Calculation, type ToDo } from '#lib/app/calculation.ts';
 	import { deliveryLabel, type StoredReport } from '#lib/report/report.ts';
 	import Badge from '../../ui/Badge.svelte';
 	import Button from '../../ui/Button.svelte';
@@ -19,6 +19,8 @@
 		closePad: () => void; ongo: (item: ToDo) => void; onstep: (step: number) => void;
 		oncreate: () => void; onshare: (id: string) => void; onopen: (id: string) => void;
 	} = $props();
+	/** Only the notes for this flight's configuration and conditions. */
+	let notes = $derived(notesFor(aircraft, calc));
 
 	const textInput = (missing: boolean) => [
 		'min-h-[52px] w-full rounded-lg border bg-surface px-3.5 text-ink outline-none focus:border-accent focus:ring-[3px] focus:ring-accent-ring',
@@ -46,10 +48,10 @@
 			<input id="f-name" type="text" enterkeyhint="done" autocapitalize="words" autocorrect="off" spellcheck="false" autocomplete="name" placeholder="First and last name" bind:value={calc.values.name} onfocus={closePad} class={textInput(!calc.values.name?.trim())} />
 		</label>
 	</div>
-	{#if aircraft.notes.length}
+	{#if notes.length}
 		<div class="flex flex-col gap-1.5">
 			<h2 class="text-[15px] font-semibold">Manual notes to confirm</h2>
-			{#each aircraft.notes as note (note.id)}
+			{#each notes as note (note.id)}
 				{@const done = calc.notes[note.id] === true}
 				<label id={`w-note:${note.id}`} class={['flex min-h-[52px] cursor-pointer items-center gap-3 rounded-[10px] border px-3.5 py-2', done ? 'border-line bg-surface' : 'border-amber-line bg-amber-soft']}>
 					<Checkbox.Root checked={done} onCheckedChange={(checked) => (calc.notes[note.id] = checked)} aria-label={note.text} class="flex size-[26px] min-h-0 flex-none items-center justify-center rounded-md border-2 border-line-strong bg-surface p-0 text-on-accent data-[state=checked]:border-accent data-[state=checked]:bg-accent">
