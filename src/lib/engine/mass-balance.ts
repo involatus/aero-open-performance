@@ -12,13 +12,19 @@ export type MassBalance = {
 	burned: number;
 	burnExceedsFuel: boolean;
 	fuelAtLanding: Record<string, number>;
+	/** The fuel that must be left at landing: `minutes` at the planned fuel flow. */
+	finalReserve: { minutes: number; volume: number };
 	limits: Limit[];
 };
+
+/** Day VFR final reserve for aeroplanes (Part-NCO, NCO.OP.125). An Operator Rule can only make it longer. */
+export const LEGAL_FINAL_RESERVE_MINUTES = 30;
 
 /** One line for showing a limit, with units. Used on screen and in Reports, so they always agree. */
 export function limitText(a: Aircraft, limit: Limit): string {
 	const arm = (x: number) => `${x.toFixed(a.display.armDecimals)} ${a.units.arm}`;
 	if (limit.id === 'takeoffCg' || limit.id === 'landingCg') return arm(limit.value);
+	if (limit.id === 'finalReserve') return `${limit.value.toFixed(1)} ${a.units.volume} at landing, reserve ${limit.limit!.toFixed(1)}`;
 	if (limit.id === 'crosswind' || limit.id === 'landingCrosswind') return `${limit.value.toFixed(0)} kt, manual figure ${limit.limit} kt`;
 	const unit = limit.id.startsWith('tank:') || limit.id === 'fuelBurn' ? a.units.volume : a.units.mass;
 	// Only the text is rounded: limits converted from the manual's units, such as 889.0410452 kg, read as 889.0.
@@ -128,6 +134,12 @@ export function massBalance(a: Aircraft, input: CalculationInput): MassBalance {
 	out.push({ id: 'landingMass', label: 'Landing mass', status: ldMass <= limits.maxLanding.value + EPSILON ? 'ok' : 'exceeded', value: ldMass, limit: limits.maxLanding.value });
 	out.push({ id: 'landingCg', label: 'Landing CG', status: insideEnvelope(a, envelope, ldMass, landing.arm) ? 'ok' : 'exceeded', value: landing.arm });
 	out.push({ id: 'fuelBurn', label: 'Fuel for the flight', status: burn.exceeds ? 'exceeded' : 'ok', value: burned });
+	// Checked once a flight time is planned, and not again when the burn alone is already too much.
+	const minutes = a.operatorRules?.finalReserve?.minutes ?? LEGAL_FINAL_RESERVE_MINUTES;
+	const reserve = (minutes / 60) * input.fuelFlow;
+	const atLanding = Object.values(burn.left).reduce((sum, v) => sum + v, 0);
+	const short = input.flightTimeHours > 0 && !burn.exceeds && atLanding + EPSILON < reserve;
+	out.push({ id: 'finalReserve', label: `Final reserve, ${minutes} min`, status: short ? 'exceeded' : 'ok', value: atLanding, limit: reserve });
 
-	return { rows, takeoff, landing, burned, burnExceedsFuel: burn.exceeds, fuelAtLanding: burn.left, limits: out };
+	return { rows, takeoff, landing, burned, burnExceedsFuel: burn.exceeds, fuelAtLanding: burn.left, finalReserve: { minutes, volume: reserve }, limits: out };
 }

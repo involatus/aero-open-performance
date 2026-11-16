@@ -122,6 +122,28 @@ describe('mass and balance', () => {
 		expect(left.front).toBeCloseTo(0, 9);
 		expect(left.rear).toBeCloseTo(35, 9);
 	});
+	describe('final reserve', () => {
+		const reserveOf = (a: Aircraft, input: CalculationInput) => calculate(a, input).massBalance.limits.find((l) => l.id === 'finalReserve')!;
+		it('needs 30 minutes at the planned fuel flow left at landing', () => {
+			// 40 L, 1 h at 22 L/h: 18 L left, the reserve is 11 L.
+			expect(reserveOf(dr, baseInput(dr, { fuel: { front: 20, rear: 20 }, flightTimeHours: 1, fuelFlow: 22 }))).toMatchObject({ status: 'ok', value: 18, limit: 11 });
+			// 1.5 h burns 33 L: 7 L left.
+			expect(reserveOf(dr, baseInput(dr, { fuel: { front: 20, rear: 20 }, flightTimeHours: 1.5, fuelFlow: 22 })).status).toBe('exceeded');
+		});
+		it('uses a longer club rule', () => {
+			// 1.2 h at 22 L/h leaves 13.6 L: enough for 30 minutes (11 L), not for 45 (16.5 L).
+			const input = baseInput(dr, { fuel: { front: 20, rear: 20 }, flightTimeHours: 1.2, fuelFlow: 22 });
+			expect(reserveOf(dr, input).status).toBe('ok');
+			const club = { ...dr, operatorRules: { finalReserve: { minutes: 45 } } };
+			expect(reserveOf(club, input)).toMatchObject({ status: 'exceeded', label: 'Final reserve, 45 min', limit: 16.5 });
+		});
+		it('waits for a flight time, and adds nothing when the burn alone is already too much', () => {
+			expect(reserveOf(dr, baseInput(dr, { fuelFlow: 22 })).status).toBe('ok');
+			const r = calculate(dr, baseInput(dr, { fuel: { front: 10, rear: 10 }, flightTimeHours: 2, fuelFlow: 22 }));
+			expect(r.exceeded).toContain('fuelBurn');
+			expect(r.exceeded).not.toContain('finalReserve');
+		});
+	});
 	it('subtracts burned fuel in mass, not volume', () => {
 		const r = calculate(dr, baseInput(dr, { fuel: { front: 20, rear: 20 }, flightTimeHours: 1, fuelFlow: 22 }));
 		expect(r.massBalance.landing.mass).toBeCloseTo(r.massBalance.takeoff.mass - 22 * 0.72, 9);

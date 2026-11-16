@@ -21,6 +21,8 @@ export const OperatorRules = v.strictObject({
 	 * by the larger of the table's own trend with air density and these percentages per 1000 ft.
 	 * Above `alertAboveM` past the table the pilot is warned more strongly; there is no limit.
 	 */
+	/** A club's longer final reserve, in minutes at the planned fuel flow. Without it the legal 30 minutes apply. */
+	finalReserve: v.optional(v.strictObject({ minutes: v.pipe(v.number(), v.finite(), v.minValue(30, 'A final reserve is at least 30 minutes')) })),
 	aboveTable: v.optional(v.strictObject({
 		takeoffPercentPer1000ft: Positive,
 		landingPercentPer1000ft: Positive,
@@ -43,7 +45,7 @@ export function parseRules(data: unknown): { ok: true; rules: OperatorRules | un
 	if (data === undefined || data === null) return { ok: true, rules: undefined };
 	const r = v.safeParse(OperatorRules, data);
 	if (!r.success) return { ok: false, problem: `Operator rules are not valid: ${r.issues[0].message}` };
-	const empty = !r.output.wind && !r.output.aboveTable;
+	const empty = !r.output.wind && !r.output.aboveTable && !r.output.finalReserve;
 	return { ok: true, rules: empty ? undefined : r.output };
 }
 
