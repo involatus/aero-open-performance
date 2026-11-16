@@ -6,7 +6,7 @@ import { calculate } from '../engine/index.ts';
 import { applyAirfield, applyRunway, matchConditions, newCalculation, setByPilot, toInput, type Calculation } from '../app/calculation.ts';
 import { parseAirfields } from '../airfield/airfields.ts';
 import { chartSvg } from './chart.ts';
-import { RESPONSIBILITY, createReportData, deliveryLabel, fingerprint, isExpired, newReportId, reportDocument, shareText } from './report.ts';
+import { RESPONSIBILITY, createReportData, deliveryLabel, fingerprint, isExpired, newReportId, airfieldCode, reportDocument, shareText } from './report.ts';
 
 const load = (name: string): Aircraft => {
 	const r = validateAircraft(JSON.parse(readFileSync(`aircraft-examples/${name}.json`, 'utf8')));
@@ -38,20 +38,31 @@ describe('creating a Report', () => {
 		const c = ready(a); setByPilot(c, 'load:rear', '101');
 		expect(() => createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c))).toThrow();
 	});
-	it('shares with a subject naming the aircraft, airfield, time and pilot', () => {
+	it('shares with a short subject naming the aircraft, airfield codes, time and pilot', () => {
 		const c = ready(a), r = calculate(a, toInput(a, c)), d = createReportData(a, c, r, meta(a, c));
 		const { title, text } = shareText(d);
-		expect(title).toBe(`Performance report ${a.registration}, LSXX, 2026-11-06 12:30 UTC, A Pilot`);
-		// Outlook makes the first line of the text the subject, and every line break a paragraph.
-		expect(text.split('\n')[0]).toBe(title);
+		expect(title).toBe(`Perf. report ${a.registration}, LSXX, 2026-11-06 12:30 UTC, A Pilot`);
+		// Outlook makes the first line of the text the subject, and every "\n" a paragraph.
+		const paragraphs = text.split('\n');
+		expect(paragraphs[0]).toBe(title);
 		expect(text).not.toContain('\n\n');
-		expect(text).toContain(`Takeoff distance: ${d.results.takeoff.headline} at ${d.massBalance.takeoff.mass} kg`);
-		expect(text).toContain('Report AOP-TEST, attached as PDF.');
+		// The two distances share a paragraph, one under the other.
+		expect(paragraphs).toContain(`Takeoff distance: ${d.results.takeoff.headline} at ${d.massBalance.takeoff.mass} kg\u2028Landing distance: ${d.results.landing.headline} at ${d.massBalance.landing.mass} kg`);
+		expect(paragraphs.at(-1)).toMatch(/^Report AOP-TEST, attached as PDF\.\u2028The pilot in command/);
 		expect(text).not.toContain('Send to');
 		expect(shareText(d, 'ops@club.example').text.split('\n')[1]).toBe('Send to: ops@club.example');
 		const noData = { ...d, results: { ...d.results, landing: { ...d.results.landing, status: 'noData' as const, headline: "No data: pilot's judgement" } } };
 		expect(shareText(noData).text).toContain(`Landing distance: No data: pilot's judgement (mass ${d.massBalance.landing.mass} kg)`);
-		expect(shareText({ ...d, landing: { ...d.results, airfield: 'LSYY', runway: null, rawMetar: null } }).title).toContain(', LSXX to LSYY, ');
+		const elsewhere = shareText({ ...d, departure: 'LSZK Speck-Fehraltorf Airfield', runway: '30', landing: { ...d.results, airfield: 'LSZH Zurich Airport', runway: '28', rawMetar: null } });
+		expect(elsewhere.title).toContain(', LSZK to LSZH, ');
+		expect(elsewhere.text).toContain('Departure: LSZK RWY 30\u2028Landing: LSZH RWY 28\u2028Created: ');
+	});
+	it('names an airfield by its code, and keeps a name the pilot typed', () => {
+		expect(airfieldCode('LSZK Speck-Fehraltorf Airfield')).toBe('LSZK');
+		expect(airfieldCode('CH-0012 Some Strip')).toBe('CH-0012');
+		expect(airfieldCode(' LSZK ')).toBe('LSZK');
+		expect(airfieldCode('Speck')).toBe('Speck');
+		expect(airfieldCode('Farm strip Hinterberg')).toBe('Farm strip Hinterberg');
 	});
 	it('shows the same numbers as the engine', () => {
 		const c = ready(a), r = calculate(a, toInput(a, c)), d = createReportData(a, c, r, meta(a, c));
