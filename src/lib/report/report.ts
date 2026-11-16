@@ -31,7 +31,6 @@ type Sourced = { value: string; source: string };
 export type ReportData = {
 	id: string;
 	createdUtc: string;
-	preRelease: boolean;
 	fictional: boolean;
 	aircraft: { registration: string; type: string; revision: number; configuration: string };
 	pilot: string;
@@ -109,7 +108,7 @@ function working(a: Aircraft, title: string, r: PerformanceResult): ReportWorkin
 	return { title: `${title}, ${r.conditionLabel}`, rows: workingRows(a, r), tables };
 }
 
-export type ReportMeta = { id: string; now: number; toolVersion: string; dataRelease: string; lastDataCheck: string; preRelease: boolean; chartSvg: string };
+export type ReportMeta = { id: string; now: number; toolVersion: string; dataRelease: string; lastDataCheck: string; chartSvg: string };
 
 /** Refuses to create a Report unless everything is confirmed and no limit is exceeded. */
 export function createReportData(a: Aircraft, calc: Calculation, r: Results, meta: ReportMeta): ReportData {
@@ -180,7 +179,6 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 	const data: ReportData = {
 		id: meta.id,
 		createdUtc: utcText(meta.now),
-		preRelease: meta.preRelease,
 		fictional: a.fictional === true,
 		aircraft: { registration: a.registration, type: a.type, revision: a.revision, configuration: config.label },
 		pilot: calc.values.name.trim(),
@@ -373,7 +371,7 @@ export function reportDocument(data: ReportData) {
 	// A condition the airfield list settled shares that list's mark; otherwise the pilot chose it.
 	const conditionMark = (r: ReportDistance, scope: string) => marks.mark(L ? scope : '', r.conditionSource ?? 'Chosen by pilot');
 	const place = (airfield: string, runway: string | null | undefined) => `${airfield}${runway ? ` RWY ${runway}` : ''}`;
-	const warning = [d.preRelease && 'PRE-RELEASE, NOT FOR FLIGHT', d.fictional && 'FICTIONAL AIRCRAFT WITH INVENTED DATA'].filter(Boolean).join(' · ');
+	const warning = d.fictional ? 'FICTIONAL AIRCRAFT WITH INVENTED DATA' : '';
 
 	// A value, then its source's mark in a narrow column of its own, so the numbers stay aligned.
 	const valueCells = (v: { value: string; source: string } | undefined, scope: string) =>

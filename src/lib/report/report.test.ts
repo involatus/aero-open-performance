@@ -25,7 +25,7 @@ function ready(a: Aircraft): Calculation {
 	c.conditionChoice = { takeoff: 'pilot', landing: 'pilot' };
 	return c;
 }
-const meta = (a: Aircraft, c: Calculation, r = calculate(a, toInput(a, c))) => ({ id: 'AOP-TEST', now: NOW, toolVersion: '0.1.0', dataRelease: 'Demo data', lastDataCheck: 'n/a', preRelease: true, chartSvg: chartSvg(a, r, c.configuration) });
+const meta = (a: Aircraft, c: Calculation, r = calculate(a, toInput(a, c))) => ({ id: 'AOP-TEST', now: NOW, toolVersion: '0.1.0', dataRelease: 'Demo data', lastDataCheck: 'n/a', chartSvg: chartSvg(a, r, c.configuration) });
 const NAMES = ['test-dr-style', 'test-sr22-style', 'test-glastar-style', 'test-kitfox-style'];
 
 describe('creating a Report', () => {
@@ -134,7 +134,7 @@ describe('Report layout', () => {
 		const a = load(name), c = ready(a);
 		const r = calculate(a, toInput(a, c));
 		const doc = reportDocument(createReportData(a, c, r, meta(a, c, r))), all = text(doc);
-		for (const s of ['Takeoff', 'Landing', 'DA', 'Wind', 'Conditions', 'Mass and balance', 'Burn plan', 'Limits', 'Calculation steps', RESPONSIBILITY, 'AOP-TEST', 'PRE-RELEASE, NOT FOR FLIGHT', 'FICTIONAL']) expect(all).toContain(s);
+		for (const s of ['Takeoff', 'Landing', 'DA', 'Wind', 'Conditions', 'Mass and balance', 'Burn plan', 'Limits', 'Calculation steps', RESPONSIBILITY, 'AOP-TEST', 'FICTIONAL AIRCRAFT WITH INVENTED DATA']) expect(all).toContain(s);
 		expect(all).toContain('A Pilot');
 		expect(all).toContain('LSXX');
 	});
@@ -196,9 +196,9 @@ describe('Report layout', () => {
 		expect(all).toContain('Burned');
 		expect(all).toContain('Fuel flow');
 	});
-	it('drops the pre-release line only when asked', () => {
+	it('warns only about a fictional aircraft', () => {
 		const a = { ...load('test-dr-style'), fictional: false }, c = ready(a), r = calculate(a, toInput(a, c));
-		expect(text(reportDocument(createReportData(a, c, r, { ...meta(a, c, r), preRelease: false })))).not.toContain('NOT FOR FLIGHT');
+		expect(text(reportDocument(createReportData(a, c, r, meta(a, c, r))))).not.toContain('FICTIONAL');
 	});
 });
 

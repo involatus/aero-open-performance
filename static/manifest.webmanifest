@@ -1,7 +1,7 @@
 {
   "name": "Aero Open Performance",
   "short_name": "Aero Performance",
-  "description": "Mass and balance and performance for piston aircraft. Pre-release, not for flight.",
+  "description": "Mass and balance and performance for piston aircraft.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

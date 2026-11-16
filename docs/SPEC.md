@@ -2,8 +2,6 @@
 
 An open-source, offline-capable web app for mass and balance and takeoff and landing performance on piston aircraft. Any club, school or aircraft owner can deploy their own copy. Vocabulary is in [GLOSSARY.md](../GLOSSARY.md).
 
-**Status:** pre-release, not for flight. The label stays until the [release gate](#removing-the-pre-release-label) is met.
-
 ## Principles
 
 - **Simple, with one way of doing things.** There is one flow and one report, with no per-club variants.
@@ -146,10 +144,6 @@ This makes an undetected error very unlikely, but can't prove there are none. An
 - A small Python calculator, written from the format documentation without reading the app's code. At least 100,000 random inputs must match within 0.001 m before rounding and exactly after it. A person resolves any difference.
 
 **Data gate, on every Data Release:** for each selectable takeoff and landing condition, one hand-calculated case between table values, plus forward-loading, aft-loading and over-limit M&B cases. A fictional aircraft also needs one on a table value; a real aircraft's tables are compared with the manual row by row instead. Conditions that calculate the same way in several Configurations need cases once. One case can cover a takeoff, a landing, the CG and a limit. Expected results are typed by hand and must match the displayed value exactly. The GUI never copies the tool's result into them.
-
-### Removing the pre-release label
-
-All checks pass, the licence and liability wording has been reviewed, and someone who didn't build the tool recalculates at least 20 reports by hand from the fictional aircraft, with every difference explained.
 
 ## Build order
 
