@@ -149,7 +149,7 @@ function checkOfProblem(problem: string): string {
 	if (problem.includes('unknown source') || /^sources\b/.test(where)) return 'sources';
 	const rules: Array<[RegExp, string]> = [
 		[/^(stations|Station|combinedLimits|Limit )/, 'stations'],
-		[/^(tanks|Tank|burnPlans|Burn plan|defaultBurnPlan|fuelFlow|Fuel flow)/, 'fuel'],
+		[/^(tanks|Tank|burnPlans|Burn plan|defaultBurnPlan|fuelFlow|Fuel flow|powerSettings|Power setting|Use power settings)/, 'fuel'],
 		[/^(envelope|Envelope|massLimits|Max |mac|MAC|crosswind|Crosswind)/, 'limits'],
 		[/^(tables|Table )/, 'tables'],
 		[/^Configuration \S+ weighing/, 'weighing'],

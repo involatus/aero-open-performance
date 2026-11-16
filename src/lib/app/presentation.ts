@@ -3,7 +3,7 @@
  * so they can't drift apart. Calculations stay in the engine; this only turns them into text.
  */
 import { OPERATOR_SOURCE, OPERATOR_SOURCE_TEXT } from '../aircraft/operator-rules.ts';
-import type { Aircraft, WindForDistances } from '../aircraft/schema.ts';
+import type { Aircraft, Mixture, PowerSetting, WindForDistances } from '../aircraft/schema.ts';
 import type { Calculation } from './calculation.ts';
 import type { Calculation as Results } from '../engine/index.ts';
 import type { Limit } from '../engine/mass-balance.ts';
@@ -38,6 +38,18 @@ export function distanceText(title: string, r: PerformanceResult, mass: string):
 
 export function limitBadge(status: Limit['status']): { text: 'OK' | 'CHECK' | 'OVER'; tone: Tone } {
 	return status === 'ok' ? { text: 'OK', tone: 'ok' } : status === 'warning' ? { text: 'CHECK', tone: 'warnb' } : { text: 'OVER', tone: 'fail' };
+}
+
+export const MIXTURE_TEXT: Record<Mixture, string> = { bestPower: 'Best power', bestEconomy: 'Best economy' };
+
+/** "2500 rpm · 23 inHg · best economy": how to set it, as far as the manual says. The name and fuel flow are shown apart. */
+export function powerSettingDetail(p: Pick<PowerSetting, 'percent' | 'rpm' | 'manifoldPressure' | 'mixture'>, withPercent = false): string {
+	return [
+		withPercent && p.percent ? `${p.percent} %` : '',
+		p.rpm ? `${p.rpm} rpm` : '',
+		p.manifoldPressure ? `${p.manifoldPressure} inHg` : '',
+		p.mixture ? MIXTURE_TEXT[p.mixture].toLowerCase() : ''
+	].filter(Boolean).join(' · ');
 }
 
 export type Progress = { tone: 'over' | 'todo' | 'done'; short: string; long: string };

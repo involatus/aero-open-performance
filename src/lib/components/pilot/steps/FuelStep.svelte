@@ -2,7 +2,8 @@
 	import type { Snippet } from 'svelte';
 	import type { Aircraft } from '#lib/aircraft/schema.ts';
 	import type { Calculation as Results } from '#lib/engine/index.ts';
-	import { parse, type Calculation, type Field } from '#lib/app/calculation.ts';
+	import { choosePowerSetting, chosenPowerSetting, parse, setByPilot, type Calculation, type Field } from '#lib/app/calculation.ts';
+	import { powerSettingDetail } from '#lib/app/presentation.ts';
 	import Card from '../../ui/Card.svelte';
 	import Segmented from '../../ui/Segmented.svelte';
 	import StepHeading from './StepHeading.svelte';
@@ -21,6 +22,15 @@
 	let atLanding = $derived(aircraft.tanks.reduce((sum, t) => sum + (results.massBalance.fuelAtLanding[t.id] ?? 0), 0));
 	let atLandingMass = $derived(aircraft.tanks.reduce((sum, t) => sum + (results.massBalance.fuelAtLanding[t.id] ?? 0) * t.density, 0));
 	let atTakeoffMass = $derived(aircraft.tanks.reduce((sum, t) => sum + (parse(calc.values[`fuel:${t.id}`]) ?? 0) * t.density, 0));
+	// A power setting from the manual sets the fuel flow. "Other" keeps the flow for the pilot to type.
+	let powerOptions = $derived([
+		...(aircraft.powerSettings ?? []).map((p) => ({ id: p.id, label: p.label, detail: [powerSettingDetail(p), `${Number(p.fuelFlow.toFixed(1))} ${volume}/h`].filter(Boolean).join(' · ') })),
+		{ id: 'other', label: 'Other', detail: 'Type the fuel flow' }
+	]);
+	function pickPower(id: string) {
+		if (id === 'other') setByPilot(calc, 'flow', calc.values.flow ?? '');
+		else choosePowerSetting(aircraft, calc, id);
+	}
 	let burnedFrom = $derived(aircraft.tanks.filter((t) => (parse(calc.values[`fuel:${t.id}`]) ?? 0) > (results.massBalance.fuelAtLanding[t.id] ?? 0) + 1e-9).map((t) => t.label));
 </script>
 
@@ -44,6 +54,9 @@
 </Card>
 
 <Card title="Flight">
+	{#if aircraft.powerSettings?.length}
+		<Segmented label="Power setting" options={powerOptions} value={chosenPowerSetting(aircraft, calc)?.id ?? 'other'} onchange={pickPower} minWidth={200} />
+	{/if}
 	<div class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
 		{#each flightFields as field (field.key)}{@render numberField(field)}{/each}
 	</div>

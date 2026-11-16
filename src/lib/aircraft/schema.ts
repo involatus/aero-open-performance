@@ -5,7 +5,7 @@
 import * as v from 'valibot';
 import type { OperatorRules } from './operator-rules.ts';
 
-export const FORMAT_VERSION = '0.4.0';
+export const FORMAT_VERSION = '0.5.0';
 
 const Text = v.pipe(v.string(), v.minLength(1));
 const Id = v.pipe(v.string(), v.regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/));
@@ -54,6 +54,24 @@ const CombinedLimit = v.strictObject({
 	source: SourceRef
 });
 const SourcedValue = v.strictObject({ value: Positive, source: SourceRef });
+export const MIXTURES = ['bestPower', 'bestEconomy'] as const;
+/**
+ * A cruise power setting from the manual, with its fuel flow (volume per hour). Pilots pick one and its
+ * fuel flow is used for the burn. The rest says how to set it and is shown to the pilot.
+ */
+const PowerSetting = v.strictObject({
+	id: Id,
+	label: Text,
+	percent: v.optional(Positive),
+	rpm: v.optional(Positive),
+	/** Manifold pressure in inHg, for a constant-speed propeller. */
+	manifoldPressure: v.optional(Positive),
+	mixture: v.optional(v.picklist(MIXTURES)),
+	fuelFlow: Positive,
+	source: SourceRef
+});
+export type PowerSetting = v.InferOutput<typeof PowerSetting>;
+export type Mixture = (typeof MIXTURES)[number];
 const MassLimits = v.strictObject({ maxTakeoff: SourcedValue, maxLanding: SourcedValue });
 const EnvelopePoint = v.union([
 	v.strictObject({ mass: Positive, arm: Num }),
@@ -234,6 +252,8 @@ export const Aircraft = v.strictObject({
 	burnPlans: v.pipe(v.array(BurnPlan), v.minLength(1)),
 	defaultBurnPlan: Id,
 	fuelFlow: v.optional(SourcedValue),
+	/** The first is preselected. An aircraft has power settings or one `fuelFlow`, not both. */
+	powerSettings: v.optional(v.array(PowerSetting)),
 	crosswind: v.optional(SourcedValue),
 	notes: v.array(Note),
 	tables: v.record(Id, Table),

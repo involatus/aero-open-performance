@@ -1,6 +1,6 @@
 # Aircraft data format and calculation rules
 
-Format version 0.4.0. Version 0.4.0 added `surface` on conditions and `"VRB"` as a wind direction, 0.3.0 added `appliesTo` on notes and `carries` on stations, and 0.2.0 added Operator Rules to the release index. Older files are still read. This document is the complete definition of how an aircraft file is read and calculated. Another implementation must be able to produce the same results from this document alone. The machine-readable shape is in [schema/aircraft.schema.json](../schema/aircraft.schema.json), and examples are in [aircraft-examples/](../aircraft-examples/). All example values are invented.
+Format version 0.5.0. Version 0.5.0 added `powerSettings`, 0.4.0 added `surface` on conditions and `"VRB"` as a wind direction, 0.3.0 added `appliesTo` on notes and `carries` on stations, and 0.2.0 added Operator Rules to the release index. Older files are still read. This document is the complete definition of how an aircraft file is read and calculated. Another implementation must be able to produce the same results from this document alone. The machine-readable shape is in [schema/aircraft.schema.json](../schema/aircraft.schema.json), and examples are in [aircraft-examples/](../aircraft-examples/). All example values are invented.
 
 One strict JSON file describes one registered aircraft. Unknown fields are errors. Every value stays in the manual's own units. Nothing has a hidden default.
 
@@ -23,6 +23,7 @@ One strict JSON file describes one registered aircraft. Unknown fields are error
 | `mac` | Optional: `leadingEdgeArm`, `length`, `source`. Required if the envelope uses `percentMac` |
 | `burnPlans`, `defaultBurnPlan` | Burn Plans and the preselected one |
 | `fuelFlow`, `crosswind` | Optional `{ value, source }`. Fuel flow is volume per hour, and crosswind is in knots |
+| `powerSettings` | Optional. Cruise power settings from the manual, the first preselected: `id`, `label`, `fuelFlow` (volume per hour), `source`, and optional `percent`, `rpm`, `manifoldPressure` (inHg) and `mixture` (`bestPower` or `bestEconomy`). An aircraft has `powerSettings` or `fuelFlow`, not both |
 | `notes` | Manual rules for the pilot to confirm: `id`, `text`, `source`, and optional `appliesTo` with `configurations`, `takeoffConditions` and `landingConditions` id lists. A note is shown, asked for and printed only when every list it has holds the pilot's choice; a missing list means any choice |
 | `tables` | Named tables. Each has `axes`, `outputs`, `source` and, once a person compared it with the manual, `checked` |
 | `performance` | `takeoff` and `landing`, each a list of conditions |
@@ -42,7 +43,7 @@ A **Configuration** has `id`, `label` and `weighing` (`mass`, `moment`, `date`, 
 | `loads` | Per station id: `{ mass, position? }`, in the aircraft's mass unit. A missing station has zero mass. A missing `position` uses `defaultPosition` |
 | `fuel` | Per tank id: volume at takeoff. A missing tank has zero |
 | `burnPlan` | Burn Plan id |
-| `flightTimeHours`, `fuelFlow` | Burned volume = `flightTimeHours × fuelFlow` |
+| `flightTimeHours`, `fuelFlow` | Burned volume = `flightTimeHours × fuelFlow`. With power settings, `fuelFlow` is the chosen setting's, unless the pilot typed one |
 | `elevation` | `{ value, unit }` in `m` or `ft`, or `null` |
 | `qnh` | hPa, or `null` |
 | `oat` | °C, or `null` |

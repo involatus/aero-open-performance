@@ -1,37 +1,37 @@
 {
-	"formatVersion": "0.4.0",
+	"formatVersion": "0.5.0",
 	"operator": "Demo data",
-	"release": 2,
-	"published": "2026-11-15T17:16:34.192Z",
-	"notes": "Fictional demo aircraft with invented data. Conditions name their runway surface.",
+	"release": 3,
+	"published": "2026-11-16T07:57:03.469Z",
+	"notes": "Fictional demo aircraft with invented data. The SR22 and GlaStar-style aircraft have power settings.",
 	"aircraft": [
 		{
 			"registration": "TEST-DR",
 			"type": "Fictional DR-style",
 			"revision": 2,
-			"file": "releases/2/TEST-DR.json",
+			"file": "releases/3/TEST-DR.json",
 			"sha256": "f788f24d869281b4f03a440ae5930e03cf570b365ebbd3d480bafebe13bc2bfb"
 		},
 		{
 			"registration": "TEST-GL",
 			"type": "Fictional GlaStar-style",
-			"revision": 2,
-			"file": "releases/2/TEST-GL.json",
-			"sha256": "e4b13a4836542b5cfa322f20777c6e9b776e04fdc2de9524967a996cfa167751"
+			"revision": 3,
+			"file": "releases/3/TEST-GL.json",
+			"sha256": "6838424e9c415ac0e58370e2ce0c28162c59646836db8bd3386d3488bb8af151"
 		},
 		{
 			"registration": "TEST-KF",
 			"type": "Fictional Kitfox-style",
 			"revision": 1,
-			"file": "releases/2/TEST-KF.json",
+			"file": "releases/3/TEST-KF.json",
 			"sha256": "e9eabb2fda4865ec25aba856ba542e2d1d2e641aae7d7f1211f3aef860c726ba"
 		},
 		{
 			"registration": "TEST-SR",
 			"type": "Fictional SR22-style",
-			"revision": 2,
-			"file": "releases/2/TEST-SR.json",
-			"sha256": "c115fdfb824b9b566447d779267df865a1d9e4e5aa9920d2aab9881beb191c4a"
+			"revision": 3,
+			"file": "releases/3/TEST-SR.json",
+			"sha256": "6a289a3ebe6ef96e4ef064f6144c6cd4f805f9b71fc83d0c971ff929d744b414"
 		}
 	]
 }
