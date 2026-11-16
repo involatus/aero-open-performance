@@ -18,7 +18,8 @@
     "test:e2e": "playwright test",
     "data": "node --no-warnings tools/data/cli.ts",
     "data:demo": "rm -rf static/data && node --no-warnings tools/data/cli.ts publish --source aircraft-examples --out static/data --release 1 --operator \"Demo data\" --notes \"Fictional demo aircraft with invented data.\"",
-    "airports": "node --no-warnings scripts/airports.ts"
+    "airports": "node --no-warnings scripts/airports.ts",
+    "brand": "node --no-warnings scripts/brand.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.65.1",

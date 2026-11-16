@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/brand/lockup-dark.png">
+  <img src="docs/brand/lockup-light.png" alt="Aero Open Performance" width="600">
+</picture>
+
 # Aero Open Performance
 
 Open-source mass and balance and takeoff and landing performance for piston aircraft. It runs offline in the browser, with no app store. Each club, school or aircraft owner uses their own copy, which they can deploy themselves or have someone set up for them.
@@ -6,7 +11,7 @@ Open-source mass and balance and takeoff and landing performance for piston airc
 
 ## Status
 
-The pilot flow, calculation engine, Reports and weather prefill work on fictional aircraft. The optional admin area is set up as described in [docs/ADMIN.md](docs/ADMIN.md). The plan is in [docs/SPEC.md](docs/SPEC.md), the aircraft format and calculation rules are in [docs/FORMAT.md](docs/FORMAT.md), and the vocabulary is in [GLOSSARY.md](GLOSSARY.md).
+The pilot flow, calculation engine, Reports and weather prefill work on fictional aircraft. The optional admin area is set up as described in [docs/ADMIN.md](docs/ADMIN.md). The plan is in [docs/SPEC.md](docs/SPEC.md), the aircraft format and calculation rules are in [docs/FORMAT.md](docs/FORMAT.md), and the vocabulary is in [GLOSSARY.md](GLOSSARY.md). The logo and icons are described in [docs/BRAND.md](docs/BRAND.md).
 
 ## Develop
 
