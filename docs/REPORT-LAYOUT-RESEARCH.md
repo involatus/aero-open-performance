@@ -59,7 +59,7 @@ In `reportDocument`, derive the markers from the existing `conditions[].source` 
 - Drop the Takeoff and Landing condition rows from the Conditions table. Mark them ᴾ in the band instead.
 - Merge Wind from + Wind speed into one `Wind` row. Fix `shown()` to skip the unit for VRB and to write ° without a space.
 - Runway as `08 (080°)`, and "Wind used" instead of "Wind for distances".
-- Use sentence case for `heading()`, `caps()` and the band titles. Keep caps only for the PRE-RELEASE banner.
+- Use sentence case for `heading()`, `caps()` and the band titles. Keep caps only for the fictional-aircraft banner.
 
 ### R4 Fix the overflow
 

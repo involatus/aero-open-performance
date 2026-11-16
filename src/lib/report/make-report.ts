@@ -17,7 +17,7 @@ export type ReportTools = { now: number; random: Uint8Array; render: (document: 
 export async function makeReport(s: ReportSource, t: ReportTools): Promise<{ report: StoredReport; pdf: Blob }> {
 	const id = newReportId(t.now, t.random);
 	const data = createReportData(s.aircraft, s.calc, s.results, {
-		id, now: t.now, preRelease: false, toolVersion: s.toolVersion,
+		id, now: t.now, toolVersion: s.toolVersion,
 		dataRelease: `Data Release ${s.data.index.release} (${s.data.index.operator})`,
 		lastDataCheck: s.lastCheck ? utcText(s.lastCheck) : 'unknown',
 		chartSvg: chartSvg(s.aircraft, s.results, s.calc.configuration)

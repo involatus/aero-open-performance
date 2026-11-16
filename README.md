@@ -2,7 +2,7 @@
 
 Open-source mass and balance and takeoff and landing performance for piston aircraft. It runs offline in the browser, with no app store. Each club, school or aircraft owner uses their own copy, which they can deploy themselves or have someone set up for them.
 
-> **Pre-release, not for flight.** Results from any pre-release version must not be used for flight preparation. It currently offers only fictional demo aircraft with invented data.
+> The demo data in this repository is fictional aircraft with invented data. Use your own aircraft's data for flight preparation.
 
 ## Status
 
