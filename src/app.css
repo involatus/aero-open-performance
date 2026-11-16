@@ -77,6 +77,8 @@
 
 /* A short screen, such as an iPad in landscape with the browser bar: smaller keypad keys. */
 @custom-variant short (@media (max-height: 760px) and (min-width: 621px));
+/* A phone: the keypad leaves little height, so it and the summary above it get smaller while it is open. */
+@custom-variant phone (@media (max-width: 620px));
 
 /* Small caps label: "TAKEOFF MASS". */
 @utility label-caps {
@@ -94,7 +96,12 @@
 
 @layer base {
 	* { -webkit-tap-highlight-color: transparent; }
-	html { touch-action: manipulation; }
+	html {
+		touch-action: manipulation;
+		/* Bars on screen over the page say how much they cover (covers.ts), so scrolling and focus stop clear of them. */
+		scroll-padding-top: calc(env(safe-area-inset-top, 0px) + var(--covered-top, 0px) + 12px);
+		scroll-padding-bottom: calc(var(--covered-bottom, 0px) + 12px);
+	}
 	body {
 		margin: 0;
 		background: var(--canvas);
