@@ -199,7 +199,8 @@
 		if (padKey === key) return;
 		padKey = key;
 		padFresh = true;
-		tick().then(() => document.getElementById(`w-${key}`)?.scrollIntoView({ block: 'center' }));
+		// Scroll padding keeps it clear of the summary and the keypad: see covers.ts.
+		tick().then(() => document.getElementById(`w-${key}`)?.scrollIntoView({ block: 'nearest' }));
 	}
 	function closePad() { padKey = null; }
 	function press(key: string) {
@@ -332,7 +333,7 @@
 						<div><Button variant={confirmDelete ? 'danger' : 'danger-quiet'} onclick={deleteTab}>{confirmDelete ? 'Tap again to delete this tab' : 'Delete this tab'}</Button></div>
 					</section>
 				{:else}
-					<SummaryStrip {aircraft} {results} todoCount={todo.length} exceededCount={exceededLimits.length} onproblem={goToFirstProblem} ondone={() => goStep(3)} />
+					<SummaryStrip {aircraft} {results} compact={!!padField} todoCount={todo.length} exceededCount={exceededLimits.length} onproblem={goToFirstProblem} ondone={() => goStep(3)} />
 
 					<div class="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,400px)]">
 						<div class="flex min-w-0 flex-col gap-4">

@@ -40,6 +40,15 @@ export function limitBadge(status: Limit['status']): { text: 'OK' | 'CHECK' | 'O
 	return status === 'ok' ? { text: 'OK', tone: 'ok' } : status === 'warning' ? { text: 'CHECK', tone: 'warnb' } : { text: 'OVER', tone: 'fail' };
 }
 
+export type Progress = { tone: 'over' | 'todo' | 'done'; short: string; long: string };
+
+/** How far a step, or the whole calculation, has got. A limit over always outranks inputs still to do. */
+export function progressStatus(todo: number, over: number): Progress {
+	if (over) return { tone: 'over', short: `${over} over`, long: `${over} limit${over > 1 ? 's' : ''} over` };
+	if (todo) return { tone: 'todo', short: `${todo} to do`, long: `${todo} to do` };
+	return { tone: 'done', short: 'Done', long: 'All checked' };
+}
+
 export function windText(wind: Wind | null, variable: boolean): { headline: string; detail: string } | null {
 	if (!wind) return null;
 	const kt = Math.abs(wind.headwind).toFixed(0);

@@ -26,7 +26,7 @@
 	id={`w-${field.key}`}
 	data-status={status}
 	class={[
-		'flex min-w-0 scroll-m-28 flex-col gap-1.5 rounded-[10px] bg-surface',
+		'flex min-w-0 flex-col gap-1.5 rounded-[10px] bg-surface',
 		active ? 'border-2 border-accent p-[13px]' : 'border p-3.5',
 		!active && (problem ? 'border-bad' : status === 'pre' ? 'border-amber-line' : 'border-line'),
 		status === 'pre' && 'bg-amber-soft'
