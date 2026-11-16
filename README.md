@@ -42,6 +42,10 @@ The app keeps a list of about 29,000 airfields with their runways from [OurAirpo
 
 Set `CHECKWX_API_KEY` in your host's settings to let pilots prefill weather from a METAR. Without it, pilots enter weather by hand. Never commit a real key.
 
+## Report address (optional)
+
+Set `PUBLIC_REPORT_EMAIL` in your host's settings to the address pilots send Reports to, then redeploy. The Send step shows it, Share PDF copies it so the pilot can paste it as the recipient, and it heads the email text. Sharing can't fill in the recipient itself. The address is built into the app, so anyone with the app can read it: use a role address such as `reports@yourclub.example`.
+
 ## Licence
 
 [Apache-2.0](LICENSE). The software comes with no warranty. The pilot in command is always responsible for verifying every result.

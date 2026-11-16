@@ -12,7 +12,7 @@
 
 	let {
 		aircraft, calc, todo, exceeded, ready, creating, reportError, latestReport, reportIsCurrent,
-		closePad, ongo, onstep, oncreate, onshare, onopen, onname
+		closePad, ongo, onstep, oncreate, onshare, onopen, onname, reportEmail = ''
 	}: {
 		aircraft: Aircraft; calc: Calculation; todo: ToDo[]; exceeded: Limit[]; ready: boolean; creating: boolean; reportError: string;
 		latestReport: StoredReport | undefined; reportIsCurrent: boolean;
@@ -20,6 +20,8 @@
 		oncreate: () => void; onshare: (id: string) => void; onopen: (id: string) => void;
 		/** Remembers the name on this device for the next Calculation. */
 		onname: (name: string) => void;
+		/** The Operator's address for Reports, or empty when none is set. */
+		reportEmail?: string;
 	} = $props();
 	const LANDING_PLACE = keyAt('landing', 'place');
 	/** Only the notes for this flight's configuration and conditions. */
@@ -102,6 +104,9 @@
 		{#if latestReport}<div class="banner unk" role="status">The inputs changed after report {latestReport.id}. That report stays as it was. Create a new one for the current values.</div>{/if}
 		{#if !ready}<p class="text-sm text-muted">A report needs every item done and no exceeded limit.</p>{/if}
 		<Button variant="primary" size="lg" disabled={!ready || creating} onclick={oncreate}>{creating ? 'Creating report' : 'Create report'}</Button>
+	{/if}
+	{#if reportEmail}
+		<p class="text-sm">Send reports to <strong class="num select-all">{reportEmail}</strong>. Share PDF copies this address, so you can paste it as the recipient. It is also at the top of the email.</p>
 	{/if}
 	<p class="border-t border-canvas pt-2.5 text-[13px] text-muted">Once created: <strong class="text-ink-2">Share PDF</strong> and <strong class="text-ink-2">Open PDF</strong>. Reports stay on this device under Reports.</p>
 </Card>
