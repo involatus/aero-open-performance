@@ -42,10 +42,15 @@ describe('creating a Report', () => {
 		const c = ready(a), r = calculate(a, toInput(a, c)), d = createReportData(a, c, r, meta(a, c));
 		const { title, text } = shareText(d);
 		expect(title).toBe(`Performance report ${a.registration}, LSXX, 2026-11-06 12:30 UTC, A Pilot`);
-		expect(text).toContain(`Takeoff: ${d.results.takeoff.headline} at ${d.massBalance.takeoff.mass} kg`);
+		// Outlook makes the first line of the text the subject, and every line break a paragraph.
+		expect(text.split('\n')[0]).toBe(title);
+		expect(text).not.toContain('\n\n');
+		expect(text).toContain(`Takeoff distance: ${d.results.takeoff.headline} at ${d.massBalance.takeoff.mass} kg`);
 		expect(text).toContain('Report AOP-TEST, attached as PDF.');
 		expect(text).not.toContain('Send to');
-		expect(shareText(d, 'ops@club.example').text.startsWith('Send to: ops@club.example\n\nAircraft: ')).toBe(true);
+		expect(shareText(d, 'ops@club.example').text.split('\n')[1]).toBe('Send to: ops@club.example');
+		const noData = { ...d, results: { ...d.results, landing: { ...d.results.landing, status: 'noData' as const, headline: "No data: pilot's judgement" } } };
+		expect(shareText(noData).text).toContain(`Landing distance: No data: pilot's judgement (mass ${d.massBalance.landing.mass} kg)`);
 		expect(shareText({ ...d, landing: { ...d.results, airfield: 'LSYY', runway: null, rawMetar: null } }).title).toContain(', LSXX to LSYY, ');
 	});
 	it('shows the same numbers as the engine', () => {

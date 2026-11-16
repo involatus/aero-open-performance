@@ -91,25 +91,28 @@ export function fingerprint(a: Aircraft, calc: Calculation): string {
 }
 
 /**
- * What sharing passes along with the PDF. Mail apps such as Outlook use the title as the subject,
- * so it says what the Report is about at a glance in an inbox. The recipient can't be set by sharing,
- * so the Operator's address leads the text, where the pilot can copy it and check it against the To field.
+ * What sharing passes along with the PDF. Outlook on iOS ignores the title when there is text and
+ * makes the text's first line the subject, so the subject line leads the text as well as being the title.
+ * Outlook turns every line break into a paragraph, so there are no blank lines.
+ * The recipient can't be set by sharing, so the Operator's address follows, to copy or check against the To field.
  */
 export function shareText(d: ReportData, reportEmail = ''): { title: string; text: string } {
 	const route = d.landing ? `${d.departure} to ${d.landing.airfield}` : d.departure;
 	const title = `Performance report ${d.aircraft.registration}, ${route}, ${d.createdUtc}, ${d.pilot}`;
 	const mb = d.massBalance;
+	const mass = (m: { mass: string }) => `${m.mass} ${mb.units.mass}`;
+	// "at 727.0 kg" only follows a distance, never "No data: pilot's judgement".
+	const distance = (r: ReportDistance, m: { mass: string }) => (r.status === 'ok' ? `${r.headline} at ${mass(m)}` : `${r.headline} (mass ${mass(m)})`);
 	const text = [
-		...(reportEmail ? [`Send to: ${reportEmail}`, ''] : []),
+		title,
+		...(reportEmail ? [`Send to: ${reportEmail}`] : []),
 		`Aircraft: ${d.aircraft.registration}, ${d.aircraft.type}, ${d.aircraft.configuration}`,
 		`Pilot: ${d.pilot}`,
 		`Departure: ${d.departure}${d.runway ? ` RWY ${d.runway}` : ''}`,
-		...(d.landing ? [`Landing: ${d.landing.airfield}${d.landing.runway ? ` RWY ${d.landing.runway}` : ''}`] : []),
+		...(d.landing ? [`Landing airfield: ${d.landing.airfield}${d.landing.runway ? ` RWY ${d.landing.runway}` : ''}`] : []),
 		`Created: ${d.createdUtc}`,
-		'',
-		`Takeoff: ${d.results.takeoff.headline} at ${mb.takeoff.mass} ${mb.units.mass}`,
-		`Landing: ${d.results.landing.headline} at ${mb.landing.mass} ${mb.units.mass}`,
-		'',
+		`Takeoff distance: ${distance(d.results.takeoff, mb.takeoff)}`,
+		`Landing distance: ${distance(d.results.landing, mb.landing)}`,
 		`Report ${d.id}, attached as PDF. ${RESPONSIBILITY}`
 	].join('\n');
 	return { title, text };
