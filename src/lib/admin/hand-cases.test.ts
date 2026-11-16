@@ -55,12 +55,12 @@ describe('hand-calculated cases', () => {
 		setExceeded(c, 'takeoffMass', false);
 		expect(c.expected.exceeded).toEqual([]);
 	});
-	// The final reserve is an Operator Rule, not manual data, so hand cases don't compare it.
+	// A limit set by an Operator Rule isn't manual data, so hand cases don't compare it.
 	it('limit choices match every limit the engine can report', async () => {
 		const { calculate } = await import('../engine/index.ts');
 		for (const n of ['test-dr-style', 'test-sr22-style', 'test-glastar-style', 'test-kitfox-style']) {
 			const a = aircraft(n), ids = new Set(limitChoices(a).map((x) => x.id));
-			for (const c of a.handCases) for (const l of calculate(a, c.input).massBalance.limits) if (l.id !== 'finalReserve') expect(ids.has(l.id), `${n}: ${l.id}`).toBe(true);
+			for (const c of a.handCases) for (const l of calculate(a, c.input).massBalance.limits) if (!l.fromRule) expect(ids.has(l.id), `${n}: ${l.id}`).toBe(true);
 		}
 	});
 });
