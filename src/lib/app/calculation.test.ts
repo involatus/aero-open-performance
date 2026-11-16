@@ -125,8 +125,10 @@ describe('Prefilled Values', () => {
 		});
 		it('take the fuel flow of the one the pilot picks, even after typing one', () => {
 			const c = newCalculation(ps, 'x', NOW);
-			setByPilot(c, 'flow', '50');
+			choosePowerSetting(ps, c, null);
 			expect(chosenPowerSetting(ps, c)).toBeNull();
+			expect([c.values.flow, c.status.flow]).toEqual(['67.4', 'pilot']);
+			setByPilot(c, 'flow', '50');
 			choosePowerSetting(ps, c, 'p55');
 			expect(chosenPowerSetting(ps, c)?.id).toBe('p55');
 			expect([c.values.flow, c.status.flow]).toEqual(['42.8', 'ok']);

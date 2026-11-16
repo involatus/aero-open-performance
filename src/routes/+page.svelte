@@ -255,7 +255,7 @@
 		active={padKey === field.key}
 		onopen={() => openPad(field.key)}
 		onquick={(op) => quick(field, op)}
-		onslide={(v) => setByPilot(calc!, field.key, String(Number(v.toFixed(2))))}
+		onslide={(v) => setByPilot(calc!, field.key, String(v))}
 		onconfirm={() => confirmValue(calc!, field.key)}
 		onunit={(u) => (calc!.elevationUnit = u as 'm' | 'ft')}
 	/>

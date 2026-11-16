@@ -136,6 +136,10 @@ describe('mass and balance', () => {
 			expect(reserveOf(dr, input).status).toBe('ok');
 			const club = { ...dr, operatorRules: { finalReserve: { minutes: 45 } } };
 			expect(reserveOf(club, input)).toMatchObject({ status: 'exceeded', label: 'Final reserve, 45 min', limit: 16.5 });
+			expect(calculate(club, input).massBalance.finalReserve.club).toBe(true);
+			expect(calculate(dr, input).massBalance.finalReserve.club).toBe(false);
+			// An Operator Rule, so hand-calculated cases leave it out.
+			expect(reserveOf(dr, input).fromRule).toBe(true);
 		});
 		it('waits for a flight time, and adds nothing when the burn alone is already too much', () => {
 			expect(reserveOf(dr, baseInput(dr, { fuelFlow: 22 })).status).toBe('ok');

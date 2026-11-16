@@ -3,7 +3,11 @@ import type { Aircraft, CalculationInput, Envelope } from '../aircraft/schema.ts
 import { EPSILON } from './interpolate.ts';
 
 export type Row = { id: string; label: string; mass: number; arm: number; moment: number };
-export type Limit = { id: string; label: string; status: 'ok' | 'exceeded' | 'warning'; value: number; limit?: number };
+export type Limit = {
+	id: string; label: string; status: 'ok' | 'exceeded' | 'warning'; value: number; limit?: number;
+	/** Set by an Operator Rule, not the manual, so hand-calculated cases leave it out. */
+	fromRule?: true;
+};
 export type Point = { mass: number; moment: number; arm: number; percentMac: number | null };
 export type MassBalance = {
 	rows: Row[];
@@ -12,8 +16,8 @@ export type MassBalance = {
 	burned: number;
 	burnExceedsFuel: boolean;
 	fuelAtLanding: Record<string, number>;
-	/** The fuel that must be left at landing: `minutes` at the planned fuel flow. */
-	finalReserve: { minutes: number; volume: number };
+	/** The fuel that must be left at landing: `minutes` at the planned fuel flow. `club` when a longer club rule sets them. */
+	finalReserve: { minutes: number; volume: number; club: boolean };
 	limits: Limit[];
 };
 
@@ -135,11 +139,12 @@ export function massBalance(a: Aircraft, input: CalculationInput): MassBalance {
 	out.push({ id: 'landingCg', label: 'Landing CG', status: insideEnvelope(a, envelope, ldMass, landing.arm) ? 'ok' : 'exceeded', value: landing.arm });
 	out.push({ id: 'fuelBurn', label: 'Fuel for the flight', status: burn.exceeds ? 'exceeded' : 'ok', value: burned });
 	// Checked once a flight time is planned, and not again when the burn alone is already too much.
-	const minutes = a.operatorRules?.finalReserve?.minutes ?? LEGAL_FINAL_RESERVE_MINUTES;
+	const club = a.operatorRules?.finalReserve?.minutes;
+	const minutes = club ?? LEGAL_FINAL_RESERVE_MINUTES;
 	const reserve = (minutes / 60) * input.fuelFlow;
 	const atLanding = Object.values(burn.left).reduce((sum, v) => sum + v, 0);
 	const short = input.flightTimeHours > 0 && !burn.exceeds && atLanding + EPSILON < reserve;
-	out.push({ id: 'finalReserve', label: `Final reserve, ${minutes} min`, status: short ? 'exceeded' : 'ok', value: atLanding, limit: reserve });
+	out.push({ id: 'finalReserve', label: `Final reserve, ${minutes} min`, status: short ? 'exceeded' : 'ok', value: atLanding, limit: reserve, fromRule: true });
 
-	return { rows, takeoff, landing, burned, burnExceedsFuel: burn.exceeds, fuelAtLanding: burn.left, finalReserve: { minutes, volume: reserve }, limits: out };
+	return { rows, takeoff, landing, burned, burnExceedsFuel: burn.exceeds, fuelAtLanding: burn.left, finalReserve: { minutes, volume: reserve, club: club !== undefined }, limits: out };
 }

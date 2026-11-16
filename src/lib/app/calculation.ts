@@ -288,8 +288,12 @@ export function chosenPowerSetting(a: Aircraft, calc: Calculation): PowerSetting
 	return a.powerSettings?.find((p) => p.id === calc.powerSetting) ?? null;
 }
 
-/** The pilot picks a power setting: its fuel flow replaces any the pilot typed. */
-export function choosePowerSetting(a: Aircraft, calc: Calculation, id: string) {
+/**
+ * The pilot picks a power setting: its fuel flow replaces any the pilot typed. `null` is "Other":
+ * the fuel flow becomes the pilot's own, kept as it is until they type another.
+ */
+export function choosePowerSetting(a: Aircraft, calc: Calculation, id: string | null) {
+	if (id === null) { setByPilot(calc, 'flow', calc.values.flow ?? ''); return; }
 	calc.powerSetting = id;
 	delete calc.status.flow;
 	applyAircraftData(a, calc);
