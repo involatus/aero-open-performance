@@ -12,7 +12,7 @@
 
 	let {
 		aircraft, calc, todo, exceeded, ready, creating, reportError, latestReport, reportIsCurrent,
-		closePad, ongo, onstep, oncreate, onshare, onopen, onname, reportEmail = ''
+		closePad, ongo, onstep, oncreate, onshare, onopen, onname, hasReportAddress = false
 	}: {
 		aircraft: Aircraft; calc: Calculation; todo: ToDo[]; exceeded: Limit[]; ready: boolean; creating: boolean; reportError: string;
 		latestReport: StoredReport | undefined; reportIsCurrent: boolean;
@@ -21,7 +21,8 @@
 		/** Remembers the name on this device for the next Calculation. */
 		onname: (name: string) => void;
 		/** The Operator's address for Reports, or empty when none is set. */
-		reportEmail?: string;
+		/** The release names an address for Reports. The address itself is only in the email. */
+		hasReportAddress?: boolean;
 	} = $props();
 	const LANDING_PLACE = keyAt('landing', 'place');
 	/** Only the notes for this flight's configuration and conditions. */
@@ -105,8 +106,8 @@
 		{#if !ready}<p class="text-sm text-muted">A report needs every item done and no exceeded limit.</p>{/if}
 		<Button variant="primary" size="lg" disabled={!ready || creating} onclick={oncreate}>{creating ? 'Creating report' : 'Create report'}</Button>
 	{/if}
-	{#if reportEmail}
-		<p class="text-sm">Send reports to <strong class="num select-all">{reportEmail}</strong>. Share PDF copies this address, so you can paste it as the recipient. It is also at the top of the email.</p>
+	{#if hasReportAddress}
+		<p class="text-sm">Share PDF copies the club's report address, so you can paste it as the recipient. It is also at the top of the email.</p>
 	{/if}
 	<p class="border-t border-canvas pt-2.5 text-[13px] text-muted">Once created: <strong class="text-ink-2">Share PDF</strong> and <strong class="text-ink-2">Open PDF</strong>. Reports stay on this device under Reports.</p>
 </Card>

@@ -141,6 +141,21 @@ describe('publishing', () => {
 		if (!next.ok) throw new Error(next.problems.join('\n'));
 		expect(next.changes).toContainEqual({ registration: 'Test club', text: 'Logo removed' });
 	});
+	it('publishes the report address with the release, and refuses one that is not an address', async () => {
+		await expect(saveSettings(s, { operator: 'Test club', reportEmail: 'reports at club' })).rejects.toThrow('not an email address');
+		expect(await saveSettings(s, { operator: 'Test club', reportEmail: ' reports@club.example ' })).toEqual({ operator: 'Test club', reportEmail: 'reports@club.example' });
+		const r = await publish(s, {}, ADMIN, NOW);
+		if (!r.ok) throw new Error(r.problems.join('\n'));
+		const index = await latestIndex(s);
+		expect(index?.reportEmail).toBe('reports@club.example');
+		expect(index?.formatVersion).toBe('0.7.0');
+		await saveSettings(s, { operator: 'Test club', reportEmail: '' });
+		const next = await publish(s, {}, ADMIN, NOW + 1);
+		if (!next.ok) throw new Error(next.problems.join('\n'));
+		// The change list is shown to pilots, so it names the change without the address.
+		expect(next.changes).toContainEqual({ registration: 'Test club', text: 'Report address removed' });
+		expect((await latestIndex(s))?.formatVersion).toBe('0.1.0');
+	});
 	it('needs the Operator name', async () => {
 		const empty = memoryStorage();
 		await saveDraft(empty, 'TEST-KF', { aircraft: raw('test-kitfox-style') }, ADMIN, NOW);

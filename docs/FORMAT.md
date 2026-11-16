@@ -1,6 +1,6 @@
 # Aircraft data format and calculation rules
 
-Format version 0.6.0. Version 0.6.0 added `logo` to the release index, 0.5.0 added `powerSettings`, 0.4.0 added `surface` on conditions and `"VRB"` as a wind direction, 0.3.0 added `appliesTo` on notes and `carries` on stations, and 0.2.0 added Operator Rules to the release index. Older files are still read. This document is the complete definition of how an aircraft file is read and calculated. Another implementation must be able to produce the same results from this document alone. The machine-readable shape is in [schema/aircraft.schema.json](../schema/aircraft.schema.json), and examples are in [aircraft-examples/](../aircraft-examples/). All example values are invented.
+Format version 0.7.0. Version 0.7.0 added `reportEmail` to the release index, 0.6.0 added `logo` to the release index, 0.5.0 added `powerSettings`, 0.4.0 added `surface` on conditions and `"VRB"` as a wind direction, 0.3.0 added `appliesTo` on notes and `carries` on stations, and 0.2.0 added Operator Rules to the release index. Older files are still read. This document is the complete definition of how an aircraft file is read and calculated. Another implementation must be able to produce the same results from this document alone. The machine-readable shape is in [schema/aircraft.schema.json](../schema/aircraft.schema.json), and examples are in [aircraft-examples/](../aircraft-examples/). All example values are invented.
 
 One strict JSON file describes one registered aircraft. Unknown fields are errors. Every value stays in the manual's own units. Nothing has a hidden default.
 
@@ -232,11 +232,13 @@ index.json
 releases/<release>/<registration>.json
 ```
 
-`index.json` has `formatVersion`, `operator`, `release` (a whole number), `published`, optional `notes`, optional `operatorRules` (see Operator Rules), optional `logo`, and `aircraft`. Each entry has `registration`, `type`, `revision`, optional `changes`, and either `file` and `sha256`, or `withdrawn: { reason }`.
+`index.json` has `formatVersion`, `operator`, `release` (a whole number), `published`, optional `notes`, optional `operatorRules` (see Operator Rules), optional `logo`, optional `reportEmail`, and `aircraft`. Each entry has `registration`, `type`, `revision`, optional `changes`, and either `file` and `sha256`, or `withdrawn: { reason }`.
 
-`formatVersion` is the oldest version that has every field the index uses: 0.6.0 with a `logo`, 0.2.0 with `operatorRules`, else 0.1.0. An app refuses an index in a newer format than it knows, so a release without a logo stays readable by apps from before logos, and a deployment can roll back without pilots' apps refusing their data. Each aircraft file states its own `formatVersion` in the same way.
+`formatVersion` is the oldest version that has every field the index uses: 0.7.0 with a `reportEmail`, 0.6.0 with a `logo`, 0.2.0 with `operatorRules`, else 0.1.0. An app refuses an index in a newer format than it knows, so a release without a logo stays readable by apps from before logos, and a deployment can roll back without pilots' apps refusing their data. Each aircraft file states its own `formatVersion` in the same way.
 
 `logo` is the Operator's logo: `light`, for light backgrounds, and optional `dark`, for dark mode. Each is a `data:` URI with base64 content, of type `image/png`, `image/jpeg` or `image/svg+xml`, holding at most 48 KB. The content must match the type. An SVG must be a plain drawing: no scripts, event attributes, `foreignObject`, embedded images or links outside the drawing. A device refuses an index whose logo breaks any of this, as with any other invalid index.
+
+`reportEmail` is the address pilots send Reports to, at most 254 characters, with an `@` and a dot in the domain. Share PDF copies it and puts it at the top of the email text. The app doesn't show it on screen.
 
 `sha256` is the SHA-256, as lowercase hex, of the file's parsed JSON in RFC 8785 canonical form, so formatting doesn't affect it.
 
@@ -254,6 +256,8 @@ To withdraw an aircraft, add `--withdraw "HB-XXX=Reason"` and leave its file in 
 Add `--rules <file>` to check or publish with Operator Rules, given as a release's `index.json` or as the rules alone. Hand-calculated cases that rely on an Operator Rule, such as a wind correction the manual doesn't give, only pass with them. Publishing without `--rules` keeps the previous release's rules.
 
 Add `--logo <file>` to publish the Operator's logo, and `--logo-dark <file>` for its dark-mode version. Publishing without `--logo` keeps the previous release's logo, and `--no-logo` removes it.
+
+Add `--report-email <address>` to publish the address pilots send Reports to. Publishing without it keeps the previous release's address, and `--no-report-email` removes it.
 
 ### Publish checks
 

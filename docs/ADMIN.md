@@ -30,6 +30,10 @@ Then open `/admin`, enter your name and the password, and sign in. Your name is 
 
 Aircraft you don't tick stay as pilots have them, even if you delete their draft. To take an aircraft away from pilots, withdraw it with a reason. Publishing has no override. Releases are permanent: to undo one, restore the earlier version as a draft and publish it under a new number. Pilots see a new release as a notice, and install it when they choose. A withdrawn aircraft is blocked as soon as a device sees the notice, but a device that stays offline can't learn this.
 
+## Report address
+
+In **Settings**, add the address pilots send Reports to, such as `reports@yourclub.example`. When a pilot shares a Report, the app copies it, so they can paste it as the recipient, and puts it at the top of the email. It never appears on screen, but it is in the published data, which anyone with the app can read, so use a role address with a spam filter rather than a person's own. Pilots get it, and any change to it, with the next release.
+
 ## Your logo
 
 In **Settings**, add your club's logo: a PNG, JPEG or SVG file of at most 48 KB, wider than tall, on a transparent or white background. It appears about 40 px high, so leave out a tagline or fine detail that would blur. You can add a second version for dark mode; without one, the app puts your logo on a small white plate there. It appears in the app's header, on the aircraft list, in the menu and at the top of every Report, and on the app's home-screen icon and start screen. The start screen uses the dark-mode version on navy; without one, your logo sits on a white card there. Pilots get it, and any change to it, with the next release.
