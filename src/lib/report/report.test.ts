@@ -6,7 +6,7 @@ import { calculate } from '../engine/index.ts';
 import { applyAirfield, applyRunway, matchConditions, newCalculation, setByPilot, toInput, type Calculation } from '../app/calculation.ts';
 import { parseAirfields } from '../airfield/airfields.ts';
 import { chartSvg } from './chart.ts';
-import { RESPONSIBILITY, createReportData, deliveryLabel, fingerprint, isExpired, newReportId, reportDocument } from './report.ts';
+import { RESPONSIBILITY, createReportData, deliveryLabel, fingerprint, isExpired, newReportId, reportDocument, shareText } from './report.ts';
 
 const load = (name: string): Aircraft => {
 	const r = validateAircraft(JSON.parse(readFileSync(`aircraft-examples/${name}.json`, 'utf8')));
@@ -37,6 +37,21 @@ describe('creating a Report', () => {
 	it('refuses when a limit is exceeded, with no way around it', () => {
 		const c = ready(a); setByPilot(c, 'load:rear', '101');
 		expect(() => createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c))).toThrow();
+	});
+	it('shares with a subject naming the aircraft, airfield, time and pilot', () => {
+		const c = ready(a), r = calculate(a, toInput(a, c)), d = createReportData(a, c, r, meta(a, c));
+		const { title, text } = shareText(d);
+		expect(title).toBe(`Performance report ${a.registration}, LSXX, 2026-11-06 12:30 UTC, A Pilot`);
+		// Outlook makes the first line of the text the subject, and every line break a paragraph.
+		expect(text.split('\n')[0]).toBe(title);
+		expect(text).not.toContain('\n\n');
+		expect(text).toContain(`Takeoff distance: ${d.results.takeoff.headline} at ${d.massBalance.takeoff.mass} kg`);
+		expect(text).toContain('Report AOP-TEST, attached as PDF.');
+		expect(text).not.toContain('Send to');
+		expect(shareText(d, 'ops@club.example').text.split('\n')[1]).toBe('Send to: ops@club.example');
+		const noData = { ...d, results: { ...d.results, landing: { ...d.results.landing, status: 'noData' as const, headline: "No data: pilot's judgement" } } };
+		expect(shareText(noData).text).toContain(`Landing distance: No data: pilot's judgement (mass ${d.massBalance.landing.mass} kg)`);
+		expect(shareText({ ...d, landing: { ...d.results, airfield: 'LSYY', runway: null, rawMetar: null } }).title).toContain(', LSXX to LSYY, ');
 	});
 	it('shows the same numbers as the engine', () => {
 		const c = ready(a), r = calculate(a, toInput(a, c)), d = createReportData(a, c, r, meta(a, c));
