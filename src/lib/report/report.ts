@@ -95,6 +95,34 @@ export function fingerprint(a: Aircraft, calc: Calculation): string {
 	return JSON.stringify([a.registration, a.revision, toInput(a, calc), calc.values.place?.trim(), calc.values.name?.trim(), calc.notes, calc.status, weatherAt(calc, 'departure')?.raw ?? null, ...(calc.landingElsewhere ? [calc.values[keyAt('landing', 'place')]?.trim(), weatherAt(calc, 'landing')?.raw ?? null] : [])]);
 }
 
+/**
+ * What sharing passes along with the PDF. Outlook on iOS ignores the title when there is text and
+ * makes the text's first line the subject, so the subject line leads the text as well as being the title.
+ * Outlook turns every line break into a paragraph, so there are no blank lines.
+ * The recipient can't be set by sharing, so the Operator's address follows, to copy or check against the To field.
+ */
+export function shareText(d: ReportData, reportEmail = ''): { title: string; text: string } {
+	const route = d.landing ? `${d.departure} to ${d.landing.airfield}` : d.departure;
+	const title = `Performance report ${d.aircraft.registration}, ${route}, ${d.createdUtc}, ${d.pilot}`;
+	const mb = d.massBalance;
+	const mass = (m: { mass: string }) => `${m.mass} ${mb.units.mass}`;
+	// "at 727.0 kg" only follows a distance, never "No data: pilot's judgement".
+	const distance = (r: ReportDistance, m: { mass: string }) => (r.status === 'ok' ? `${r.headline} at ${mass(m)}` : `${r.headline} (mass ${mass(m)})`);
+	const text = [
+		title,
+		...(reportEmail ? [`Send to: ${reportEmail}`] : []),
+		`Aircraft: ${d.aircraft.registration}, ${d.aircraft.type}, ${d.aircraft.configuration}`,
+		`Pilot: ${d.pilot}`,
+		`Departure: ${d.departure}${d.runway ? ` RWY ${d.runway}` : ''}`,
+		...(d.landing ? [`Landing airfield: ${d.landing.airfield}${d.landing.runway ? ` RWY ${d.landing.runway}` : ''}`] : []),
+		`Created: ${d.createdUtc}`,
+		`Takeoff distance: ${distance(d.results.takeoff, mb.takeoff)}`,
+		`Landing distance: ${distance(d.results.landing, mb.landing)}`,
+		`Report ${d.id}, attached as PDF. ${RESPONSIBILITY}`
+	].join('\n');
+	return { title, text };
+}
+
 /** "Not sent" reports are never removed automatically. */
 export function isExpired(report: Pick<StoredReport, 'created' | 'delivery'>, now: number): boolean {
 	return report.delivery !== 'notSent' && now - report.created > RETENTION_DAYS * 86400000;
