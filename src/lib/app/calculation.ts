@@ -66,6 +66,8 @@ export type Field = {
 	range: [number, number];
 	quick: string[];
 	capacity?: number;
+	/** A slider for a quick setting: it pulls onto `snaps`, and `marks` are tappable labels under it. */
+	slider?: { max: number; step: number; snaps: number[]; zone: number; marks: { value: number; label: string; spoken: string }[] };
 	required: boolean;
 	/** Units the pilot can switch between, right in the field. */
 	units?: string[];
@@ -188,6 +190,29 @@ function runwayHint(calc: Parameters<typeof runwayAt>[0], place: Place) {
 }
 
 /** The numeric fields of each step, built from the aircraft file. */
+const QUARTERS = [[0, 'Empty', 'Empty'], [0.25, '¼', 'A quarter'], [0.5, '½', 'Half'], [0.75, '¾', 'Three quarters'], [1, 'Full', 'Full']] as const;
+
+/** A tank's slider: free in whole litres or half gallons, pulled onto a quarter point within 2 % of the capacity. */
+function tankSlider(capacity: number, unit: string): Field['slider'] {
+	const marks = QUARTERS.map(([f, label, spoken]) => ({ value: Number((f * capacity).toFixed(2)), label, spoken: `${spoken}, ${tenths(f * capacity)} ${unit}` }));
+	return { max: capacity, step: unit === 'USgal' ? 0.5 : 1, snaps: marks.map((m) => m.value), zone: capacity * 0.02, marks };
+}
+
+/**
+ * Flight time: up to how long full tanks last at the aircraft's fuel flow (its lowest, so the longest
+ * time), or 4 hours when the aircraft has none. Moved in 3 minutes, and pulled onto a quarter hour within 2.4 minutes.
+ */
+function timeSlider(a: Aircraft): Field['slider'] {
+	const flows = [...(a.powerSettings ?? []).map((p) => p.fuelFlow), ...(a.fuelFlow ? [a.fuelFlow.value] : [])];
+	const full = a.tanks.reduce((sum, t) => sum + t.capacity, 0);
+	const hours = flows.length ? full / Math.min(...flows) : 4;
+	const max = Math.min(24, Math.max(1, Math.ceil(hours * 4) / 4));
+	const every = max > 8 ? 2 : 1;
+	const snaps = Array.from({ length: Math.floor(max * 4) + 1 }, (_, i) => i / 4);
+	const marks = Array.from({ length: Math.floor(max / every) + 1 }, (_, i) => i * every).map((h) => ({ value: h, label: `${h}`, spoken: `${h} hours` }));
+	return { max, step: 0.05, snaps, zone: 0.04, marks };
+}
+
 export function fieldsFor(a: Aircraft, calc: Pick<Calculation, 'elevationUnit'> & Partial<Pick<Calculation, 'values' | 'landingElsewhere' | 'weather' | 'landingWeather' | 'sources' | 'status' | 'airfield' | 'landingAirfield'>>): Field[][] {
 	const mass = a.units.mass, step = massStep(mass), maxMass = a.massLimits.maxTakeoff.value;
 	const arm = (x: number) => `arm ${x.toFixed(a.display.armDecimals)} ${a.units.arm}`;
@@ -198,15 +223,16 @@ export function fieldsFor(a: Aircraft, calc: Pick<Calculation, 'elevationUnit'> 
 		// A station with seat stops has no single arm, so only its limit is shown.
 		meta: meta(s.arm !== undefined && !s.positions && arm(s.arm), s.maxMass !== undefined && `max ${s.maxMass}`)
 	}));
-	const volume = a.units.volume, fuelStep = volume === 'USgal' ? '5' : '10';
+	const volume = a.units.volume;
 	const fuel: Field[] = a.tanks.map((t) => ({
 		key: `fuel:${t.id}`, label: t.label, unit: volume, decimals: true, negative: false,
 		// An empty tank is empty. The to-do list only asks when every tank is.
-		range: [0, t.capacity * 2], quick: [`-${fuelStep}`, `+${fuelStep}`, 'Full'], capacity: t.capacity, required: false,
-		meta: meta(arm(t.arm), `holds ${tenths(t.capacity)}`)
+		range: [0, t.capacity * 2], quick: [], capacity: t.capacity, required: false,
+		meta: meta(arm(t.arm), `holds ${tenths(t.capacity)}`),
+		slider: tankSlider(t.capacity, volume)
 	}));
 	fuel.push(
-		{ key: 'time', label: 'Flight time to landing', unit: 'h', decimals: true, negative: false, range: [0, 24], quick: ['=0.5', '=1', '=1.5', '=2'], required: true },
+		{ key: 'time', label: 'Flight time to landing', unit: 'h', decimals: true, negative: false, range: [0, 24], quick: [], required: true, slider: timeSlider(a) },
 		{ key: 'flow', label: 'Fuel flow', unit: `${volume}/h`, decimals: true, negative: false, range: [0, 500], quick: [], required: true }
 	);
 	const elevMax = calc.elevationUnit === 'm' ? 6000 : 20000;

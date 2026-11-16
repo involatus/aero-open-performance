@@ -5,10 +5,13 @@
 	import { valueSource } from '#lib/app/presentation.ts';
 	import Button from './ui/Button.svelte';
 	import Gauge from './ui/Gauge.svelte';
+	import Slider from './ui/Slider.svelte';
 
-	let { field, calc, active, onopen, onquick, onconfirm, onunit, extra }: {
+	let { field, calc, active, onopen, onquick, onslide, onconfirm, onunit, extra }: {
 		field: Field; calc: Calculation; active: boolean;
 		onopen: () => void; onquick: (op: string) => void; onconfirm: () => void; onunit?: (unit: string) => void;
+		/** A value set with the field's slider. */
+		onslide?: (value: number) => void;
 		/** More facts under the value, such as the fuel mass. */
 		extra?: Snippet;
 	} = $props();
@@ -63,7 +66,9 @@
 			</ToggleGroup.Root>
 		{:else if field.unit}<span class="pr-2 text-muted">{field.unit}</span>{/if}
 	</div>
-	{#if field.capacity !== undefined}<Gauge size="sm" value={parse(text) ?? 0} max={field.capacity} label={`${field.label}, part of capacity`} tone={overCapacity ? 'bad' : 'accent'} />{/if}
+	{#if field.slider && onslide}
+		<Slider label={`${field.label}, slider`} value={parse(text) ?? 0} max={field.slider.max} step={field.slider.step} snaps={field.slider.snaps} zone={field.slider.zone} marks={field.slider.marks} unit={field.unit} onchange={onslide} />
+	{:else if field.capacity !== undefined}<Gauge size="sm" value={parse(text) ?? 0} max={field.capacity} label={`${field.label}, part of capacity`} tone={overCapacity ? 'bad' : 'accent'} />{/if}
 	{@render extra?.()}
 	{#if field.hint}<span class="text-[13px] text-muted">{field.hint}</span>{/if}
 	{#if status === 'pre'}
