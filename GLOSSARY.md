@@ -56,6 +56,10 @@ _Avoid_: Flight, scenario, tab
 The record of one start's inputs, results and calculation steps.
 _Avoid_: Form, template, performance sheet
 
+**Delivery**:
+How a Report's PDF leaves the device, and whether it has. Today the pilot shares it to their own mail app, and it counts as shared once the share sheet finishes.
+_Avoid_: Export, upload
+
 **Prefilled Value**:
 A value suggested by the tool that the pilot must check and may overwrite.
 _Avoid_: Default, auto-filled value

@@ -28,7 +28,8 @@
 	} from '#lib/app/calculation.ts';
 	import { calculate } from '#lib/engine/index.ts';
 	import { renderPdf } from '#lib/report/pdf.ts';
-	import { fingerprint, shareText } from '#lib/report/report.ts';
+	import { ReportDelivery } from '#lib/report/delivery.ts';
+	import { fingerprint } from '#lib/report/report.ts';
 	import { version as toolVersion } from '../../package.json';
 
 	const app = new AppState();
@@ -43,8 +44,7 @@
 	let now = $state(Date.now());
 	let creating = $state(false);
 	let reportError = $state('');
-	// Ready before the tap, because iPadOS only allows sharing right after one.
-	const pdfCache = new Map<string, File>();
+	const delivery = new ReportDelivery(app);
 
 	let calc = $derived<Calc | undefined>(app.tabs[app.current]);
 	let blockedReason = $derived(calc ? app.withdrawn(calc.aircraft) ?? (app.aircraft.some((a) => a.registration === calc!.aircraft) ? null : 'This aircraft is no longer in the data.') : null);
@@ -110,18 +110,10 @@
 	});
 
 	$effect(() => {
-		if (latestReport) preparePdf(latestReport.id);
+		// Ready before the tap, because iPadOS only allows sharing right after one.
+		if (latestReport) delivery.prepare(latestReport.id);
 	});
 
-
-	async function preparePdf(id: string): Promise<File | undefined> {
-		if (pdfCache.has(id)) return pdfCache.get(id);
-		const blob = await app.pdf(id);
-		if (!blob) return undefined;
-		const file = new File([blob], `${id}.pdf`, { type: 'application/pdf' });
-		pdfCache.set(id, file);
-		return file;
-	}
 
 	async function createReport() {
 		if (!ready || !aircraft || !calc || !results || creating) return;
@@ -132,7 +124,7 @@
 				{ aircraft, calc: $state.snapshot(calc), results, toolVersion: `${toolVersion}, build ${version}` },
 				{ random: crypto.getRandomValues(new Uint8Array(4)), render: renderPdf }
 			);
-			await preparePdf(report.id);
+			await delivery.prepare(report.id);
 		} catch (error) {
 			reportError = `The report could not be created: ${(error as Error).message}. Nothing was saved. Try again.`;
 		}
@@ -141,32 +133,17 @@
 
 	async function shareReport(id: string) {
 		reportError = '';
-		const file = pdfCache.get(id) ?? (await preparePdf(id));
-		if (!file) { reportError = 'The PDF for this report is missing on this device.'; return; }
-		if (!navigator.canShare?.({ files: [file] })) { reportError = 'This device cannot share files from the app. Open the PDF and save or send it from there.'; return; }
-		try {
-			const report = app.reports.find((r) => r.id === id);
-			// Not awaited, so the share still runs within the tap. If copying fails, the address is still in the text.
-			const reportEmail = app.data?.index.reportEmail ?? '';
-			if (reportEmail) navigator.clipboard?.writeText(reportEmail).catch(() => {});
-			await navigator.share({ files: [file], ...(report ? shareText(report.data, reportEmail) : { title: `Performance report ${id}` }) });
-			await app.setDelivery(id, 'shared');
-		} catch (error) {
-			if ((error as Error).name !== 'AbortError') reportError = `Sharing failed: ${(error as Error).message}. Try again.`;
-		}
+		reportError = (await delivery.share(id)) ?? '';
 	}
 
 	async function openReport(id: string) {
 		reportError = '';
-		const file = await preparePdf(id);
-		if (!file) { reportError = 'The PDF for this report is missing on this device.'; return; }
-		const url = URL.createObjectURL(file);
-		if (!window.open(url, '_blank')) location.href = url;
+		reportError = (await delivery.open(id)) ?? '';
 	}
 
 	function removeReport(id: string) {
 		app.deleteReport(id);
-		pdfCache.delete(id);
+		delivery.forget(id);
 	}
 
 	async function updateApp() {
