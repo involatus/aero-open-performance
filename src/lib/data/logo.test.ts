@@ -4,7 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { LOGO_MAX_BYTES, LogoError, logoAspect, logoFromFile, parseLogo, pdfLogo, sameLogo } from './logo.ts';
-import { describeChanges, parseIndex, type ReleaseIndex } from './release.ts';
+import { describeChanges, indexFormatVersion, parseIndex, type ReleaseIndex } from './release.ts';
+import { formatIsReadable } from '../aircraft/validate.ts';
 
 const bytes = (text: string) => new TextEncoder().encode(text);
 const SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 10"><rect width="40" height="10" fill="#14263a"/></svg>';
@@ -54,6 +55,15 @@ describe('Operator logo', () => {
 		expect(logoAspect(logoFromFile('d.jpg', jpeg))).toBe(4);
 		expect(logoAspect(logoFromFile('e.svg', bytes('<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>')))).toBe(1);
 	});
+	it('needs the new format only when a release has one, so older apps still read the rest', () => {
+		const light = logoFromFile('logo.svg', bytes(SVG));
+		expect(indexFormatVersion({ logo: { light } })).toBe('0.6.0');
+		expect(indexFormatVersion({ operatorRules: { aboveTable: { takeoffPercentPer1000ft: 10, landingPercentPer1000ft: 5, alertAboveM: 500 } } })).toBe('0.2.0');
+		expect(indexFormatVersion({})).toBe('0.1.0');
+		// An app from before logos, which knows format 0.5.0.
+		expect(formatIsReadable(indexFormatVersion({}), '0.5.0')).toBe(true);
+		expect(formatIsReadable(indexFormatVersion({ logo: { light } }), '0.5.0')).toBe(false);
+	});
 	it('goes to the PDF as a drawing or an image', () => {
 		expect(pdfLogo(logoFromFile('logo.svg', bytes(SVG)))).toEqual({ svg: SVG });
 		const png = logoFromFile('logo.png', PNG);
@@ -74,12 +84,14 @@ describe('command-line tool with a logo', () => {
 	it('publishes it, keeps it in the next release, and removes it on request', () => {
 		expect(publish(1, '--logo', light, '--logo-dark', dark).status).toBe(0);
 		expect(published().logo).toEqual({ light: logoFromFile('logo.svg', bytes(SVG)), dark: logoFromFile('logo.svg', bytes(SVG.replace('#14263a', '#ffffff'))) });
+		expect(published().formatVersion).toBe('0.6.0');
 		expect(publish(2).status).toBe(0);
 		expect(published().logo?.dark).toBeDefined();
 		const r = publish(3, '--no-logo');
 		expect(r.status).toBe(0);
 		expect(r.stdout).toContain('Logo removed');
 		expect(published().logo).toBeUndefined();
+		expect(published().formatVersion).toBe('0.1.0');
 	});
 	it('refuses a dark logo alone, and both --logo and --no-logo', () => {
 		expect(publish(4, '--logo-dark', dark).stderr).toContain('needs --logo');

@@ -2,12 +2,11 @@
  * Builds a Data Release from aircraft drafts, with no override. The command-line tool
  * and the admin GUI both use this, so the same rules apply however data is published.
  */
-import { FORMAT_VERSION } from '../aircraft/schema.ts';
 import { sha256 } from './canonical.ts';
 import type { OperatorRules } from '../aircraft/operator-rules.ts';
 import type { OperatorLogo } from './logo.ts';
 import { publishChecks } from './publish-checks.ts';
-import { describeChanges, parseIndex, type Change, type ReleaseEntry, type ReleaseIndex } from './release.ts';
+import { describeChanges, indexFormatVersion, parseIndex, type Change, type ReleaseEntry, type ReleaseIndex } from './release.ts';
 
 export type DraftInput = { name: string; data: unknown };
 export type ReleaseRequest = {
@@ -69,6 +68,7 @@ export async function buildRelease(r: ReleaseRequest): Promise<BuiltRelease> {
 	if (problems.length) return { ok: false, problems };
 
 	const notes = r.notes?.trim();
-	const index = parseIndex({ formatVersion: FORMAT_VERSION, operator: r.operator.trim(), release: r.release, published: new Date(r.now).toISOString(), ...(notes ? { notes } : {}), ...(r.operatorRules ? { operatorRules: r.operatorRules } : {}), ...(r.logo ? { logo: r.logo } : {}), aircraft: entries });
+	const profile = { ...(r.operatorRules ? { operatorRules: r.operatorRules } : {}), ...(r.logo ? { logo: r.logo } : {}) };
+	const index = parseIndex({ formatVersion: indexFormatVersion(profile), operator: r.operator.trim(), release: r.release, published: new Date(r.now).toISOString(), ...(notes ? { notes } : {}), ...(r.operatorRules ? { operatorRules: r.operatorRules } : {}), ...(r.logo ? { logo: r.logo } : {}), aircraft: entries });
 	return { ok: true, index, files, changes: describeChanges(r.previous, index) };
 }

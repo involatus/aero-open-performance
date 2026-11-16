@@ -29,6 +29,17 @@ export const ReleaseIndex = v.strictObject({
 	aircraft: v.array(Entry)
 });
 export type ReleaseIndex = v.InferOutput<typeof ReleaseIndex>;
+
+/**
+ * The oldest format that has every field this index uses. Apps refuse a newer format than they know, so stating
+ * the oldest one lets an app from before a feature still read a release that doesn't use it, and lets a deployment
+ * roll back without pilots' apps refusing the data. Aircraft files state their own format.
+ */
+export function indexFormatVersion(index: Pick<ReleaseIndex, 'operatorRules' | 'logo'>): string {
+	if (index.logo) return '0.6.0';
+	if (index.operatorRules) return '0.2.0';
+	return '0.1.0';
+}
 export type ReleaseEntry = v.InferOutput<typeof Entry>;
 export type InstalledData = { index: ReleaseIndex; aircraft: Aircraft[]; installedAt: number };
 

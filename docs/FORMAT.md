@@ -234,6 +234,8 @@ releases/<release>/<registration>.json
 
 `index.json` has `formatVersion`, `operator`, `release` (a whole number), `published`, optional `notes`, optional `operatorRules` (see Operator Rules), optional `logo`, and `aircraft`. Each entry has `registration`, `type`, `revision`, optional `changes`, and either `file` and `sha256`, or `withdrawn: { reason }`.
 
+`formatVersion` is the oldest version that has every field the index uses: 0.6.0 with a `logo`, 0.2.0 with `operatorRules`, else 0.1.0. An app refuses an index in a newer format than it knows, so a release without a logo stays readable by apps from before logos, and a deployment can roll back without pilots' apps refusing their data. Each aircraft file states its own `formatVersion` in the same way.
+
 `logo` is the Operator's logo: `light`, for light backgrounds, and optional `dark`, for dark mode. Each is a `data:` URI with base64 content, of type `image/png`, `image/jpeg` or `image/svg+xml`, holding at most 48 KB. The content must match the type. An SVG must be a plain drawing: no scripts, event attributes, `foreignObject`, embedded images or links outside the drawing. A device refuses an index whose logo breaks any of this, as with any other invalid index.
 
 `sha256` is the SHA-256, as lowercase hex, of the file's parsed JSON in RFC 8785 canonical form, so formatting doesn't affect it.
