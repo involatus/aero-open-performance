@@ -101,26 +101,39 @@ export function fingerprint(a: Aircraft, calc: Calculation): string {
  * Outlook turns every line break into a paragraph, so there are no blank lines.
  * The recipient can't be set by sharing, so the Operator's address follows, to copy or check against the To field.
  */
+/**
+ * The airfield as its code: an airfield from the list is written "LSZK Speck-Fehraltorf", so the code is the first
+ * word. A name the pilot typed stays as it is.
+ */
+export function airfieldCode(place: string): string {
+	const [first, ...rest] = place.trim().split(/\s+/);
+	return rest.length && /^(?=.*[A-Z])[A-Z0-9-]{3,8}$/.test(first) ? first : place.trim();
+}
+
+/** Starts a new line in the same paragraph. Outlook turns each "\n" into a paragraph of its own. */
+const SAME_PARAGRAPH = '\u2028';
+
+/**
+ * The email for a shared Report. Outlook takes the first line as the subject, so the first line is the subject
+ * alone and short enough to read in full. The rest is grouped: lines that belong together share a paragraph.
+ */
 export function shareText(d: ReportData, reportEmail = ''): { title: string; text: string } {
-	const route = d.landing ? `${d.departure} to ${d.landing.airfield}` : d.departure;
-	const title = `Performance report ${d.aircraft.registration}, ${route}, ${d.createdUtc}, ${d.pilot}`;
+	const runway = (r: string | null | undefined) => (r ? ` RWY ${r}` : '');
+	const from = airfieldCode(d.departure), to = d.landing ? airfieldCode(d.landing.airfield) : null;
+	const title = `Perf. report ${d.aircraft.registration}, ${to ? `${from} to ${to}` : from}, ${d.createdUtc}, ${d.pilot}`;
 	const mb = d.massBalance;
 	const mass = (m: { mass: string }) => `${m.mass} ${mb.units.mass}`;
 	// "at 727.0 kg" only follows a distance, never "No data: pilot's judgement".
 	const distance = (r: ReportDistance, m: { mass: string }) => (r.status === 'ok' ? `${r.headline} at ${mass(m)}` : `${r.headline} (mass ${mass(m)})`);
-	const text = [
-		title,
-		...(reportEmail ? [`Send to: ${reportEmail}`] : []),
-		`Aircraft: ${d.aircraft.registration}, ${d.aircraft.type}, ${d.aircraft.configuration}`,
-		`Pilot: ${d.pilot}`,
-		`Departure: ${d.departure}${d.runway ? ` RWY ${d.runway}` : ''}`,
-		...(d.landing ? [`Landing airfield: ${d.landing.airfield}${d.landing.runway ? ` RWY ${d.landing.runway}` : ''}`] : []),
-		`Created: ${d.createdUtc}`,
-		`Takeoff distance: ${distance(d.results.takeoff, mb.takeoff)}`,
-		`Landing distance: ${distance(d.results.landing, mb.landing)}`,
-		`Report ${d.id}, attached as PDF. ${RESPONSIBILITY}`
-	].join('\n');
-	return { title, text };
+	const paragraphs = [
+		[title],
+		...(reportEmail ? [[`Send to: ${reportEmail}`]] : []),
+		[`Aircraft: ${d.aircraft.registration}, ${d.aircraft.type}, ${d.aircraft.configuration}`, `Pilot: ${d.pilot}`],
+		[`Departure: ${from}${runway(d.runway)}`, ...(d.landing ? [`Landing: ${to}${runway(d.landing.runway)}`] : []), `Created: ${d.createdUtc}`],
+		[`Takeoff distance: ${distance(d.results.takeoff, mb.takeoff)}`, `Landing distance: ${distance(d.results.landing, mb.landing)}`],
+		[`Report ${d.id}, attached as PDF.`, RESPONSIBILITY]
+	];
+	return { title, text: paragraphs.map((lines) => lines.join(SAME_PARAGRAPH)).join('\n') };
 }
 
 /** "Not sent" reports are never removed automatically. */
