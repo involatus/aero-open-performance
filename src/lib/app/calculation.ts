@@ -2,7 +2,7 @@
  * The pilot's Calculation, independent of any screen: its fields, inputs, to-do list and next flight.
  * Everything aircraft-specific comes from the aircraft file.
  */
-import type { Aircraft, CalculationInput, Condition, Performance, WindForDistances } from '../aircraft/schema.ts';
+import type { Aircraft, CalculationInput, Condition, Performance, PowerSetting, WindForDistances } from '../aircraft/schema.ts';
 import { magneticHeading, runwayNumber, surfaceKind, type Airfield, type RunwayEnd } from '../airfield/airfields.ts';
 import type { Calculation as Results } from '../engine/index.ts';
 import { M_PER_FT } from '../engine/units.ts';
@@ -35,6 +35,8 @@ export type Calculation = {
 	changed: Record<string, string>;
 	positions: Record<string, string>;
 	burnPlan: string;
+	/** The power setting the fuel flow comes from. None for an aircraft without power settings, and in older saved calculations. */
+	powerSetting?: string;
 	takeoffCondition: string;
 	landingCondition: string;
 	/** Who chose each condition. None means the first condition, still to choose. */
@@ -64,6 +66,8 @@ export type Field = {
 	range: [number, number];
 	quick: string[];
 	capacity?: number;
+	/** A slider for a quick setting: it pulls onto `snaps`, and `marks` are tappable labels under it. */
+	slider?: { max: number; step: number; snaps: number[]; zone: number; marks: { value: number; label: string; spoken: string }[] };
 	required: boolean;
 	/** Units the pilot can switch between, right in the field. */
 	units?: string[];
@@ -186,6 +190,29 @@ function runwayHint(calc: Parameters<typeof runwayAt>[0], place: Place) {
 }
 
 /** The numeric fields of each step, built from the aircraft file. */
+const QUARTERS = [[0, 'Empty', 'Empty'], [0.25, '¼', 'A quarter'], [0.5, '½', 'Half'], [0.75, '¾', 'Three quarters'], [1, 'Full', 'Full']] as const;
+
+/** A tank's slider: free in whole litres or half gallons, pulled onto a quarter point within 2 % of the capacity. */
+function tankSlider(capacity: number, unit: string): Field['slider'] {
+	const marks = QUARTERS.map(([f, label, spoken]) => ({ value: Number((f * capacity).toFixed(2)), label, spoken: `${spoken}, ${tenths(f * capacity)} ${unit}` }));
+	return { max: capacity, step: unit === 'USgal' ? 0.5 : 1, snaps: marks.map((m) => m.value), zone: capacity * 0.02, marks };
+}
+
+/**
+ * Flight time: up to how long full tanks last at the aircraft's fuel flow (its lowest, so the longest
+ * time), or 4 hours when the aircraft has none. Moved in 3 minutes, and pulled onto a quarter hour within 2.4 minutes.
+ */
+function timeSlider(a: Aircraft): Field['slider'] {
+	const flows = [...(a.powerSettings ?? []).map((p) => p.fuelFlow), ...(a.fuelFlow ? [a.fuelFlow.value] : [])];
+	const full = a.tanks.reduce((sum, t) => sum + t.capacity, 0);
+	const hours = flows.length ? full / Math.min(...flows) : 4;
+	const max = Math.min(24, Math.max(1, Math.ceil(hours * 4) / 4));
+	const every = max > 8 ? 2 : 1;
+	const snaps = Array.from({ length: Math.floor(max * 4) + 1 }, (_, i) => i / 4);
+	const marks = Array.from({ length: Math.floor(max / every) + 1 }, (_, i) => i * every).map((h) => ({ value: h, label: `${h}`, spoken: `${h} hours` }));
+	return { max, step: 0.05, snaps, zone: 0.04, marks };
+}
+
 export function fieldsFor(a: Aircraft, calc: Pick<Calculation, 'elevationUnit'> & Partial<Pick<Calculation, 'values' | 'landingElsewhere' | 'weather' | 'landingWeather' | 'sources' | 'status' | 'airfield' | 'landingAirfield'>>): Field[][] {
 	const mass = a.units.mass, step = massStep(mass), maxMass = a.massLimits.maxTakeoff.value;
 	const arm = (x: number) => `arm ${x.toFixed(a.display.armDecimals)} ${a.units.arm}`;
@@ -196,15 +223,16 @@ export function fieldsFor(a: Aircraft, calc: Pick<Calculation, 'elevationUnit'> 
 		// A station with seat stops has no single arm, so only its limit is shown.
 		meta: meta(s.arm !== undefined && !s.positions && arm(s.arm), s.maxMass !== undefined && `max ${s.maxMass}`)
 	}));
-	const volume = a.units.volume, fuelStep = volume === 'USgal' ? '5' : '10';
+	const volume = a.units.volume;
 	const fuel: Field[] = a.tanks.map((t) => ({
 		key: `fuel:${t.id}`, label: t.label, unit: volume, decimals: true, negative: false,
 		// An empty tank is empty. The to-do list only asks when every tank is.
-		range: [0, t.capacity * 2], quick: [`-${fuelStep}`, `+${fuelStep}`, 'Full'], capacity: t.capacity, required: false,
-		meta: meta(arm(t.arm), `holds ${tenths(t.capacity)}`)
+		range: [0, t.capacity * 2], quick: [], capacity: t.capacity, required: false,
+		meta: meta(arm(t.arm), `holds ${tenths(t.capacity)}`),
+		slider: tankSlider(t.capacity, volume)
 	}));
 	fuel.push(
-		{ key: 'time', label: 'Flight time to landing', unit: 'h', decimals: true, negative: false, range: [0, 24], quick: ['=0.5', '=1', '=1.5', '=2'], required: true },
+		{ key: 'time', label: 'Flight time to landing', unit: 'h', decimals: true, negative: false, range: [0, 24], quick: [], required: true, slider: timeSlider(a) },
 		{ key: 'flow', label: 'Fuel flow', unit: `${volume}/h`, decimals: true, negative: false, range: [0, 500], quick: [], required: true }
 	);
 	const elevMax = calc.elevationUnit === 'm' ? 6000 : 20000;
@@ -240,14 +268,35 @@ export function newCalculation(a: Aircraft, id: string, now: number): Calculatio
 /** Values from the aircraft data, such as the fuel flow. Anything the pilot typed stays. */
 function applyAircraftData(a: Aircraft, calc: Calculation) {
 	if (calc.status.flow === 'pilot') return;
-	if (!a.fuelFlow) {
+	const settings = a.powerSettings ?? [];
+	const setting = settings.find((p) => p.id === calc.powerSetting) ?? settings[0];
+	if (setting) calc.powerSetting = setting.id; else delete calc.powerSetting;
+	const flow = setting?.fuelFlow ?? a.fuelFlow?.value;
+	if (flow === undefined) {
 		if (calc.sources.flow === AIRCRAFT_DATA) { delete calc.values.flow; delete calc.status.flow; delete calc.sources.flow; }
 		return;
 	}
-	calc.values.flow = tenths(a.fuelFlow.value);
+	calc.values.flow = tenths(flow);
 	calc.status.flow = 'ok';
 	calc.sources.flow = AIRCRAFT_DATA;
 	delete calc.changed.flow;
+}
+
+/** The power setting the fuel flow comes from, or null when the pilot typed the fuel flow or the aircraft has none. */
+export function chosenPowerSetting(a: Aircraft, calc: Calculation): PowerSetting | null {
+	if (calc.status.flow === 'pilot') return null;
+	return a.powerSettings?.find((p) => p.id === calc.powerSetting) ?? null;
+}
+
+/**
+ * The pilot picks a power setting: its fuel flow replaces any the pilot typed. `null` is "Other":
+ * the fuel flow becomes the pilot's own, kept as it is until they type another.
+ */
+export function choosePowerSetting(a: Aircraft, calc: Calculation, id: string | null) {
+	if (id === null) { setByPilot(calc, 'flow', calc.values.flow ?? ''); return; }
+	calc.powerSetting = id;
+	delete calc.status.flow;
+	applyAircraftData(a, calc);
 }
 
 /** A Prefilled Value waits for the pilot's confirmation. Anything the pilot typed is never replaced. */
@@ -539,6 +588,7 @@ export function nextFlight(a: Aircraft, calc: Calculation, results: Results, id:
 	n.configuration = calc.configuration;
 	n.positions = { ...calc.positions };
 	n.burnPlan = calc.burnPlan;
+	if (calc.powerSetting) n.powerSetting = calc.powerSetting;
 	n.takeoffCondition = calc.takeoffCondition;
 	n.landingCondition = calc.landingCondition;
 	n.elevationUnit = calc.elevationUnit;

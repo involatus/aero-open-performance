@@ -8,7 +8,7 @@ import type { PerformanceResult } from '../engine/performance.ts';
 import { ignoresEnteredTailwind } from '../engine/wind.ts';
 import type { DistanceText } from '../app/presentation.ts';
 import { limitText } from '../engine/mass-balance.ts';
-import { baseKey, canReport, conditionSource, degrees, fieldsFor, magneticWind, notesFor, placeOfKey, runwayAt, runwayText, isVariableWind, keyAt, toInput, type Calculation, type Phase, type Place, weatherAt, windChoiceAt } from '../app/calculation.ts';
+import { baseKey, canReport, chosenPowerSetting, conditionSource, degrees, fieldsFor, magneticWind, notesFor, placeOfKey, runwayAt, runwayText, isVariableWind, keyAt, toInput, type Calculation, type Phase, type Place, weatherAt, windChoiceAt } from '../app/calculation.ts';
 import { altitudeText, distanceText, landingConditions, sourceText, utcText, valueSource, limitBadge, massBalanceRows, windChoiceText, windText, workingRows, type WorkingRow } from '../app/presentation.ts';
 import { lookupView, type LookupView } from '../app/lookup-grid.ts';
 
@@ -31,7 +31,6 @@ type Sourced = { value: string; source: string };
 export type ReportData = {
 	id: string;
 	createdUtc: string;
-	preRelease: boolean;
 	fictional: boolean;
 	aircraft: { registration: string; type: string; revision: number; configuration: string };
 	pilot: string;
@@ -52,6 +51,8 @@ export type ReportData = {
 		/** Flight time and fuel flow sit with the burn. Reports made before this have them under conditions. */
 		time?: Sourced;
 		flow?: Sourced;
+		/** The power setting the fuel flow comes from, by name. */
+		powerSetting?: string;
 		burnPlan: string;
 		burned: string;
 		units: { mass: string; arm: string; volume: string };
@@ -135,7 +136,7 @@ function working(a: Aircraft, title: string, r: PerformanceResult): ReportWorkin
 	return { title: `${title}, ${r.conditionLabel}`, rows: workingRows(a, r), tables };
 }
 
-export type ReportMeta = { id: string; now: number; toolVersion: string; dataRelease: string; lastDataCheck: string; preRelease: boolean; chartSvg: string };
+export type ReportMeta = { id: string; now: number; toolVersion: string; dataRelease: string; lastDataCheck: string; chartSvg: string };
 
 /** Refuses to create a Report unless everything is confirmed and no limit is exceeded. */
 export function createReportData(a: Aircraft, calc: Calculation, r: Results, meta: ReportMeta): ReportData {
@@ -206,7 +207,6 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 	const data: ReportData = {
 		id: meta.id,
 		createdUtc: utcText(meta.now),
-		preRelease: meta.preRelease,
 		fictional: a.fictional === true,
 		aircraft: { registration: a.registration, type: a.type, revision: a.revision, configuration: config.label },
 		pilot: calc.values.name.trim(),
@@ -236,6 +236,7 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 			}))(massBalanceRows(a, r)),
 			time: sourced('time'),
 			flow: sourced('flow'),
+			...(chosenPowerSetting(a, calc) ? { powerSetting: chosenPowerSetting(a, calc)!.label } : {}),
 			burnPlan: plan.label,
 			burned: `${r.massBalance.burned.toFixed(1)} ${u.volume}`,
 			units: { mass: u.mass, arm: u.arm, volume: u.volume }
@@ -398,7 +399,7 @@ export function reportDocument(data: ReportData) {
 	// A condition the airfield list settled shares that list's mark; otherwise the pilot chose it.
 	const conditionMark = (r: ReportDistance, scope: string) => marks.mark(L ? scope : '', r.conditionSource ?? 'Chosen by pilot');
 	const place = (airfield: string, runway: string | null | undefined) => `${airfield}${runway ? ` RWY ${runway}` : ''}`;
-	const warning = [d.preRelease && 'PRE-RELEASE, NOT FOR FLIGHT', d.fictional && 'FICTIONAL AIRCRAFT WITH INVENTED DATA'].filter(Boolean).join(' · ');
+	const warning = d.fictional ? 'FICTIONAL AIRCRAFT WITH INVENTED DATA' : '';
 
 	// A value, then its source's mark in a narrow column of its own, so the numbers stay aligned.
 	const valueCells = (v: { value: string; source: string } | undefined, scope: string) =>
@@ -417,7 +418,7 @@ export function reportDocument(data: ReportData) {
 		? { text: [
 			{ text: 'Burn plan ', color: MUTED }, m.burnPlan, ' · ',
 			{ text: m.time.value, font: MONO }, ...sup(marks.mark('', m.time.source)), ' × ',
-			{ text: m.flow.value, font: MONO }, ...sup(marks.mark('', m.flow.source)), ' = ',
+			{ text: m.flow.value, font: MONO }, ...sup(marks.mark('', m.flow.source)), ...(m.powerSetting ? [{ text: ` (${m.powerSetting})`, color: MUTED }] : []), ' = ',
 			{ text: m.burned, font: MONO, bold: true }
 		] }
 		: { text: `Burn plan: ${m.burnPlan}. Burned ${m.burned}.` };

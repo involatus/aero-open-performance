@@ -175,6 +175,37 @@ test('a US manual is typed in lb and inches, pilots get kg and cm, and the envel
 	expect(errors).toEqual([]);
 });
 
+test('power settings: one tap adds 75, 65 and 55 %, an earlier fuel flow becomes the first, and names follow power and mixture', async ({ page }) => {
+	const errors = await failOnErrors(page);
+	await page.goto('/admin');
+	await page.getByRole('button', { name: 'Add aircraft' }).click();
+	await page.getByLabel('New registration').fill('HB-PWR');
+	await page.getByRole('dialog').getByRole('button', { name: 'Add aircraft' }).click();
+	const tab = (name: string) => page.getByRole('navigation').getByRole('button', { name, exact: true }).click();
+	await tab('Documents');
+	await page.getByLabel('Document').first().fill('POH Test');
+	await page.getByLabel('Document').first().blur();
+
+	await tab('Fuel');
+	await page.getByLabel('Typical fuel flow').fill('24');
+	await page.getByRole('button', { name: 'Add 75 %, 65 % and 55 %' }).click();
+	await expect(page.getByLabel('Typical fuel flow')).toHaveCount(0);
+	await page.getByLabel('Mixture').last().selectOption('bestEconomy');
+	await page.getByRole('textbox', { name: 'Fuel flow', exact: true }).last().fill('19.5');
+
+	await tab('Edit as JSON');
+	const json = JSON.parse(await page.getByLabel('Aircraft file as JSON').inputValue());
+	expect(json.fuelFlow).toBeUndefined();
+	expect(json.powerSettings.map((p: any) => [p.label, p.percent, p.mixture, p.fuelFlow])).toEqual([
+		['Typical cruise', undefined, undefined, 24], ['75 %', 75, undefined, 0], ['65 %', 65, undefined, 0], ['55 % best economy', 55, 'bestEconomy', 19.5]
+	]);
+	await page.getByRole('button', { name: 'Save draft' }).click();
+	await page.getByRole('button', { name: 'Saved', exact: true }).waitFor();
+	await page.getByRole('button', { name: 'Back to list' }).click();
+	await api(page, 'deleteDraft', { id: 'HB-PWR' });
+	expect(errors).toEqual([]);
+});
+
 test('publishing is blocked until the checks pass, then pilots get the data', async ({ page, browser }) => {
 	await page.goto('/admin');
 	await page.getByRole('button', { name: 'Settings' }).click();

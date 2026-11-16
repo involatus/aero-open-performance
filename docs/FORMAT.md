@@ -1,6 +1,6 @@
 # Aircraft data format and calculation rules
 
-Format version 0.4.0. Version 0.4.0 added `surface` on conditions and `"VRB"` as a wind direction, 0.3.0 added `appliesTo` on notes and `carries` on stations, and 0.2.0 added Operator Rules to the release index. Older files are still read. This document is the complete definition of how an aircraft file is read and calculated. Another implementation must be able to produce the same results from this document alone. The machine-readable shape is in [schema/aircraft.schema.json](../schema/aircraft.schema.json), and examples are in [aircraft-examples/](../aircraft-examples/). All example values are invented.
+Format version 0.5.0. Version 0.5.0 added `powerSettings`, 0.4.0 added `surface` on conditions and `"VRB"` as a wind direction, 0.3.0 added `appliesTo` on notes and `carries` on stations, and 0.2.0 added Operator Rules to the release index. Older files are still read. This document is the complete definition of how an aircraft file is read and calculated. Another implementation must be able to produce the same results from this document alone. The machine-readable shape is in [schema/aircraft.schema.json](../schema/aircraft.schema.json), and examples are in [aircraft-examples/](../aircraft-examples/). All example values are invented.
 
 One strict JSON file describes one registered aircraft. Unknown fields are errors. Every value stays in the manual's own units. Nothing has a hidden default.
 
@@ -23,6 +23,7 @@ One strict JSON file describes one registered aircraft. Unknown fields are error
 | `mac` | Optional: `leadingEdgeArm`, `length`, `source`. Required if the envelope uses `percentMac` |
 | `burnPlans`, `defaultBurnPlan` | Burn Plans and the preselected one |
 | `fuelFlow`, `crosswind` | Optional `{ value, source }`. Fuel flow is volume per hour, and crosswind is in knots |
+| `powerSettings` | Optional. Cruise power settings from the manual, the first preselected: `id`, `label`, `fuelFlow` (volume per hour), `source`, and optional `percent`, `rpm`, `manifoldPressure` (inHg) and `mixture` (`bestPower` or `bestEconomy`). An aircraft has `powerSettings` or `fuelFlow`, not both |
 | `notes` | Manual rules for the pilot to confirm: `id`, `text`, `source`, and optional `appliesTo` with `configurations`, `takeoffConditions` and `landingConditions` id lists. A note is shown, asked for and printed only when every list it has holds the pilot's choice; a missing list means any choice |
 | `tables` | Named tables. Each has `axes`, `outputs`, `source` and, once a person compared it with the manual, `checked` |
 | `performance` | `takeoff` and `landing`, each a list of conditions |
@@ -42,7 +43,7 @@ A **Configuration** has `id`, `label` and `weighing` (`mass`, `moment`, `date`, 
 | `loads` | Per station id: `{ mass, position? }`, in the aircraft's mass unit. A missing station has zero mass. A missing `position` uses `defaultPosition` |
 | `fuel` | Per tank id: volume at takeoff. A missing tank has zero |
 | `burnPlan` | Burn Plan id |
-| `flightTimeHours`, `fuelFlow` | Burned volume = `flightTimeHours × fuelFlow` |
+| `flightTimeHours`, `fuelFlow` | Burned volume = `flightTimeHours × fuelFlow`. With power settings, `fuelFlow` is the chosen setting's, unless the pilot typed one |
 | `elevation` | `{ value, unit }` in `m` or `ft`, or `null` |
 | `qnh` | hPa, or `null` |
 | `oat` | °C, or `null` |
@@ -90,6 +91,7 @@ Each check passes when the value is at most the limit plus `EPSILON`, so a value
 | `takeoffMass`, `landingMass` | Mass | `maxTakeoff`, `maxLanding` |
 | `takeoffCg`, `landingCg` | Mass and arm | Inside the envelope |
 | `fuelBurn` | Burned volume | Exceeded when the flight exceeds the fuel |
+| `finalReserve` | Fuel volume left at landing, all tanks | The final reserve: `minutes / 60 × fuelFlow`, with `minutes` from the Operator Rules' `finalReserve`, or 30. Checked only when `flightTimeHours` is above 0 and `fuelBurn` isn't exceeded; exceeded when the fuel left is below the reserve by more than `EPSILON` |
 
 When crosswind is above the `crosswind` value by more than `EPSILON`, the mass and balance limits list gains a warning with the id `crosswind`. It is never an exceeded limit, and doesn't count among a distance result's warnings.
 
@@ -206,6 +208,8 @@ The release index may hold `operatorRules`, the operator's own corrections. The 
 
 **`wind`** (`headwind?: { percent, perKnots }`, `tailwind?: { percent, perKnots, maxKnots? }`): for a chain with no `wind` step. After the last step, both `total` and `groundRoll` are multiplied as a proportional `wind` rule would, with `above: none` for `maxKnots`. With no `headwind`, a headwind gives no credit, and the working says so. Wind is then required, as for a `wind` step.
 
+**`finalReserve`** (`minutes`, at least 30): a club's longer final reserve, used by the `finalReserve` limit for every aircraft in the release. Without it the limit uses 30 minutes, the day VFR minimum for aeroplanes (Part-NCO).
+
 **`aboveTable`** (`takeoffPercentPer1000ft`, `landingPercentPer1000ft`, `alertAboveM`): for an axis whose input is `pressureAltitude`, `densityAltitude` or `elevation`, with `above: none` and at least two values, when the input is above the last value. Only the first such axis of a lookup is extended. The lookup reads the table at the last value, giving `D_top`, and at the one before it, giving `D_below`, with every other axis as usual. Each output is then multiplied by the larger of:
 
 ```
@@ -243,6 +247,8 @@ npm run data -- publish --source my-aircraft --out static/data --release 2 --ope
 
 To withdraw an aircraft, add `--withdraw "HB-XXX=Reason"` and leave its file in the source folder.
 
+Add `--rules <file>` to check or publish with Operator Rules, given as a release's `index.json` or as the rules alone. Hand-calculated cases that rely on an Operator Rule, such as a wind correction the manual doesn't give, only pass with them. Publishing without `--rules` keeps the previous release's rules.
+
 ### Publish checks
 
 Publishing fails, with no override, unless every file passes all of these:
@@ -256,4 +262,4 @@ Publishing fails, with no override, unless every file passes all of these:
 
 ## Hand-calculated cases
 
-Each case has `id`, `label`, `author`, `date`, `input` and `expected`. Compare displayed values exactly: mass and arm as text with `display` decimals, in `manualUnits` when the file has them and in `units` otherwise, distances as rounded numbers, and status as given. `expected.exceeded` lists every limit id exceeded by the inputs. Fields left out of `expected`, other than `exceeded`, aren't compared.
+Each case has `id`, `label`, `author`, `date`, `input` and `expected`. Compare displayed values exactly: mass and arm as text with `display` decimals, in `manualUnits` when the file has them and in `units` otherwise, distances as rounded numbers, and status as given. `expected.exceeded` lists every limit id exceeded by the inputs, except `finalReserve`, which comes from the Operator Rules rather than the manual. Fields left out of `expected`, other than `exceeded`, aren't compared.

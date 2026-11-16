@@ -1,28 +1,48 @@
 <script lang="ts" module>
-	const PATHS = {
-		plus: 'M12 5v14M5 12h14',
-		'chevron-right': 'M9 6l6 6-6 6',
-		'chevron-left': 'M15 6l-6 6 6 6',
-		check: 'M5 12l5 5 9-10',
-		close: 'M6 6l12 12M18 6L6 18',
-		list: 'M4 6h16M4 12h16M4 18h10',
-		slope: 'M4 18L20 6',
-		info: 'M12 11v5M12 8h.01'
+	/*
+	 * Every icon in the app comes from Lucide (https://lucide.dev), through this one component,
+	 * so they share one stroke style. Add a name here rather than drawing an icon or using a text glyph.
+	 */
+	import Check from '@lucide/svelte/icons/check';
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import CloudSun from '@lucide/svelte/icons/cloud-sun';
+	import Delete from '@lucide/svelte/icons/delete';
+	import Ellipsis from '@lucide/svelte/icons/ellipsis';
+	import Fuel from '@lucide/svelte/icons/fuel';
+	import Info from '@lucide/svelte/icons/info';
+	import List from '@lucide/svelte/icons/list';
+	import Plus from '@lucide/svelte/icons/plus';
+	import Scale from '@lucide/svelte/icons/scale';
+	import Send from '@lucide/svelte/icons/send';
+	import Share from '@lucide/svelte/icons/share';
+	import SquarePlus from '@lucide/svelte/icons/square-plus';
+	import X from '@lucide/svelte/icons/x';
+
+	const ICONS = {
+		plus: Plus,
+		'chevron-right': ChevronRight,
+		'chevron-left': ChevronLeft,
+		check: Check,
+		close: X,
+		list: List,
+		info: Info,
+		more: Ellipsis,
+		backspace: Delete,
+		load: Scale,
+		fuel: Fuel,
+		conditions: CloudSun,
+		send: Send,
+		share: Share,
+		'add-to-home': SquarePlus
 	} as const;
-	export type IconName = keyof typeof PATHS | 'more' | 'info';
+	export type IconName = keyof typeof ICONS;
 </script>
 
 <script lang="ts">
 	let { name, size = 16, stroke = 2, class: className = '' }: { name: IconName; size?: number; stroke?: number; class?: string } = $props();
+	const Glyph = $derived(ICONS[name]);
 </script>
 
 <!-- Decorative only: the control around it carries the name. -->
-<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width={stroke} stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class={['flex-none', className]}>
-	{#if name === 'more'}
-		<circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" />
-	{:else if name === 'info'}
-		<circle cx="12" cy="12" r="9" /><path d={PATHS.info} />
-	{:else}
-		<path d={PATHS[name]} />
-	{/if}
-</svg>
+<Glyph {size} strokeWidth={stroke} aria-hidden="true" class={['flex-none', className]} />

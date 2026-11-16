@@ -14,6 +14,7 @@
 	import ChooseAircraft from '#lib/components/pilot/ChooseAircraft.svelte';
 	import LoadStep from '#lib/components/pilot/steps/LoadStep.svelte';
 	import SavedValues from '#lib/components/pilot/SavedValues.svelte';
+	import InstallPrompt from '#lib/components/pilot/InstallPrompt.svelte';
 	import FuelStep from '#lib/components/pilot/steps/FuelStep.svelte';
 	import ConditionsStep from '#lib/components/pilot/steps/ConditionsStep.svelte';
 	import SendStep from '#lib/components/pilot/steps/SendStep.svelte';
@@ -68,6 +69,13 @@
 	const makeId = () => `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
 
 	onMount(() => {
+		// The home-screen shortcuts open the app at the aircraft list or at Reports.
+		const opening = new URL(location.href).searchParams.get('open');
+		if (opening) {
+			history.replaceState(history.state, '', location.pathname);
+			if (opening === 'new') choosing = true;
+			if (opening === 'reports') showReports = true;
+		}
 		app.load().then(() => app.check());
 		const online = () => { now = Date.now(); app.check(); };
 		addEventListener('online', online);
@@ -203,7 +211,8 @@
 		if (padKey === key) return;
 		padKey = key;
 		padFresh = true;
-		tick().then(() => document.getElementById(`w-${key}`)?.scrollIntoView({ block: 'center' }));
+		// Scroll padding keeps it clear of the summary and the keypad: see covers.ts.
+		tick().then(() => document.getElementById(`w-${key}`)?.scrollIntoView({ block: 'nearest' }));
 	}
 	function closePad() { padKey = null; }
 	function press(key: string) {
@@ -258,6 +267,7 @@
 		active={padKey === field.key}
 		onopen={() => openPad(field.key)}
 		onquick={(op) => quick(field, op)}
+		onslide={(v) => setByPilot(calc!, field.key, String(v))}
 		onconfirm={() => confirmValue(calc!, field.key)}
 		onunit={(u) => (calc!.elevationUnit = u as 'm' | 'ft')}
 	/>
@@ -336,7 +346,7 @@
 						<div><Button variant={confirmDelete ? 'danger' : 'danger-quiet'} onclick={deleteTab}>{confirmDelete ? 'Tap again to delete this tab' : 'Delete this tab'}</Button></div>
 					</section>
 				{:else}
-					<SummaryStrip {aircraft} {results} todoCount={todo.length} exceededCount={exceededLimits.length} onproblem={goToFirstProblem} ondone={() => goStep(3)} />
+					<SummaryStrip {aircraft} {results} compact={!!padField} todoCount={todo.length} exceededCount={exceededLimits.length} onproblem={goToFirstProblem} ondone={() => goStep(3)} />
 
 					<div class="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,400px)]">
 						<div class="flex min-w-0 flex-col gap-4">
@@ -378,3 +388,4 @@
 	</main>
 </Tabs.Root>
 <SavedValues bind:open={showSaved} saved={app.saved} onsaved={(list) => app.setSaved(list)} name={app.pilotName} onname={(n) => app.setPilotName(n)} />
+<InstallPrompt />

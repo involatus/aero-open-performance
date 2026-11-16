@@ -556,3 +556,22 @@ test('landing at another airfield: its own conditions for the landing, on the Re
 	await expect(page.locator('#f-place')).toHaveValue('LSYY');
 	expect(errors).toEqual([]);
 });
+
+test('power settings: the first is preselected, picking one sets the fuel flow, and typing one is Other', async ({ page }) => {
+	const errors = await failOnErrors(page);
+	await page.goto('/');
+	await page.getByRole('button', { name: /^TEST-SR/ }).click();
+	await stepButton(page, '2 · Fuel').click();
+	const settings = page.getByRole('group', { name: 'Power setting' });
+	const chosen = settings.locator('[data-state=on]');
+	await expect(chosen).toContainText('75 % best power');
+	await expect(page.locator('#f-flow')).toHaveValue('17.5');
+	await settings.getByText('55 % best economy').click();
+	await expect(page.locator('#f-flow')).toHaveValue('11.4');
+	await expect(settings.getByText('2500 rpm · best economy · 11.4 USgal/h')).toBeVisible();
+	await type(page, 'flow', '14');
+	await expect(chosen).toContainText('Other');
+	await settings.getByText('65 % best power').click();
+	await expect(page.locator('#f-flow')).toHaveValue('15.2');
+	expect(errors).toEqual([]);
+});

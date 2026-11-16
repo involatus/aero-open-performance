@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { validateAircraft } from '../aircraft/validate.ts';
 import { calculate } from '../engine/index.ts';
 import { atmosphere } from '../engine/atmosphere.ts';
-import { altitudeText, distanceText, limitBadge, massBalanceRows, statusWord, windChoiceText, windText, workingRows } from './presentation.ts';
+import { altitudeText, distanceText, limitBadge, massBalanceRows, powerSettingDetail, progressStatus, statusWord, windChoiceText, windText, workingRows } from './presentation.ts';
 
 const aircraft = (n: string) => {
 	const v = validateAircraft(JSON.parse(readFileSync(`aircraft-examples/${n}.json`, 'utf8')));
@@ -61,5 +61,22 @@ describe('wind for the distances', () => {
 	});
 	it('says when the choice leaves out a stronger entered tailwind', () => {
 		expect(windChoiceText(tail, 'none')).toMatch(/^No wind chosen: the entered \d+ kt tailwind is not used$/);
+	});
+});
+
+describe('progressStatus', () => {
+	it('puts a limit over before inputs still to do, and says so in short and long form', () => {
+		expect(progressStatus(3, 2)).toEqual({ tone: 'over', short: '2 over', long: '2 limits over' });
+		expect(progressStatus(3, 1).long).toBe('1 limit over');
+		expect(progressStatus(3, 0)).toEqual({ tone: 'todo', short: '3 to do', long: '3 to do' });
+		expect(progressStatus(0, 0)).toEqual({ tone: 'done', short: 'Done', long: 'All checked' });
+	});
+});
+
+describe('powerSettingDetail', () => {
+	it('says how to set it, leaving out what the manual does not give', () => {
+		expect(powerSettingDetail({ rpm: 2300, manifoldPressure: 23, mixture: 'bestEconomy' })).toBe('2300 rpm · 23 inHg · best economy');
+		expect(powerSettingDetail({ percent: 65 })).toBe('');
+		expect(powerSettingDetail({ percent: 65, rpm: 2400 }, true)).toBe('65 % · 2400 rpm');
 	});
 });

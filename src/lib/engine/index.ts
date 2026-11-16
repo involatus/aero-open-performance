@@ -99,7 +99,9 @@ export function runHandCases(a: Aircraft): CaseFailure[] {
 			if (want.total !== undefined) compare(`${phase}.total`, want.total, got.total);
 			if (want.groundRoll !== undefined) compare(`${phase}.groundRoll`, want.groundRoll, got.groundRoll);
 		}
-		compare('exceeded', [...e.exceeded].sort().join(','), [...r.exceeded].sort().join(','));
+		// Limits set by an Operator Rule aren't manual data, so hand cases leave them out.
+		const fromManual = r.massBalance.limits.filter((l) => l.status === 'exceeded' && !l.fromRule).map((l) => l.id);
+		compare('exceeded', [...e.exceeded].sort().join(','), fromManual.sort().join(','));
 	});
 	return failures;
 }

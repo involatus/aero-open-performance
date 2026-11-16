@@ -34,7 +34,7 @@
 								{tab.aircraft} <span class={['truncate font-normal', active ? 'text-faint' : 'text-muted']}>{rest}</span>
 							</Tabs.Trigger>
 							{#if active}
-								<button type="button" aria-label={`Close ${labels[i]}`} onclick={() => onclosetab(i)} class="mr-1 size-9 min-h-0 rounded-md border-0 bg-transparent p-0 text-lg font-normal text-faint hover:text-surface">×</button>
+								<button type="button" aria-label={`Close ${labels[i]}`} onclick={() => onclosetab(i)} class="mr-1 flex size-9 min-h-0 items-center justify-center rounded-md border-0 bg-transparent p-0 text-faint hover:text-surface"><Icon name="close" size={18} /></button>
 							{/if}
 						</div>
 					{/each}
