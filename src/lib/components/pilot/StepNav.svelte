@@ -30,10 +30,10 @@
 					type="button"
 					aria-current={i === step ? 'step' : undefined}
 					onclick={() => ongo(i)}
-					class="flex min-h-[52px] w-full min-w-0 flex-col items-start justify-center gap-0.5 rounded-[7px] border-0 bg-transparent px-3 py-1.5 text-left font-semibold text-ink aria-[current=step]:bg-surface aria-[current=step]:font-bold aria-[current=step]:shadow-raised phone:items-center phone:px-1 phone:text-center"
+					class="group flex min-h-[52px] w-full min-w-0 flex-col items-start justify-center gap-0.5 rounded-[7px] border-0 bg-transparent px-3 py-1.5 text-left font-semibold text-ink aria-[current=step]:bg-surface aria-[current=step]:font-bold aria-[current=step]:shadow-current phone:items-center phone:px-1 phone:text-center"
 				>
 					<span class="relative hidden phone:block">
-						<Icon name={ICONS[i]} size={20} />
+						<span class="block group-aria-[current=step]:text-accent"><Icon name={ICONS[i]} size={20} /></span>
 						<span
 							aria-hidden="true"
 							class={[
@@ -45,7 +45,7 @@
 							{#if p.tone === 'over'}{over[i]}{:else if p.tone === 'todo'}{left[i]}{:else}<Icon name="check" size={10} stroke={3.5} />{/if}
 						</span>
 					</span>
-					<span class="max-w-full truncate text-[15px] phone:text-[13px] max-[359px]:text-xs"><span class="phone:hidden">{i + 1} ·</span> {name}</span>
+					<span class="max-w-full truncate text-[15px] phone:text-[13px] max-[359px]:text-xs"><span class="phone:hidden group-aria-[current=step]:text-accent">{i + 1} ·</span> {name}</span>
 					<span class={['phone:sr-only truncate text-xs font-normal', TEXT[p.tone]]}>
 						{p.short}
 					</span>

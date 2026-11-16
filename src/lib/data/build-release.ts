@@ -5,6 +5,7 @@
 import { FORMAT_VERSION } from '../aircraft/schema.ts';
 import { sha256 } from './canonical.ts';
 import type { OperatorRules } from '../aircraft/operator-rules.ts';
+import type { OperatorLogo } from './logo.ts';
 import { publishChecks } from './publish-checks.ts';
 import { describeChanges, parseIndex, type Change, type ReleaseEntry, type ReleaseIndex } from './release.ts';
 
@@ -17,6 +18,8 @@ export type ReleaseRequest = {
 	notes?: string;
 	/** Carried by the index to every aircraft, and used for the hand-calculated cases. */
 	operatorRules?: OperatorRules;
+	/** Carried by the index; the app shows it and prints it on Reports. */
+	logo?: OperatorLogo;
 	withdraw?: Record<string, string>;
 	/** Keeps every previously published aircraft that isn't in `drafts` or `withdraw`, unchanged. */
 	carryOver?: boolean;
@@ -66,6 +69,6 @@ export async function buildRelease(r: ReleaseRequest): Promise<BuiltRelease> {
 	if (problems.length) return { ok: false, problems };
 
 	const notes = r.notes?.trim();
-	const index = parseIndex({ formatVersion: FORMAT_VERSION, operator: r.operator.trim(), release: r.release, published: new Date(r.now).toISOString(), ...(notes ? { notes } : {}), ...(r.operatorRules ? { operatorRules: r.operatorRules } : {}), aircraft: entries });
+	const index = parseIndex({ formatVersion: FORMAT_VERSION, operator: r.operator.trim(), release: r.release, published: new Date(r.now).toISOString(), ...(notes ? { notes } : {}), ...(r.operatorRules ? { operatorRules: r.operatorRules } : {}), ...(r.logo ? { logo: r.logo } : {}), aircraft: entries });
 	return { ok: true, index, files, changes: describeChanges(r.previous, index) };
 }

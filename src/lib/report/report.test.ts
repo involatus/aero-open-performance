@@ -180,6 +180,17 @@ describe('Report layout', () => {
 		d.working.forEach((w) => w.tables?.forEach((t) => delete t.step));
 		expect(text(reportDocument(d))).toContain('printed values used');
 	});
+	it('carries the AoP name and the Operator\'s logo, and renders without a logo too', () => {
+		const a = load('test-dr-style'), c = ready(a), logo = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 1"><rect width="4" height="1"/></svg>');
+		const d = createReportData(a, c, calculate(a, toInput(a, c)), { ...meta(a, c), logo });
+		expect(d.logo).toBe(logo);
+		const doc = JSON.stringify(reportDocument(d));
+		expect(doc).toContain('viewBox=\\"0 0 4 1\\"');
+		expect(text(reportDocument(d))).toContain('Aero Open Performance 0.1.0');
+		const plain = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
+		expect('logo' in plain).toBe(false);
+		expect(text(reportDocument(plain))).toContain('Aero Open Performance');
+	});
 	it('still renders Reports made before the lookup tables', () => {
 		const a = load('test-dr-style'), c = ready(a), d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
 		d.working.forEach((w) => delete w.tables);

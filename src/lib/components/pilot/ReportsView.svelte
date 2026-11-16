@@ -2,6 +2,7 @@
 	import { deliveryLabel, RETENTION_DAYS, type StoredReport } from '#lib/report/report.ts';
 	import Button from '../ui/Button.svelte';
 	import Card from '../ui/Card.svelte';
+	import Illustration from '../ui/Illustration.svelte';
 
 	let { reports, error, onshare, onopen, ondelete, onback }: {
 		reports: StoredReport[]; error: string;
@@ -25,7 +26,12 @@
 	</div>
 	{#if error}<div class="banner notsent" role="alert">{error}</div>{/if}
 	<Card flush>
-		{#if !reports.length}<p class="p-5">No reports yet. Reports appear here once you create them on the Send step.</p>{/if}
+		{#if !reports.length}
+			<div class="flex items-center gap-4 p-5">
+				<Illustration name="send-report" />
+				<p>No reports yet. Reports appear here once you create them on the Send step.</p>
+			</div>
+		{/if}
 		<ul class="m-0 list-none p-0" aria-label="Reports">
 			{#each reports as report (report.id)}
 				<li class="flex flex-wrap items-center justify-between gap-3 border-t border-divider px-5 py-3.5 first:border-t-0">

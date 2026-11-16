@@ -129,6 +129,18 @@ describe('publishing', () => {
 		// The aircraft files stay as they were, so pilots' copies still match their checksums.
 		expect((await listDrafts(s))[0].published?.same).toBe(true);
 	});
+	it('publishes the Operator logo with the release, and refuses one that is not an image', async () => {
+		const light = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 1"><rect width="4" height="1"/></svg>');
+		await expect(saveSettings(s, { operator: 'Test club', logo: { light: 'data:image/png;base64,AAAA' } })).rejects.toThrow('logo is not valid');
+		expect(await saveSettings(s, { operator: 'Test club', logo: { light } })).toEqual({ operator: 'Test club', logo: { light } });
+		const r = await publish(s, {}, ADMIN, NOW);
+		if (!r.ok) throw new Error(r.problems.join('\n'));
+		expect((await latestIndex(s))?.logo).toEqual({ light });
+		await saveSettings(s, { operator: 'Test club' });
+		const next = await publish(s, {}, ADMIN, NOW + 1);
+		if (!next.ok) throw new Error(next.problems.join('\n'));
+		expect(next.changes).toContainEqual({ registration: 'Test club', text: 'Logo removed' });
+	});
 	it('needs the Operator name', async () => {
 		const empty = memoryStorage();
 		await saveDraft(empty, 'TEST-KF', { aircraft: raw('test-kitfox-style') }, ADMIN, NOW);

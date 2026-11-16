@@ -4,9 +4,13 @@
 	import Button from '../ui/Button.svelte';
 	import Card from '../ui/Card.svelte';
 	import Icon from '../ui/Icon.svelte';
+	import OperatorLogo from '../ui/OperatorLogo.svelte';
+	import type { OperatorLogo as Logo } from '#lib/data/logo.ts';
 
-	let { aircraft, canCancel, dataLine, checking, busy, latest, version, onchoose, oncancel, oncheck }: {
+	let { aircraft, canCancel, dataLine, operator, logo, checking, busy, latest, version, onchoose, oncancel, oncheck }: {
 		aircraft: Aircraft[]; canCancel: boolean; dataLine: string; checking: boolean; busy: boolean;
+		/** The data's Operator and its logo, shown with the data line. */
+		operator: string; logo: Logo | undefined;
 		/** True right after a check found nothing newer. */
 		latest: boolean;
 		version: string;
@@ -32,6 +36,7 @@
 	</Card>
 	{#if canCancel}<div><Button size="lg" onclick={oncancel}>Cancel</Button></div>{/if}
 	<Card>
+		{#if logo}<OperatorLogo {logo} {operator} class="h-8 max-w-40 self-start" />{/if}
 		<p>{dataLine}</p>
 		{#if latest}<p class="font-semibold text-good" role="status">This is the latest data.</p>{/if}
 		<div><Button disabled={busy} onclick={oncheck}>{checking ? 'Checking' : 'Check for new data'}</Button></div>

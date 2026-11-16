@@ -33,7 +33,12 @@
 	{/if}
 	<g class={exceeded ? 'fill-bad stroke-bad' : 'fill-ink stroke-ink'}>
 		<line x1={g.x(to.arm)} y1={g.y(to.mass)} x2={g.x(ld.arm)} y2={g.y(ld.mass)} stroke-width="1" stroke-dasharray="3 2" />
-		<circle cx={g.x(to.arm)} cy={g.y(to.mass)} r="5" stroke-width="0" />
+		<!-- Takeoff is drawn as the centre of gravity symbol from the logo. -->
+		<g transform={`translate(${g.x(to.arm)} ${g.y(to.mass)})`}>
+			<circle r="6" stroke-width="0" class="fill-surface" />
+			<path d="M0 0V-6A6 6 0 0 1 6 0Z M0 0V6A6 6 0 0 1 -6 0Z" stroke-width="0" class={exceeded ? 'fill-bad' : 'fill-accent'} />
+			<circle r="6" fill="none" stroke-width="2" />
+		</g>
 		<rect x={g.x(ld.arm) - 4} y={g.y(ld.mass) - 4} width="8" height="8" stroke-width="1.5" class="fill-surface" />
 		<g font-size="11" stroke-width="0">
 			<text x={g.x(to.arm) + 9} y={g.y(to.mass) - 4}>Takeoff</text>
