@@ -15,6 +15,8 @@
 	import Plus from '@lucide/svelte/icons/plus';
 	import Scale from '@lucide/svelte/icons/scale';
 	import Send from '@lucide/svelte/icons/send';
+	import Share from '@lucide/svelte/icons/share';
+	import SquarePlus from '@lucide/svelte/icons/square-plus';
 	import X from '@lucide/svelte/icons/x';
 
 	const ICONS = {
@@ -30,7 +32,9 @@
 		load: Scale,
 		fuel: Fuel,
 		conditions: CloudSun,
-		send: Send
+		send: Send,
+		share: Share,
+		'add-to-home': SquarePlus
 	} as const;
 	export type IconName = keyof typeof ICONS;
 </script>
