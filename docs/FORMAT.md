@@ -247,6 +247,8 @@ npm run data -- publish --source my-aircraft --out static/data --release 2 --ope
 
 To withdraw an aircraft, add `--withdraw "HB-XXX=Reason"` and leave its file in the source folder.
 
+Add `--rules <file>` to check or publish with Operator Rules, given as a release's `index.json` or as the rules alone. Hand-calculated cases that rely on an Operator Rule, such as a wind correction the manual doesn't give, only pass with them. Publishing without `--rules` keeps the previous release's rules.
+
 ### Publish checks
 
 Publishing fails, with no override, unless every file passes all of these:
