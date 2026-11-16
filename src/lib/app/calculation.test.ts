@@ -563,3 +563,21 @@ describe('the weather, confirmed as one', () => {
 		expect([c.status.qnh, c.status.oat]).toEqual(['pre', 'pilot']);
 	});
 });
+
+describe('sliders', () => {
+	const gl = load('test-glastar-style');
+	const fuelFields = (a: Aircraft) => fieldsFor(a, newCalculation(a, 'x', NOW))[1];
+	it('give each tank the quarter points of its capacity', () => {
+		const front = fuelFields(dr).find((f) => f.key === 'fuel:front')!;
+		expect(front.slider!.marks.map((m) => [m.label, m.value])).toEqual([['Empty', 0], ['¼', 12.5], ['½', 25], ['¾', 37.5], ['Full', 50]]);
+		expect(front.slider!.step).toBe(1);
+	});
+	it('run flight time up to how long full tanks last at the lowest fuel flow, in quarter hours', () => {
+		// 100 L at 24 L/h: 4.17 h, so 4.25.
+		expect(fuelFields(dr).find((f) => f.key === 'time')!.slider!.max).toBe(4.25);
+		// 40 US gal at 6.3 US gal/h, the GlaStar-style's 55 %: 6.35 h, so 6.5, marked every hour.
+		const time = fuelFields(gl).find((f) => f.key === 'time')!.slider!;
+		expect(time.max).toBe(6.5);
+		expect(time.marks.map((m) => m.value)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+	});
+});
