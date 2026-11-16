@@ -3,25 +3,18 @@
  * and the admin GUI both use this, so the same rules apply however data is published.
  */
 import { sha256 } from './canonical.ts';
-import type { OperatorRules } from '../aircraft/operator-rules.ts';
-import type { OperatorLogo } from './logo.ts';
+import { checkProfile, profileFormatVersion, type OperatorProfile } from './operator-profile.ts';
 import { publishChecks } from './publish-checks.ts';
-import * as v from 'valibot';
-import { describeChanges, indexFormatVersion, parseIndex, ReportEmail, type Change, type ReleaseEntry, type ReleaseIndex } from './release.ts';
+import { describeChanges, parseIndex, type Change, type ReleaseEntry, type ReleaseIndex } from './release.ts';
 
 export type DraftInput = { name: string; data: unknown };
 export type ReleaseRequest = {
 	drafts: DraftInput[];
 	previous: ReleaseIndex | null;
 	release: number;
-	operator: string;
+	/** The whole profile the index carries. Its Operator Rules are also used to check every draft. */
+	profile: OperatorProfile;
 	notes?: string;
-	/** Carried by the index to every aircraft, and used for the hand-calculated cases. */
-	operatorRules?: OperatorRules;
-	/** Carried by the index; the app shows it and prints it on Reports. */
-	logo?: OperatorLogo;
-	/** Carried by the index; Share PDF puts it in the email. */
-	reportEmail?: string;
 	withdraw?: Record<string, string>;
 	/** Keeps every previously published aircraft that isn't in `drafts` or `withdraw`, unchanged. */
 	carryOver?: boolean;
@@ -39,14 +32,16 @@ export async function buildRelease(r: ReleaseRequest): Promise<BuiltRelease> {
 	const problems: string[] = [];
 	if (r.previous && r.release <= r.previous.release) problems.push(`Release ${r.release} must be newer than ${r.previous.release}. Releases are permanent: to undo one, republish an earlier version under a new number.`);
 	if (!Number.isInteger(r.release) || r.release < 1) problems.push('The release number must be a whole number from 1.');
-	if (!r.operator?.trim()) problems.push('The Operator name is missing.');
+	const checked = checkProfile(r.profile);
+	if (!checked.ok) problems.push(checked.problem);
+	const profile = checked.ok ? checked.profile : undefined;
 
 	const withdraw = r.withdraw ?? {};
 	const entries: ReleaseEntry[] = [], files: Array<{ path: string; data: unknown }> = [];
 	const dir = `releases/${r.release}`;
 	const seen = new Set<string>();
 	for (const draft of r.drafts) {
-		const checks = publishChecks(draft.data, r.operatorRules);
+		const checks = publishChecks(draft.data, profile?.operatorRules);
 		checks.problems.forEach((p) => problems.push(`${draft.name}: ${p}`));
 		const a = checks.aircraft;
 		if (!a) continue;
@@ -68,12 +63,10 @@ export async function buildRelease(r: ReleaseRequest): Promise<BuiltRelease> {
 		for (const e of r.previous?.aircraft ?? []) if (!handled.has(e.registration) && !seen.has(e.registration)) entries.push({ ...e });
 	}
 	if (!entries.length) problems.push('A release needs at least one aircraft.');
-	if (problems.length) return { ok: false, problems };
+	if (problems.length || !profile) return { ok: false, problems };
 
 	const notes = r.notes?.trim();
-	const reportEmail = r.reportEmail?.trim();
-	const profile = { ...(r.operatorRules ? { operatorRules: r.operatorRules } : {}), ...(r.logo ? { logo: r.logo } : {}), ...(reportEmail ? { reportEmail } : {}) };
-	if (reportEmail && !v.is(ReportEmail, reportEmail)) return { ok: false, problems: [`The report address ${reportEmail} is not an email address.`] };
-	const index = parseIndex({ formatVersion: indexFormatVersion(profile), operator: r.operator.trim(), release: r.release, published: new Date(r.now).toISOString(), ...(notes ? { notes } : {}), ...profile, aircraft: entries });
+	const { operator, ...settings } = profile;
+	const index = parseIndex({ formatVersion: profileFormatVersion(profile), operator, release: r.release, published: new Date(r.now).toISOString(), ...(notes ? { notes } : {}), ...settings, aircraft: entries });
 	return { ok: true, index, files, changes: describeChanges(r.previous, index) };
 }

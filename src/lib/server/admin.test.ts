@@ -142,7 +142,7 @@ describe('publishing', () => {
 		expect(next.changes).toContainEqual({ registration: 'Test club', text: 'Logo removed' });
 	});
 	it('publishes the report address with the release, and refuses one that is not an address', async () => {
-		await expect(saveSettings(s, { operator: 'Test club', reportEmail: 'reports at club' })).rejects.toThrow('not an email address');
+		await expect(saveSettings(s, { operator: 'Test club', reportEmail: 'reports at club' })).rejects.toThrow('The report address reports at club is not an email address.');
 		expect(await saveSettings(s, { operator: 'Test club', reportEmail: ' reports@club.example ' })).toEqual({ operator: 'Test club', reportEmail: 'reports@club.example' });
 		const r = await publish(s, {}, ADMIN, NOW);
 		if (!r.ok) throw new Error(r.problems.join('\n'));

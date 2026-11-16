@@ -2,13 +2,11 @@
 import * as v from 'valibot';
 import { FORMAT_VERSION, type Aircraft } from '../aircraft/schema.ts';
 import { formatIsReadable, validateAircraft } from '../aircraft/validate.ts';
-import { OperatorRules, sameRules, withRules } from '../aircraft/operator-rules.ts';
-import { OperatorLogo, sameLogo } from './logo.ts';
+import { withRules } from '../aircraft/operator-rules.ts';
+import { PROFILE_FIELDS, profileChanges } from './operator-profile.ts';
 import { sha256 } from './canonical.ts';
 
 const Text = v.pipe(v.string(), v.minLength(1));
-/** The address pilots send Reports to. It goes only into the email text, never on screen. */
-export const ReportEmail = v.pipe(v.string(), v.maxLength(254), v.regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/));
 const Entry = v.strictObject({
 	registration: Text,
 	type: Text,
@@ -24,27 +22,12 @@ export const ReleaseIndex = v.strictObject({
 	release: v.pipe(v.number(), v.integer(), v.minValue(1)),
 	published: Text,
 	notes: v.optional(Text),
-	/** The operator's own corrections, applied to every aircraft where its manual gives none. */
-	operatorRules: v.optional(OperatorRules),
-	/** The Operator's logo, shown in the app and on Reports. */
-	logo: v.optional(OperatorLogo),
-	/** Where pilots send Reports. Share PDF puts it in the email. */
-	reportEmail: v.optional(ReportEmail),
+	/** The rest of the Operator profile: rules, logo and report address. */
+	...PROFILE_FIELDS,
 	aircraft: v.array(Entry)
 });
 export type ReleaseIndex = v.InferOutput<typeof ReleaseIndex>;
 
-/**
- * The oldest format that has every field this index uses. Apps refuse a newer format than they know, so stating
- * the oldest one lets an app from before a feature still read a release that doesn't use it, and lets a deployment
- * roll back without pilots' apps refusing the data. Aircraft files state their own format.
- */
-export function indexFormatVersion(index: Pick<ReleaseIndex, 'operatorRules' | 'logo' | 'reportEmail'>): string {
-	if (index.reportEmail) return '0.7.0';
-	if (index.logo) return '0.6.0';
-	if (index.operatorRules) return '0.2.0';
-	return '0.1.0';
-}
 export type ReleaseEntry = v.InferOutput<typeof Entry>;
 export type InstalledData = { index: ReleaseIndex; aircraft: Aircraft[]; installedAt: number };
 
@@ -131,10 +114,7 @@ export function describeChanges(installed: ReleaseIndex | null, next: ReleaseInd
 		before.delete(e.registration);
 	}
 	for (const registration of before.keys()) changes.push({ registration, text: 'Removed from the data' });
-	if (!sameRules(installed?.operatorRules, next.operatorRules)) changes.push({ registration: 'All aircraft', text: next.operatorRules ? 'Operator rules changed' : 'Operator rules removed' });
-	if (installed && !sameLogo(installed.logo, next.logo)) changes.push({ registration: next.operator, text: next.logo ? (installed.logo ? 'New logo' : 'Logo added') : 'Logo removed' });
-	if (installed && installed.reportEmail !== next.reportEmail) changes.push({ registration: next.operator, text: next.reportEmail ? (installed.reportEmail ? 'New report address' : 'Report address added') : 'Report address removed' });
-	return changes;
+	return [...changes, ...profileChanges(installed, next)];
 }
 
 /** A withdrawal counts as soon as the device sees it, without waiting for Install. */

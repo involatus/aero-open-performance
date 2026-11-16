@@ -8,6 +8,10 @@ An open-source tool that helps pilots calculate mass, balance, and takeoff and l
 A club, school or aircraft owner with their own copy of the tool, whoever set it up.
 _Avoid_: Tenant, customer
 
+**Operator profile**:
+What an Operator says about itself, carried by every Data Release: its name, its Operator Rules, its logo and the address pilots send Reports to. The admin area calls it Settings.
+_Avoid_: Club settings, config
+
 **Aircraft Data**:
 The published mass and balance limits, loading stations, performance tables, factors and rules for one registered aircraft.
 _Avoid_: Aircraft config, profile
