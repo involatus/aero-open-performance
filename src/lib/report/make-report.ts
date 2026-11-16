@@ -20,7 +20,8 @@ export async function makeReport(s: ReportSource, t: ReportTools): Promise<{ rep
 		id, now: t.now, toolVersion: s.toolVersion,
 		dataRelease: `Data Release ${s.data.index.release} (${s.data.index.operator})`,
 		lastDataCheck: s.lastCheck ? utcText(s.lastCheck) : 'unknown',
-		chartSvg: chartSvg(s.aircraft, s.results, s.calc.configuration)
+		chartSvg: chartSvg(s.aircraft, s.results, s.calc.configuration),
+		logo: s.data.index.logo?.light
 	});
 	const pdf = await t.render(reportDocument(data));
 	const report: StoredReport = {

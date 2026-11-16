@@ -11,6 +11,8 @@ import { limitText } from '../engine/mass-balance.ts';
 import { baseKey, canReport, chosenPowerSetting, conditionSource, degrees, fieldsFor, magneticWind, notesFor, placeOfKey, runwayAt, runwayText, isVariableWind, keyAt, toInput, type Calculation, type Phase, type Place, weatherAt, windChoiceAt } from '../app/calculation.ts';
 import { altitudeText, distanceText, landingConditions, sourceText, utcText, valueSource, limitBadge, massBalanceRows, windChoiceText, windText, workingRows, type WorkingRow } from '../app/presentation.ts';
 import { lookupView, type LookupView } from '../app/lookup-grid.ts';
+import { MARK_SVG_ROUNDED } from '../brand.ts';
+import { logoAspect, pdfLogo } from '../data/logo.ts';
 
 export type Delivery = 'notSent' | 'sent' | 'shared';
 /** The manual's table each lookup read, with where the result falls. Missing on Reports made before it was recorded. */
@@ -62,6 +64,8 @@ export type ReportData = {
 	working: ReportWorking[];
 	notes: string[];
 	footer: { toolVersion: string; dataRelease: string; lastDataCheck: string };
+	/** The Operator's logo from the data the Report was made with, as a data URI. Missing on Reports from data without one. */
+	logo?: string;
 };
 export type StoredReport = {
 	id: string;
@@ -136,7 +140,7 @@ function working(a: Aircraft, title: string, r: PerformanceResult): ReportWorkin
 	return { title: `${title}, ${r.conditionLabel}`, rows: workingRows(a, r), tables };
 }
 
-export type ReportMeta = { id: string; now: number; toolVersion: string; dataRelease: string; lastDataCheck: string; chartSvg: string };
+export type ReportMeta = { id: string; now: number; toolVersion: string; dataRelease: string; lastDataCheck: string; chartSvg: string; logo?: string };
 
 /** Refuses to create a Report unless everything is confirmed and no limit is exceeded. */
 export function createReportData(a: Aircraft, calc: Calculation, r: Results, meta: ReportMeta): ReportData {
@@ -249,7 +253,8 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 		chartSvg: meta.chartSvg,
 		working: [working(a, 'Takeoff', r.takeoff), working(a, 'Landing', r.landing)].filter((w) => w.rows.length),
 		notes: notesFor(a, calc).map((n) => n.text),
-		footer: { toolVersion: meta.toolVersion, dataRelease: meta.dataRelease, lastDataCheck: meta.lastDataCheck }
+		footer: { toolVersion: meta.toolVersion, dataRelease: meta.dataRelease, lastDataCheck: meta.lastDataCheck },
+		...(meta.logo ? { logo: meta.logo } : {})
 	};
 	return JSON.parse(JSON.stringify(data)) as ReportData;
 }
@@ -438,6 +443,8 @@ export function reportDocument(data: ReportData) {
 			{ width: 'auto', text: `${d.id} · Page ${page} of ${pages}`, font: MONO, fontSize: 6.5, color: MUTED }
 		], columnGap: 12, margin: [30, 12, 30, 0] }),
 		content: [
+			brandRow(d.logo),
+			{ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 535, y2: 0, lineWidth: 0.75, lineColor: LINE }], margin: [0, 0, 0, 8] },
 			...(warning ? [{
 				table: { widths: ['*'], body: [[{ text: warning, bold: true, fontSize: 7.5, characterSpacing: 0.45, color: RED, alignment: 'center' }]] },
 				layout: { hLineWidth: () => 1.1, vLineWidth: () => 1.1, hLineColor: () => RED, vLineColor: () => RED, paddingTop: () => 3, paddingBottom: () => 3 },
@@ -501,13 +508,25 @@ export function reportDocument(data: ReportData) {
 				table: { widths: ['*'], body: [[{ stack: [
 					...d.notes.map((n) => ({ columns: [{ width: 12, svg: '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10" fill="none" stroke="#1B6B44" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>', fit: [9, 9], margin: [0, 1.5, 0, 0] }, { text: `Manual note confirmed by the pilot: ${n}` }], margin: [0, 0, 0, 3] })),
 					{ text: RESPONSIBILITY, bold: true, fontSize: 9, margin: [0, 2, 0, 3] },
-					{ text: `Report ${d.id} · Tool ${d.footer.toolVersion} · ${d.footer.dataRelease} · Aircraft revision ${d.aircraft.revision} · Last data check ${d.footer.lastDataCheck}. The pilot's name is for traceability and is not a signature.`, fontSize: 7, color: MUTED }
+					{ text: `Report ${d.id} · Aero Open Performance ${d.footer.toolVersion} · ${d.footer.dataRelease} · Aircraft revision ${d.aircraft.revision} · Last data check ${d.footer.lastDataCheck}. The pilot's name is for traceability and is not a signature.`, fontSize: 7, color: MUTED }
 				] }]] },
 				layout: { hLineWidth: (i: number) => (i === 0 ? 1.1 : 0), vLineWidth: () => 0, hLineColor: () => INK, paddingLeft: () => 0, paddingRight: () => 0, paddingTop: () => 8, paddingBottom: () => 0 },
 				unbreakable: true, margin: [0, 6, 0, 0]
 			}
 		]
 	};
+}
+
+/** AoP small on the left; the Operator's logo, when its data has one, on the right. Both sit on one centre line. */
+function brandRow(logo: string | undefined) {
+	const MARK = 12, LOGO = { w: 120, h: 26 };
+	const logoHeight = logo ? Math.min(LOGO.h, LOGO.w / logoAspect(logo)) : MARK;
+	const lift = Math.max(0, (logoHeight - MARK) / 2);
+	return { columns: [
+		{ width: MARK, svg: MARK_SVG_ROUNDED, fit: [MARK, MARK], margin: [0, lift, 0, 0] },
+		{ width: '*', text: 'Aero Open Performance', bold: true, fontSize: 7, color: MUTED, margin: [4, lift + 2.5, 0, 0] },
+		...(logo ? [{ width: 'auto', ...pdfLogo(logo), fit: [LOGO.w, logoHeight] }] : [])
+	], columnGap: 0, margin: [0, 0, 0, 5] };
 }
 
 function chunk<T>(list: T[], parts: number): T[][] {

@@ -1,10 +1,13 @@
 // Builds the app icons, shortcut icons, iOS splash screens, favicon, share image and README images
 // from the SVG sources in docs/brand, and writes the splash screen links into src/app.html.
+// A club with a logo gets its own icons and splash screens from the server (src/lib/server/club-brand.ts),
+// which uses the splash signature drawn here.
 // Run `npm run brand` after changing a source. It renders with Playwright's Chromium (`npx playwright install chromium`),
 // or with another Chrome when CHROME_PATH is set.
 import { chromium } from '@playwright/test';
 import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { SPLASH_IMAGES } from '../src/lib/splash-screens.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const src = (name: string) => `${root}docs/brand/${name}`;
@@ -36,34 +39,6 @@ const PNGS: [string, string, number, number][] = [
 ];
 const ICO_SIZES = [16, 32, 48];
 
-/**
- * The screens iOS and iPadOS show while the home-screen app starts. iOS uses one only when its media query matches
- * the device exactly, so each screen size needs its own image: width and height in points, portrait, and the pixel ratio.
- */
-const SPLASH_SCREENS: [string, number, number, number][] = [
-	['iPhone 16 Pro Max, 17 Pro Max', 440, 956, 3],
-	['iPhone Air', 420, 912, 3],
-	['iPhone 14 Pro Max, 15 Plus, 15 Pro Max, 16 Plus', 430, 932, 3],
-	['iPhone 12 Pro Max, 13 Pro Max, 14 Plus', 428, 926, 3],
-	['iPhone 16 Pro, 17, 17 Pro', 402, 874, 3],
-	['iPhone 14 Pro, 15, 15 Pro, 16', 393, 852, 3],
-	['iPhone 12, 12 Pro, 13, 13 Pro, 14, 16e', 390, 844, 3],
-	['iPhone X, XS, 11 Pro, 12 mini, 13 mini', 375, 812, 3],
-	['iPhone XS Max, 11 Pro Max', 414, 896, 3],
-	['iPhone XR, 11', 414, 896, 2],
-	['iPhone 6 Plus to 8 Plus', 414, 736, 3],
-	['iPhone 6 to 8, SE 2nd and 3rd generation', 375, 667, 2],
-	['iPhone SE 1st generation', 320, 568, 2],
-	['iPad Pro 13-inch (M4 and later)', 1032, 1376, 2],
-	['iPad Pro 12.9-inch, iPad Air 13-inch', 1024, 1366, 2],
-	['iPad Pro 11-inch (M4 and later)', 834, 1210, 2],
-	['iPad Pro 11-inch', 834, 1194, 2],
-	['iPad Air 10.9-inch and 11-inch, iPad 10th generation and later', 820, 1180, 2],
-	['iPad Air 3rd generation, iPad Pro 10.5-inch', 834, 1112, 2],
-	['iPad 7th to 9th generation', 810, 1080, 2],
-	['iPad mini 6th generation and later', 744, 1133, 2],
-	['iPad 9.7-inch, iPad mini 5th generation and earlier', 768, 1024, 2]
-];
 const NAVY = '#14263a';
 const DRAWING = '#f4f7fa';
 
@@ -112,6 +87,19 @@ async function render(svg: string, w: number, h: number): Promise<Buffer> {
 	return page.screenshot({ omitBackground: true, clip: { x: 0, y: 0, width: w, height: h } });
 }
 
+// The line at the foot of a club's splash screen: the AoP mark and the name, on navy. Drawn here because the
+// server's renderer has no web fonts. Three times the size it shows at, so it stays sharp on every screen.
+{
+	const context = await browser.newContext({ deviceScaleFactor: 3 });
+	const sig = await context.newPage();
+	const mark = readFileSync(src('aop-mark.svg'), 'utf8').replace(/ width="512" height="512"/, ' width="44" height="44"');
+	await sig.setContent(`<!doctype html><html><head><style>${FONTS}html,body{margin:0;background:transparent}#s{display:inline-flex;align-items:center;gap:10px}#m{width:44px;height:44px;border-radius:10px;overflow:hidden}#m svg{display:block}p{margin:0;font:600 15px 'IBM Plex Sans';letter-spacing:0.02em;color:#9aabb9}</style></head><body><div id="s"><div id="m">${mark}</div><p>Aero Open Performance</p></div></body></html>`);
+	await sig.evaluate(() => document.fonts.ready);
+	writeFileSync(out('docs/brand/splash-signature.png'), await sig.locator('#s').screenshot({ omitBackground: true }));
+	await context.close();
+	console.log('docs/brand/splash-signature.png');
+}
+
 for (const [source, path, w, h] of PNGS) {
 	writeFileSync(out(path), await render(readFileSync(src(source), 'utf8'), w, h));
 	console.log(`${path} (${w}x${h})`);
@@ -128,15 +116,10 @@ console.log('static/favicon.ico, static/favicon.svg');
 rmSync(out('static/splash'), { recursive: true, force: true });
 mkdirSync(out('static/splash'));
 const links: string[] = [];
-for (const [devices, pw, ph, ratio] of SPLASH_SCREENS) {
-	for (const orientation of ['portrait', 'landscape'] as const) {
-		const [w, h] = orientation === 'portrait' ? [pw * ratio, ph * ratio] : [ph * ratio, pw * ratio];
-		const file = `splash/splash-${w}x${h}.png`;
-		writeFileSync(out(`static/${file}`), await render(splash(w, h), w, h));
-		// device-width and device-height are the portrait size in either orientation.
-		const media = `(device-width: ${pw}px) and (device-height: ${ph}px) and (-webkit-device-pixel-ratio: ${ratio}) and (orientation: ${orientation})`;
-		links.push(`\t\t<!-- ${devices}, ${orientation} -->\n\t\t<link rel="apple-touch-startup-image" media="${media}" href="%sveltekit.assets%/${file}" />`);
-	}
+for (const { file, w, h, devices, orientation, media } of SPLASH_IMAGES) {
+	writeFileSync(out(`static/splash/${file}`), await render(splash(w, h), w, h));
+	// The server answers with the club's splash screen, or sends the device on to this plain one.
+	links.push(`\t\t<!-- ${devices}, ${orientation} -->\n\t\t<link rel="apple-touch-startup-image" media="${media}" href="/brand/${file}" />`);
 }
 console.log(`static/splash (${links.length} splash screens)`);
 

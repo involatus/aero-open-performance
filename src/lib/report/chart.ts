@@ -51,7 +51,8 @@ export function chartSvg(a: Aircraft, results: Results, configuration: string): 
 	parts.push(`<polygon points="${g.polygon}" fill="#EAF2FA" stroke="#1D5C96" stroke-width="2" stroke-linejoin="round"/>`);
 	if (g.maxLanding !== null) parts.push(`<line x1="${n(g.x(g.armDomain[0]))}" x2="${n(g.x(g.armDomain[1]))}" y1="${n(g.y(g.maxLanding))}" y2="${n(g.y(g.maxLanding))}" stroke="#7A4D00" stroke-dasharray="5 4"/>`, text(W - R - 2, g.y(g.maxLanding) - 4, `Max landing ${g.maxLanding}`, 'end', '#7A4D00'));
 	parts.push(`<line x1="${n(to.x)}" y1="${n(to.y)}" x2="${n(ld.x)}" y2="${n(ld.y)}" stroke="${mark}" stroke-width="1" stroke-dasharray="3 2"/>`);
-	parts.push(`<circle cx="${n(to.x)}" cy="${n(to.y)}" r="5" fill="${mark}"/>`, text(to.x + 9, to.y - 4, 'Takeoff', 'start', mark));
+	// Takeoff is the centre of gravity symbol from the logo, as on screen.
+	parts.push(`<g transform="translate(${n(to.x)} ${n(to.y)})"><circle r="6" fill="#FFFFFF"/><path d="M0 0V-6A6 6 0 0 1 6 0Z M0 0V6A6 6 0 0 1 -6 0Z" fill="${over ? '#A12222' : '#1D5C96'}"/><circle r="6" fill="none" stroke="${mark}" stroke-width="2"/></g>`, text(to.x + 9, to.y - 4, 'Takeoff', 'start', mark));
 	parts.push(`<rect x="${n(ld.x - 4)}" y="${n(ld.y - 4)}" width="8" height="8" fill="#FFFFFF" stroke="${mark}" stroke-width="1.5"/>`, text(ld.x + 9, ld.y + 14, 'Landing', 'start', mark));
 	parts.push(text((L + W - R) / 2, H - 5, `CG arm, ${a.units.arm}. Mass, ${a.units.mass}.`, 'middle'));
 	return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${parts.join('')}</svg>`;

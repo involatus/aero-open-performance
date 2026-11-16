@@ -3,6 +3,7 @@ import * as v from 'valibot';
 import { FORMAT_VERSION, type Aircraft } from '../aircraft/schema.ts';
 import { formatIsReadable, validateAircraft } from '../aircraft/validate.ts';
 import { OperatorRules, sameRules, withRules } from '../aircraft/operator-rules.ts';
+import { OperatorLogo, sameLogo } from './logo.ts';
 import { sha256 } from './canonical.ts';
 
 const Text = v.pipe(v.string(), v.minLength(1));
@@ -23,6 +24,8 @@ export const ReleaseIndex = v.strictObject({
 	notes: v.optional(Text),
 	/** The operator's own corrections, applied to every aircraft where its manual gives none. */
 	operatorRules: v.optional(OperatorRules),
+	/** The Operator's logo, shown in the app and on Reports. */
+	logo: v.optional(OperatorLogo),
 	aircraft: v.array(Entry)
 });
 export type ReleaseIndex = v.InferOutput<typeof ReleaseIndex>;
@@ -113,6 +116,7 @@ export function describeChanges(installed: ReleaseIndex | null, next: ReleaseInd
 	}
 	for (const registration of before.keys()) changes.push({ registration, text: 'Removed from the data' });
 	if (!sameRules(installed?.operatorRules, next.operatorRules)) changes.push({ registration: 'All aircraft', text: next.operatorRules ? 'Operator rules changed' : 'Operator rules removed' });
+	if (installed && !sameLogo(installed.logo, next.logo)) changes.push({ registration: next.operator, text: next.logo ? (installed.logo ? 'New logo' : 'Logo added') : 'Logo removed' });
 	return changes;
 }
 

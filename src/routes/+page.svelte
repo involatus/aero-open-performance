@@ -7,6 +7,7 @@
 	import Button from '#lib/components/ui/Button.svelte';
 	import Icon from '#lib/components/ui/Icon.svelte';
 	import AppHeader from '#lib/components/pilot/AppHeader.svelte';
+	import Illustration from '#lib/components/ui/Illustration.svelte';
 	import StepNav from '#lib/components/pilot/StepNav.svelte';
 	import SummaryStrip from '#lib/components/pilot/SummaryStrip.svelte';
 	import ResultsAside from '#lib/components/pilot/ResultsAside.svelte';
@@ -286,6 +287,8 @@
 		{isDemo}
 		{version}
 		{dataLine}
+		operator={app.data?.index.operator ?? ''}
+		logo={app.data?.index.logo}
 		onclosetab={closeTab}
 		onnextflight={addNextFlight}
 		onnew={() => { choosing = true; showReports = false; closePad(); }}
@@ -313,7 +316,9 @@
 			<div class="mx-auto flex w-full max-w-[760px] flex-col gap-4">
 				<h1 class="text-[26px] font-bold">Aero Open Performance</h1>
 				<section class="flex flex-col gap-3 rounded-xl border border-line bg-surface p-5">
-					<h2 class="text-[17px] font-semibold">Aircraft data needed</h2>
+					<!-- While it downloads, the aircraft gives way to the propeller. -->
+					<Illustration name={app.checking || app.installing ? 'working' : 'aircraft'} class="size-16" />
+					<h2 class="text-[17px] font-semibold">{app.checking || app.installing ? 'Downloading aircraft data' : 'Aircraft data needed'}</h2>
 					<p>{app.dataProblem ?? 'Connect to the internet once to download aircraft data. After that, the app works offline.'}</p>
 					{#if app.updateError}<p class="muted">{app.updateError}</p>{/if}
 					<div><Button variant="primary" size="lg" disabled={app.checking || app.installing} onclick={() => app.check(true)}>{app.checking || app.installing ? 'Downloading' : 'Try again'}</Button></div>
@@ -325,6 +330,8 @@
 			<ChooseAircraft
 				aircraft={available}
 				canCancel={app.tabs.length > 0}
+				operator={app.data?.index.operator ?? ''}
+				logo={app.data?.index.logo}
 				dataLine={`Aircraft data: Release ${app.data?.index.release} from ${app.data?.index.operator}.${app.lastCheck ? ` Last checked ${new Date(app.lastCheck).toLocaleString()}.` : ''}`}
 				checking={app.checking}
 				busy={app.checking || app.installing}

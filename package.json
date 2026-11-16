@@ -44,6 +44,7 @@
     "@ibm/plex-sans": "1.1.0",
     "@internationalized/date": "3.12.4",
     "@lucide/svelte": "1.66.0",
+    "@resvg/resvg-js": "2.6.2",
     "@standard-schema/spec": "1.1.0",
     "@valibot/to-json-schema": "1.8.0",
     "@vercel/blob": "2.9.0",

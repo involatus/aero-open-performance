@@ -20,6 +20,9 @@
 	import { defaultSource, draftId, makeId } from '#lib/admin/editing.ts';
 	import type { AdminStatus, Overview } from '#lib/server/admin-requests.ts';
 	import type { OperatorRules } from '#lib/aircraft/operator-rules.ts';
+	import Badge from '#lib/components/ui/Badge.svelte';
+	import BrandMark from '#lib/components/ui/BrandMark.svelte';
+	import { LogoError, logoFromFile, type OperatorLogo } from '#lib/data/logo.ts';
 	import OperatorRulesEditor from '#lib/components/admin/OperatorRulesEditor.svelte';
 	import { NEW_AIRCRAFT, copyForNewAircraft, emptyCells } from '#lib/admin/table-grid.ts';
 	import TableVerify from '#lib/components/admin/TableVerify.svelte';
@@ -46,6 +49,8 @@
 	let copyFrom = $state('');
 	let operator = $state('');
 	let operatorRules = $state<OperatorRules | undefined>(undefined);
+	let logo = $state<OperatorLogo | undefined>(undefined);
+	let logoProblem = $state('');
 	/** The rules the next release will carry, so the editor's checks match what publishing will check. */
 	let savedRules = $derived(overview?.settings.operatorRules);
 	let notes = $state('');
@@ -149,6 +154,20 @@
 		overview = await api('overview');
 		operator = overview!.settings.operator;
 		operatorRules = overview!.settings.operatorRules;
+		logo = overview!.settings.logo;
+	}
+	/** Checked here as well as on the server, so a wrong file is explained before saving. */
+	async function pickLogo(which: 'light' | 'dark', input: HTMLInputElement) {
+		const file = input.files?.[0];
+		input.value = '';
+		if (!file) return;
+		try {
+			const uri = logoFromFile(file.name, new Uint8Array(await file.arrayBuffer()));
+			logo = which === 'light' ? { ...logo, light: uri } : { light: logo!.light, dark: uri };
+			logoProblem = '';
+		} catch (error) {
+			logoProblem = error instanceof LogoError ? error.message : 'That file could not be read.';
+		}
 	}
 	onMount(() => {
 		(async () => {
@@ -237,7 +256,7 @@
 		confirmDelete = null;
 		run(async () => { await api('deleteDraft', { id }); await refresh(); });
 	};
-	const saveOperator = () => run(async () => { await api('saveSettings', { settings: { operator, operatorRules: $state.snapshot(operatorRules) } }); await refresh(); showSettings = false; message = 'Saved.'; });
+	const saveOperator = () => run(async () => { await api('saveSettings', { settings: { operator, operatorRules: $state.snapshot(operatorRules), logo: $state.snapshot(logo) } }); await refresh(); showSettings = false; message = 'Saved.'; });
 	const publish = () => run(async () => {
 		const withdraw = withdrawReg ? { [withdrawReg]: withdrawReason } : undefined;
 		const result = await api('publish', { notes, withdraw, include: chosen });
@@ -379,6 +398,8 @@
 <div class="flex min-h-dvh flex-col">
 	{#if editing}
 		<header class="border-b border-line bg-surface">
+			<!-- Amber, not navy, with the Admin tag: nobody takes the editor for the pilot view. -->
+			<div aria-hidden="true" class="h-[3px] bg-amber-line"></div>
 			<div class="mx-auto flex max-w-[1240px] flex-wrap items-center gap-3 px-4 py-3 sm:px-5">
 				<Button variant={confirm ? 'danger' : 'default'} onclick={requestClose}>{#if !confirm}<Icon name="chevron-left" size={18} stroke={2.2} />{/if}{confirm ? 'Tap again to discard changes' : 'Back to list'}</Button>
 				<div class="min-w-0 flex-1">
@@ -393,9 +414,12 @@
 		</header>
 	{:else}
 		<header class="border-b border-line bg-surface">
+			<!-- Amber, not navy, with the Admin tag: nobody takes the editor for the pilot view. -->
+			<div aria-hidden="true" class="h-[3px] bg-amber-line"></div>
 			<div class="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
-				<div class="flex items-baseline gap-2.5">
-					<strong class="text-[19px]">Admin</strong>
+				<div class="flex items-center gap-2.5">
+					<BrandMark class="size-[30px]" />
+					<Badge tone="todo" text="ADMIN" />
 					{#if overview?.settings.operator}<span class="text-muted">{overview.settings.operator}</span>{/if}
 				</div>
 				<div class="flex flex-wrap items-center gap-1">
@@ -695,6 +719,30 @@
 {#snippet settingsBody()}
 	<div class="flex flex-col gap-3">
 		<label class="adm-field">Operator, the name shown on reports and data<input class="adm" bind:value={operator} /></label>
+		<fieldset class="adm-card sub m-0">
+			<legend class="text-[13px] font-semibold text-ink-2">Logo</legend>
+			<p class="muted">Shown in the app's header, on the aircraft list and on Reports. A PNG, JPEG or SVG file of at most 48 KB, wider than tall, on a transparent or white background.</p>
+			{#each [['light', 'For light backgrounds'], ['dark', 'For dark mode, optional']] as const as [which, label] (which)}
+				{@const uri = logo?.[which]}
+				<div class="flex flex-wrap items-center gap-3">
+					<span class={['flex h-12 w-44 flex-none items-center justify-center rounded-lg border border-line px-2', which === 'dark' ? 'bg-[#14263a]' : 'bg-white']}>
+						{#if uri}<img src={uri} alt="" class="max-h-8 max-w-40 object-contain" />{:else}<span class={['text-xs', which === 'dark' ? 'text-[#c3ceda]' : 'text-muted']}>{which === 'dark' && logo ? 'Light logo on a white plate' : 'No logo'}</span>{/if}
+					</span>
+					<div class="flex flex-col gap-1">
+						<span class="text-[13px] font-semibold">{label}</span>
+						<div class="flex gap-1.5">
+							<label class={['inline-flex min-h-10 cursor-pointer items-center rounded-lg border border-line-strong bg-surface px-3 text-sm font-semibold', which === 'dark' && !logo && 'pointer-events-none opacity-50']}>
+								{uri ? 'Replace' : 'Choose file'}
+								<input type="file" accept="image/png,image/jpeg,image/svg+xml,.png,.jpg,.jpeg,.svg" class="sr-only" disabled={which === 'dark' && !logo} onchange={(e) => pickLogo(which, e.currentTarget)} />
+							</label>
+							{#if uri}<Button size="sm" variant="danger-quiet" onclick={() => (logo = which === 'light' ? undefined : { light: logo!.light })}>Remove</Button>{/if}
+						</div>
+					</div>
+				</div>
+			{/each}
+			{#if logoProblem}<p class="adm-error" role="alert">{logoProblem}</p>{/if}
+			<p class="muted">Pilots get a new logo with the next release.</p>
+		</fieldset>
 		<OperatorRulesEditor rules={operatorRules} onchange={(r) => (operatorRules = r)} />
 		<div class="flex justify-end gap-2">
 			<Dialog.Close class="min-h-11 rounded-lg border border-line-strong bg-surface px-4 font-semibold">Cancel</Dialog.Close>

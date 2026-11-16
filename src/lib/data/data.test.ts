@@ -88,7 +88,7 @@ describe('installing a release', () => {
 		await expect(verifyAircraft(index.aircraft[0], copy)).rejects.toThrow('not valid');
 	});
 	it('refuses data newer than the app understands, and says what to do', async () => {
-		expect(() => parseIndex({ formatVersion: '0.6.0', operator: 'T', release: 1, published: 'x', aircraft: [] })).toThrow('newer version of the app');
+		expect(() => parseIndex({ formatVersion: '0.7.0', operator: 'T', release: 1, published: 'x', aircraft: [] })).toThrow('newer version of the app');
 		expect(() => parseIndex({ formatVersion: '1.0.0', operator: 'T', release: 1, published: 'x', aircraft: [] })).toThrow();
 	});
 	it('refuses an index with unsafe file paths', async () => {

@@ -21,6 +21,8 @@
 	--good: #1b6b44; --good-bg: #ddf1e5;
 	--bad: #a12222; --bad-bg: #fadfdc; --bad-line: #e0a19b;
 	--shadow: 19 32 45;
+	/* Brand: the navy of the logo and the installed app's status bar. */
+	--brand: #14263a; --brand-tile: #14263a; --header: #ffffff; --header-line: #14263a; --tab-mark: #6db3ea;
 	color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -33,6 +35,8 @@
 		--good: #7fd6a4; --good-bg: #12352a;
 		--bad: #f4a29b; --bad-bg: #431d1b; --bad-line: #7a3a35;
 		--shadow: 0 0 0;
+		/* The header itself turns navy, so the logo's square is drawn darker to stay visible on it. */
+		--brand-tile: #0e161e; --header: #14263a; --header-line: #14263a; --tab-mark: #1d5c96;
 		color-scheme: dark;
 	}
 }
@@ -69,8 +73,14 @@
 	--color-bad: var(--bad);
 	--color-bad-bg: var(--bad-bg);
 	--color-bad-line: var(--bad-line);
+	--color-brand: var(--brand);
+	--color-header: var(--header);
+	--color-header-line: var(--header-line);
 
 	--shadow-raised: 0 1px 2px rgb(var(--shadow) / 0.14);
+	/* The current step and the open tab: raised, with an accent line along the bottom. */
+	--shadow-current: 0 1px 2px rgb(var(--shadow) / 0.14), inset 0 -3px 0 var(--accent);
+	--shadow-tab: inset 0 -3px 0 var(--tab-mark);
 	--shadow-pad: 0 -2px 12px rgb(var(--shadow) / 0.1);
 	--shadow-menu: 0 8px 24px rgb(var(--shadow) / 0.16);
 }
