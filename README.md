@@ -31,6 +31,8 @@ Each club gets its own Vercel project and its own storage, all built from this r
 3. Create a password with `openssl rand -base64 24`, and add it as `ADMIN_PASSWORD` in the project's environment variables. Add `CHECKWX_API_KEY` too if the club wants weather.
 4. Redeploy, then send the club its address and password. They sign in at `/admin`.
 
+Search engines are asked not to list a copy, because each one belongs to a club. Link previews in messengers still work.
+
 Vercel's Hobby plan is limited to non-commercial, personal use, so check that it fits. See [docs/ADMIN.md](docs/ADMIN.md) for managing the password and publishing.
 
 ## Your own aircraft
