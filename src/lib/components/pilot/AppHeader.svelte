@@ -30,7 +30,12 @@
 	The AoP mark always comes first and stays small. The Operator's logo, when the data has one, follows it.
 	A phone puts the marks and the buttons on the first line and the tabs on the second.
 -->
-<header class="border-b border-line bg-header pt-[env(safe-area-inset-top,0px)]">
+<header class="border-b border-line bg-header pt-[max(1px,env(safe-area-inset-top,0px))]">
+	<!--
+		iOS 26 and later blur the top edge of a Home Screen app unless a fixed element sits there, and then take the
+		status bar's colour from it. It finds that element by hit testing, so this strip must not ignore taps.
+	-->
+	<div aria-hidden="true" class="fixed inset-x-0 top-0 z-30 h-[max(1px,env(safe-area-inset-top,0px))] bg-header print:hidden"></div>
 	<div aria-hidden="true" class="h-[3px] bg-header-line"></div>
 	<div class="mx-auto flex max-w-[1240px] flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-2.5 sm:px-5 phone:gap-x-2.5 phone:px-3">
 		<div class="flex flex-none items-center gap-3 phone:gap-2.5">
