@@ -120,7 +120,8 @@ const SAME_PARAGRAPH = '\u2028';
 export function shareText(d: ReportData, reportEmail = ''): { title: string; text: string } {
 	const runway = (r: string | null | undefined) => (r ? ` RWY ${r}` : '');
 	const from = airfieldCode(d.departure), to = d.landing ? airfieldCode(d.landing.airfield) : null;
-	const title = `Perf. report ${d.aircraft.registration}, ${to ? `${from} to ${to}` : from}, ${d.createdUtc}, ${d.pilot}`;
+	// Aviation shorthand keeps the subject short: "LSZK-LSZH", and "13:31Z" for UTC.
+	const title = `Perf. report ${d.aircraft.registration}, ${to ? `${from}-${to}` : from}, ${d.createdUtc.replace(/ UTC$/, 'Z')}, ${d.pilot}`;
 	const mb = d.massBalance;
 	const mass = (m: { mass: string }) => `${m.mass} ${mb.units.mass}`;
 	// "at 727.0 kg" only follows a distance, never "No data: pilot's judgement".

@@ -41,7 +41,7 @@ describe('creating a Report', () => {
 	it('shares with a short subject naming the aircraft, airfield codes, time and pilot', () => {
 		const c = ready(a), r = calculate(a, toInput(a, c)), d = createReportData(a, c, r, meta(a, c));
 		const { title, text } = shareText(d);
-		expect(title).toBe(`Perf. report ${a.registration}, LSXX, 2026-11-06 12:30 UTC, A Pilot`);
+		expect(title).toBe(`Perf. report ${a.registration}, LSXX, 2026-11-06 12:30Z, A Pilot`);
 		// Outlook makes the first line of the text the subject, and every "\n" a paragraph.
 		const paragraphs = text.split('\n');
 		expect(paragraphs[0]).toBe(title);
@@ -54,7 +54,7 @@ describe('creating a Report', () => {
 		const noData = { ...d, results: { ...d.results, landing: { ...d.results.landing, status: 'noData' as const, headline: "No data: pilot's judgement" } } };
 		expect(shareText(noData).text).toContain(`Landing distance: No data: pilot's judgement (mass ${d.massBalance.landing.mass} kg)`);
 		const elsewhere = shareText({ ...d, departure: 'LSZK Speck-Fehraltorf Airfield', runway: '30', landing: { ...d.results, airfield: 'LSZH Zurich Airport', runway: '28', rawMetar: null } });
-		expect(elsewhere.title).toContain(', LSZK to LSZH, ');
+		expect(elsewhere.title).toContain(', LSZK-LSZH, ');
 		expect(elsewhere.text).toContain('Departure: LSZK RWY 30\u2028Landing: LSZH RWY 28\u2028Created: ');
 	});
 	it('names an airfield by its code, and keeps a name the pilot typed', () => {
