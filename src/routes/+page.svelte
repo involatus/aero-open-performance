@@ -14,6 +14,7 @@
 	import ChooseAircraft from '#lib/components/pilot/ChooseAircraft.svelte';
 	import LoadStep from '#lib/components/pilot/steps/LoadStep.svelte';
 	import SavedValues from '#lib/components/pilot/SavedValues.svelte';
+	import InstallPrompt from '#lib/components/pilot/InstallPrompt.svelte';
 	import FuelStep from '#lib/components/pilot/steps/FuelStep.svelte';
 	import ConditionsStep from '#lib/components/pilot/steps/ConditionsStep.svelte';
 	import SendStep from '#lib/components/pilot/steps/SendStep.svelte';
@@ -67,6 +68,13 @@
 	const makeId = () => `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
 
 	onMount(() => {
+		// The home-screen shortcuts open the app at the aircraft list or at Reports.
+		const opening = new URL(location.href).searchParams.get('open');
+		if (opening) {
+			history.replaceState(history.state, '', location.pathname);
+			if (opening === 'new') choosing = true;
+			if (opening === 'reports') showReports = true;
+		}
 		app.load().then(() => app.check());
 		const online = () => { now = Date.now(); app.check(); };
 		addEventListener('online', online);
@@ -376,3 +384,4 @@
 	</main>
 </Tabs.Root>
 <SavedValues bind:open={showSaved} saved={app.saved} onsaved={(list) => app.setSaved(list)} name={app.pilotName} onname={(n) => app.setPilotName(n)} />
+<InstallPrompt />

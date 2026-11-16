@@ -11,7 +11,10 @@ const SHELL = resolve('/');
 const FILES = [
 	...immutable.map((file) => resolve(file.path)),
 	// Aircraft data is not cached here: an app update and a data update are separate events.
-	...assets.filter((file) => !file.path.endsWith('.DS_Store') && !file.path.startsWith('data/')).map((file) => resolve(file.path)),
+	// Splash screens are fetched by iOS once, when the app is added to the home screen, so each device doesn't download all of them.
+	...assets
+		.filter((file) => !file.path.endsWith('.DS_Store') && !file.path.startsWith('data/') && !file.path.startsWith('splash/'))
+		.map((file) => resolve(file.path)),
 	...prerendered.map((file) => resolve(file.path))
 ];
 
