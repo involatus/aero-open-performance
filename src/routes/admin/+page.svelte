@@ -484,7 +484,7 @@
 							{/if}
 						{:else if tab === 'Compare tables'}
 							{#if isFictional}<p>Fictional aircraft don't need this.</p>{/if}
-							<div class="flex flex-wrap gap-1.5">{#each tableIds as id (id)}{@const s = tableCheckState(editing.aircraft.tables[id])}<Button size="sm" variant={secondTable === id ? 'dark' : 'default'} onclick={() => (secondTable = id)}>{s.status === 'checked' ? '✓ ' : ''}{id}</Button>{/each}</div>
+							<div class="flex flex-wrap gap-1.5">{#each tableIds as id (id)}{@const s = tableCheckState(editing.aircraft.tables[id])}<Button size="sm" variant={secondTable === id ? 'dark' : 'default'} onclick={() => (secondTable = id)}>{#if s.status === 'checked'}<Icon name="check" stroke={3} />{/if}{id}</Button>{/each}</div>
 							{#if secondTable && editing.aircraft.tables[secondTable]}
 								{#key secondTable}<TableVerify a={editing.aircraft} id={secondTable} table={editing.aircraft.tables[secondTable]} by={status?.name ?? ''} {touch} />{/key}
 							{/if}
