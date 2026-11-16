@@ -91,6 +91,7 @@ Each check passes when the value is at most the limit plus `EPSILON`, so a value
 | `takeoffMass`, `landingMass` | Mass | `maxTakeoff`, `maxLanding` |
 | `takeoffCg`, `landingCg` | Mass and arm | Inside the envelope |
 | `fuelBurn` | Burned volume | Exceeded when the flight exceeds the fuel |
+| `finalReserve` | Fuel volume left at landing, all tanks | The final reserve: `minutes / 60 × fuelFlow`, with `minutes` from the Operator Rules' `finalReserve`, or 30. Checked only when `flightTimeHours` is above 0 and `fuelBurn` isn't exceeded; exceeded when the fuel left is below the reserve by more than `EPSILON` |
 
 When crosswind is above the `crosswind` value by more than `EPSILON`, the mass and balance limits list gains a warning with the id `crosswind`. It is never an exceeded limit, and doesn't count among a distance result's warnings.
 
@@ -207,6 +208,8 @@ The release index may hold `operatorRules`, the operator's own corrections. The 
 
 **`wind`** (`headwind?: { percent, perKnots }`, `tailwind?: { percent, perKnots, maxKnots? }`): for a chain with no `wind` step. After the last step, both `total` and `groundRoll` are multiplied as a proportional `wind` rule would, with `above: none` for `maxKnots`. With no `headwind`, a headwind gives no credit, and the working says so. Wind is then required, as for a `wind` step.
 
+**`finalReserve`** (`minutes`, at least 30): a club's longer final reserve, used by the `finalReserve` limit for every aircraft in the release. Without it the limit uses 30 minutes, the day VFR minimum for aeroplanes (Part-NCO).
+
 **`aboveTable`** (`takeoffPercentPer1000ft`, `landingPercentPer1000ft`, `alertAboveM`): for an axis whose input is `pressureAltitude`, `densityAltitude` or `elevation`, with `above: none` and at least two values, when the input is above the last value. Only the first such axis of a lookup is extended. The lookup reads the table at the last value, giving `D_top`, and at the one before it, giving `D_below`, with every other axis as usual. Each output is then multiplied by the larger of:
 
 ```
@@ -257,4 +260,4 @@ Publishing fails, with no override, unless every file passes all of these:
 
 ## Hand-calculated cases
 
-Each case has `id`, `label`, `author`, `date`, `input` and `expected`. Compare displayed values exactly: mass and arm as text with `display` decimals, in `manualUnits` when the file has them and in `units` otherwise, distances as rounded numbers, and status as given. `expected.exceeded` lists every limit id exceeded by the inputs. Fields left out of `expected`, other than `exceeded`, aren't compared.
+Each case has `id`, `label`, `author`, `date`, `input` and `expected`. Compare displayed values exactly: mass and arm as text with `display` decimals, in `manualUnits` when the file has them and in `units` otherwise, distances as rounded numbers, and status as given. `expected.exceeded` lists every limit id exceeded by the inputs, except `finalReserve`, which comes from the Operator Rules rather than the manual. Fields left out of `expected`, other than `exceeded`, aren't compared.

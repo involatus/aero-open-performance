@@ -112,6 +112,11 @@ def mass_balance(ac, cfg, inp):
     rem, leftover = burn(tanks, {t["id"]: fuel.get(t["id"], 0.0) for t in tanks}, plan, burned)
     if leftover > EPS:  # AMBIGUITY: "burn left over" tested against EPSILON
         exceeded.add("fuelBurn")
+    # Final reserve: minutes from the Operator Rules, or 30, at the planned fuel flow.
+    minutes = ((ac.get("operatorRules") or {}).get("finalReserve") or {}).get("minutes", 30)
+    reserve = minutes / 60 * (inp.get("fuelFlow") or 0.0)
+    if (inp.get("flightTimeHours") or 0.0) > 0 and "fuelBurn" not in exceeded and sum(rem.values()) + EPS < reserve:
+        exceeded.add("finalReserve")
     lm, lmo = dry_m, dry_mo
     for t in tanks:
         lm += rem[t["id"]] * t["density"]
@@ -382,7 +387,8 @@ def check(path):
             for f, v in ex.get(k, {}).items():
                 if r[k][f] != v:
                     bad.append(f"{k}.{f}: got {r[k][f]}, expected {v}")
-        if sorted(ex.get("exceeded", [])) != r["exceeded"]:
+        # Hand cases leave out finalReserve, which comes from the Operator Rules, not the manual.
+        if sorted(ex.get("exceeded", [])) != [x for x in r["exceeded"] if x != "finalReserve"]:
             bad.append(f"exceeded: got {r['exceeded']}, expected {sorted(ex.get('exceeded', []))}")
         if bad:
             fails += 1

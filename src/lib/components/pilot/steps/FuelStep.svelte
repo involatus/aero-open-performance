@@ -7,6 +7,7 @@
 	import Card from '../../ui/Card.svelte';
 	import Segmented from '../../ui/Segmented.svelte';
 	import StepHeading from './StepHeading.svelte';
+	import FuelBar from '../FuelBar.svelte';
 
 	let { aircraft, calc, results, fields, numberField }: {
 		aircraft: Aircraft; calc: Calculation; results: Results; fields: Field[]; numberField: Snippet<[Field, Snippet?]>;
@@ -31,6 +32,7 @@
 		if (id === 'other') setByPilot(calc, 'flow', calc.values.flow ?? '');
 		else choosePowerSetting(aircraft, calc, id);
 	}
+	let onBoard = $derived(aircraft.tanks.reduce((sum, t) => sum + (parse(calc.values[`fuel:${t.id}`]) ?? 0), 0));
 	let burnedFrom = $derived(aircraft.tanks.filter((t) => (parse(calc.values[`fuel:${t.id}`]) ?? 0) > (results.massBalance.fuelAtLanding[t.id] ?? 0) + 1e-9).map((t) => t.label));
 </script>
 
@@ -72,6 +74,10 @@
 			<span class="text-[13px] text-ink-2">{m(atLandingMass)} {massUnit}</span>
 		</div>
 	</div>
-	{#if results.massBalance.burnExceedsFuel}<p class="text-[13px] font-semibold text-bad">The flight burns more fuel than the tanks hold.</p>{/if}
-	<p class="text-[13px] text-muted">Fuel planning and reserves stay with you. This only sets the landing mass.</p>
+	{#if onBoard > 0}
+		<FuelBar {onBoard} burned={results.massBalance.burned} reserve={results.massBalance.finalReserve.volume} minutes={results.massBalance.finalReserve.minutes} club={!!aircraft.operatorRules?.finalReserve} unit={volume} />
+	{/if}
+	{#if results.massBalance.burnExceedsFuel}<p class="text-[13px] font-semibold text-bad">The flight burns more fuel than the tanks hold.</p>
+	{:else if results.exceeded.includes('finalReserve')}<p class="text-[13px] font-semibold text-bad">Lands with less than the final reserve. Take more fuel or plan a shorter flight.</p>{/if}
+	<p class="text-[13px] text-muted">Taxi, contingency and alternate fuel aren't included: plan those yourself.</p>
 </Card>

@@ -18,7 +18,7 @@ function ready(a: Aircraft): Calculation {
 	const c = newCalculation(a, 'x', NOW);
 	const inPounds = a.units.mass === 'lb';
 	setByPilot(c, `load:${a.stations[0].id}`, inPounds ? '170' : '80');
-	a.tanks.forEach((t) => setByPilot(c, `fuel:${t.id}`, inPounds ? '30' : '20'));
+	a.tanks.forEach((t) => setByPilot(c, `fuel:${t.id}`, inPounds ? '30' : '40'));
 	for (const [k, v] of [['time', '1'], ['flow', '20'], ['elev', '100'], ['rwy', '9'], ['qnh', '1013'], ['oat', '15'], ['wdir', '90'], ['wspd', '5']]) setByPilot(c, k, v);
 	c.values.place = 'LSXX'; c.values.name = 'A Pilot';
 	a.notes.forEach((n) => { c.notes[n.id] = true; });
@@ -140,7 +140,7 @@ describe('Report layout', () => {
 	});
 	it('puts fuel on its tank row and the burn on one line', () => {
 		const a = load('test-dr-style'), c = ready(a), d = createReportData(a, c, calculate(a, toInput(a, c)), meta(a, c));
-		expect(d.massBalance.rows.filter((r) => r.fuel).map((r) => r.fuel!.value)).toEqual(a.tanks.map(() => '20 L'));
+		expect(d.massBalance.rows.filter((r) => r.fuel).map((r) => r.fuel!.value)).toEqual(a.tanks.map(() => '40 L'));
 		expect(d.massBalance.time).toEqual({ value: '1 h', source: 'Entered by pilot' });
 	});
 	it('shows each table a result read, with where the result falls', () => {

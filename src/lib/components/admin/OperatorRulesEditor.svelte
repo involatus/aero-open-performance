@@ -4,8 +4,8 @@
 	/** The operator's own corrections, used only where an aircraft's manual gives none. */
 	let { rules, onchange }: { rules: OperatorRules | undefined; onchange: (r: OperatorRules | undefined) => void } = $props();
 
-	const wind = $derived(rules?.wind), above = $derived(rules?.aboveTable);
-	const set = (next: OperatorRules) => onchange(next.wind || next.aboveTable ? next : undefined);
+	const wind = $derived(rules?.wind), above = $derived(rules?.aboveTable), reserve = $derived(rules?.finalReserve);
+	const set = (next: OperatorRules) => onchange(next.wind || next.aboveTable || next.finalReserve ? next : undefined);
 	const num = (e: Event) => { const v = Number((e.currentTarget as HTMLInputElement).value); return Number.isFinite(v) && v > 0 ? v : undefined; };
 	const S = SUGGESTED_RULES;
 	const box = 'flex min-h-9 cursor-pointer items-center gap-2 text-sm font-semibold';
@@ -40,6 +40,17 @@
 				{:else}<span class="text-muted">no credit</span>{/if}
 			</div>
 		{/if}
+	</div>
+
+	<div class="flex flex-col gap-1 rounded-lg border border-line px-3 py-2">
+		<label class={box}><input type="checkbox" class="size-5" checked={!!reserve} onchange={(e) => set({ ...rules, finalReserve: e.currentTarget.checked ? { minutes: 45 } : undefined })} /> Longer final reserve (club rule)</label>
+		{#if reserve}
+			<div class={row}>
+				<span class="w-[5.75rem]">Final reserve</span>
+				<input class={field} type="number" min="30" step="5" aria-label="Final reserve, minutes" value={reserve.minutes} onchange={(e) => { const m = num(e); if (m && m >= 30) set({ ...rules, finalReserve: { minutes: m } }); else e.currentTarget.value = String(reserve.minutes); }} />
+				min at the planned fuel flow
+			</div>
+		{:else}<p class="pl-7 text-[12px] text-muted">Without it, the legal 30 minutes apply (day VFR).</p>{/if}
 	</div>
 
 	<div class="flex flex-col gap-1 rounded-lg border border-line px-3 py-2">
