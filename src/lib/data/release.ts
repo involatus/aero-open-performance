@@ -7,6 +7,8 @@ import { OperatorLogo, sameLogo } from './logo.ts';
 import { sha256 } from './canonical.ts';
 
 const Text = v.pipe(v.string(), v.minLength(1));
+/** The address pilots send Reports to. It goes only into the email text, never on screen. */
+export const ReportEmail = v.pipe(v.string(), v.maxLength(254), v.regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/));
 const Entry = v.strictObject({
 	registration: Text,
 	type: Text,
@@ -26,6 +28,8 @@ export const ReleaseIndex = v.strictObject({
 	operatorRules: v.optional(OperatorRules),
 	/** The Operator's logo, shown in the app and on Reports. */
 	logo: v.optional(OperatorLogo),
+	/** Where pilots send Reports. Share PDF puts it in the email. */
+	reportEmail: v.optional(ReportEmail),
 	aircraft: v.array(Entry)
 });
 export type ReleaseIndex = v.InferOutput<typeof ReleaseIndex>;
@@ -35,7 +39,8 @@ export type ReleaseIndex = v.InferOutput<typeof ReleaseIndex>;
  * the oldest one lets an app from before a feature still read a release that doesn't use it, and lets a deployment
  * roll back without pilots' apps refusing the data. Aircraft files state their own format.
  */
-export function indexFormatVersion(index: Pick<ReleaseIndex, 'operatorRules' | 'logo'>): string {
+export function indexFormatVersion(index: Pick<ReleaseIndex, 'operatorRules' | 'logo' | 'reportEmail'>): string {
+	if (index.reportEmail) return '0.7.0';
 	if (index.logo) return '0.6.0';
 	if (index.operatorRules) return '0.2.0';
 	return '0.1.0';
@@ -128,6 +133,7 @@ export function describeChanges(installed: ReleaseIndex | null, next: ReleaseInd
 	for (const registration of before.keys()) changes.push({ registration, text: 'Removed from the data' });
 	if (!sameRules(installed?.operatorRules, next.operatorRules)) changes.push({ registration: 'All aircraft', text: next.operatorRules ? 'Operator rules changed' : 'Operator rules removed' });
 	if (installed && !sameLogo(installed.logo, next.logo)) changes.push({ registration: next.operator, text: next.logo ? (installed.logo ? 'New logo' : 'Logo added') : 'Logo removed' });
+	if (installed && installed.reportEmail !== next.reportEmail) changes.push({ registration: next.operator, text: next.reportEmail ? (installed.reportEmail ? 'New report address' : 'Report address added') : 'Report address removed' });
 	return changes;
 }
 

@@ -6,7 +6,8 @@ import { sha256 } from './canonical.ts';
 import type { OperatorRules } from '../aircraft/operator-rules.ts';
 import type { OperatorLogo } from './logo.ts';
 import { publishChecks } from './publish-checks.ts';
-import { describeChanges, indexFormatVersion, parseIndex, type Change, type ReleaseEntry, type ReleaseIndex } from './release.ts';
+import * as v from 'valibot';
+import { describeChanges, indexFormatVersion, parseIndex, ReportEmail, type Change, type ReleaseEntry, type ReleaseIndex } from './release.ts';
 
 export type DraftInput = { name: string; data: unknown };
 export type ReleaseRequest = {
@@ -19,6 +20,8 @@ export type ReleaseRequest = {
 	operatorRules?: OperatorRules;
 	/** Carried by the index; the app shows it and prints it on Reports. */
 	logo?: OperatorLogo;
+	/** Carried by the index; Share PDF puts it in the email. */
+	reportEmail?: string;
 	withdraw?: Record<string, string>;
 	/** Keeps every previously published aircraft that isn't in `drafts` or `withdraw`, unchanged. */
 	carryOver?: boolean;
@@ -68,7 +71,9 @@ export async function buildRelease(r: ReleaseRequest): Promise<BuiltRelease> {
 	if (problems.length) return { ok: false, problems };
 
 	const notes = r.notes?.trim();
-	const profile = { ...(r.operatorRules ? { operatorRules: r.operatorRules } : {}), ...(r.logo ? { logo: r.logo } : {}) };
-	const index = parseIndex({ formatVersion: indexFormatVersion(profile), operator: r.operator.trim(), release: r.release, published: new Date(r.now).toISOString(), ...(notes ? { notes } : {}), ...(r.operatorRules ? { operatorRules: r.operatorRules } : {}), ...(r.logo ? { logo: r.logo } : {}), aircraft: entries });
+	const reportEmail = r.reportEmail?.trim();
+	const profile = { ...(r.operatorRules ? { operatorRules: r.operatorRules } : {}), ...(r.logo ? { logo: r.logo } : {}), ...(reportEmail ? { reportEmail } : {}) };
+	if (reportEmail && !v.is(ReportEmail, reportEmail)) return { ok: false, problems: [`The report address ${reportEmail} is not an email address.`] };
+	const index = parseIndex({ formatVersion: indexFormatVersion(profile), operator: r.operator.trim(), release: r.release, published: new Date(r.now).toISOString(), ...(notes ? { notes } : {}), ...profile, aircraft: entries });
 	return { ok: true, index, files, changes: describeChanges(r.previous, index) };
 }

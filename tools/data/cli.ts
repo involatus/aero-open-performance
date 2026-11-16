@@ -13,12 +13,15 @@ const USAGE = `Usage:
   data publish --source <dir> --out <dir> --release <n> --operator <name> [--notes <text>]
                [--rules <file.json>] [--withdraw <registration=reason>]...
                [--logo <file> [--logo-dark <file>] | --no-logo]
+               [--report-email <address> | --no-report-email]
 
 --rules: Operator Rules, as a release's index.json or the rules alone. Checks then run
 as publishing does. Publishing without it keeps the previous release's rules.
 --logo: the Operator's logo, a PNG, JPEG or SVG file of at most 48 KB, for light
 backgrounds. --logo-dark: an optional version for dark mode. Publishing without
---logo keeps the previous release's logo; --no-logo removes it.`;
+--logo keeps the previous release's logo; --no-logo removes it.
+--report-email: the address pilots send Reports to. Share PDF puts it in the email.
+Publishing without it keeps the previous release's address; --no-report-email removes it.`;
 
 const read = (path: string) => JSON.parse(readFileSync(path, 'utf8'));
 const jsonFiles = (dir: string) => readdirSync(dir).filter((f) => f.endsWith('.json')).sort();
@@ -49,7 +52,7 @@ function check(paths: string[], rules: OperatorRules | undefined): boolean {
 	return ok;
 }
 
-async function publish(o: { source: string; out: string; release: number; operator: string; notes?: string; withdraw: string[]; rules?: OperatorRules; logo?: OperatorLogo | null }): Promise<boolean> {
+async function publish(o: { source: string; out: string; release: number; operator: string; notes?: string; withdraw: string[]; rules?: OperatorRules; logo?: OperatorLogo | null; reportEmail?: string | null }): Promise<boolean> {
 	const indexPath = join(o.out, 'index.json');
 	const previous: ReleaseIndex | null = existsSync(indexPath) ? parseIndex(read(indexPath)) : null;
 	if (existsSync(join(o.out, 'releases', String(o.release)))) { console.error(`releases/${o.release} already exists. Releases are permanent.`); return false; }
@@ -61,7 +64,8 @@ async function publish(o: { source: string; out: string; release: number; operat
 	const drafts = jsonFiles(o.source).map((file) => ({ name: file, data: read(join(o.source, file)) }));
 	const operatorRules = o.rules ?? previous?.operatorRules;
 	const logo = o.logo === null ? undefined : (o.logo ?? previous?.logo);
-	const built = await buildRelease({ drafts, previous, release: o.release, operator: o.operator, operatorRules, logo, notes: o.notes, withdraw, now: Date.now() });
+	const reportEmail = o.reportEmail === null ? undefined : (o.reportEmail ?? previous?.reportEmail);
+	const built = await buildRelease({ drafts, previous, release: o.release, operator: o.operator, operatorRules, logo, reportEmail, notes: o.notes, withdraw, now: Date.now() });
 	if (!built.ok) {
 		built.problems.forEach((p) => console.error(`  - ${p}`));
 		console.error('Nothing was published.');
@@ -84,16 +88,18 @@ if (command === 'check') {
 	if (positionals.length) success = check(positionals, values.rules ? readRules(values.rules) : undefined);
 	else console.error(USAGE);
 } else if (command === 'publish') {
-	const { values } = parseArgs({ args: rest, options: { source: { type: 'string' }, out: { type: 'string' }, release: { type: 'string' }, operator: { type: 'string' }, notes: { type: 'string' }, rules: { type: 'string' }, withdraw: { type: 'string', multiple: true }, logo: { type: 'string' }, 'logo-dark': { type: 'string' }, 'no-logo': { type: 'boolean' } } });
+	const { values } = parseArgs({ args: rest, options: { source: { type: 'string' }, out: { type: 'string' }, release: { type: 'string' }, operator: { type: 'string' }, notes: { type: 'string' }, rules: { type: 'string' }, withdraw: { type: 'string', multiple: true }, logo: { type: 'string' }, 'logo-dark': { type: 'string' }, 'no-logo': { type: 'boolean' }, 'report-email': { type: 'string' }, 'no-report-email': { type: 'boolean' } } });
 	const release = Number(values.release);
 	const logoArgs = values['no-logo'] ? (values.logo || values['logo-dark'] ? 'both' : 'none') : values['logo-dark'] && !values.logo ? 'dark-only' : 'ok';
 	if (!values.source || !values.out || !values.operator || !Number.isInteger(release) || release < 1) console.error(USAGE);
 	else if (logoArgs === 'both') console.error('Use --logo or --no-logo, not both.');
 	else if (logoArgs === 'dark-only') console.error('--logo-dark needs --logo as well.');
+	else if (values['report-email'] && values['no-report-email']) console.error('Use --report-email or --no-report-email, not both.');
 	else success = await publish({
 		source: values.source, out: values.out, release, operator: values.operator, notes: values.notes, withdraw: values.withdraw ?? [],
 		rules: values.rules ? readRules(values.rules) : undefined,
-		logo: logoArgs === 'none' ? null : values.logo ? readLogo(values.logo, values['logo-dark']) : undefined
+		logo: logoArgs === 'none' ? null : values.logo ? readLogo(values.logo, values['logo-dark']) : undefined,
+		reportEmail: values['no-report-email'] ? null : values['report-email']
 	});
 } else console.error(USAGE);
 process.exit(success ? 0 : 1);

@@ -51,7 +51,7 @@ Set `CHECKWX_API_KEY` in your host's settings to let pilots prefill weather from
 
 ## Report address (optional)
 
-Set `PUBLIC_REPORT_EMAIL` in your host's settings to the address pilots send Reports to, then redeploy. The Send step shows it, Share PDF copies it so the pilot can paste it as the recipient, and it heads the email text. Sharing can't fill in the recipient itself. The address is built into the app, so anyone with the app can read it: use a role address such as `reports@yourclub.example`.
+Add the address pilots send Reports to in the admin area's **Settings**, or with `--report-email` when publishing by hand; pilots get it with the next release. Share PDF copies it so the pilot can paste it as the recipient, and it heads the email text. Sharing can't fill in the recipient itself. The app never shows the address on screen, but it is in the published data, so anyone with the app can read it: use a role address such as `reports@yourclub.example`.
 
 ## Licence
 

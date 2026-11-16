@@ -51,6 +51,7 @@
 	let operatorRules = $state<OperatorRules | undefined>(undefined);
 	let logo = $state<OperatorLogo | undefined>(undefined);
 	let logoProblem = $state('');
+	let reportEmail = $state('');
 	/** The rules the next release will carry, so the editor's checks match what publishing will check. */
 	let savedRules = $derived(overview?.settings.operatorRules);
 	let notes = $state('');
@@ -155,6 +156,7 @@
 		operator = overview!.settings.operator;
 		operatorRules = overview!.settings.operatorRules;
 		logo = overview!.settings.logo;
+		reportEmail = overview!.settings.reportEmail ?? '';
 	}
 	/** Checked here as well as on the server, so a wrong file is explained before saving. */
 	async function pickLogo(which: 'light' | 'dark', input: HTMLInputElement) {
@@ -256,7 +258,7 @@
 		confirmDelete = null;
 		run(async () => { await api('deleteDraft', { id }); await refresh(); });
 	};
-	const saveOperator = () => run(async () => { await api('saveSettings', { settings: { operator, operatorRules: $state.snapshot(operatorRules), logo: $state.snapshot(logo) } }); await refresh(); showSettings = false; message = 'Saved.'; });
+	const saveOperator = () => run(async () => { await api('saveSettings', { settings: { operator, operatorRules: $state.snapshot(operatorRules), logo: $state.snapshot(logo), reportEmail } }); await refresh(); showSettings = false; message = 'Saved.'; });
 	const publish = () => run(async () => {
 		const withdraw = withdrawReg ? { [withdrawReg]: withdrawReason } : undefined;
 		const result = await api('publish', { notes, withdraw, include: chosen });
@@ -743,7 +745,10 @@
 			{#if logoProblem}<p class="adm-error" role="alert">{logoProblem}</p>{/if}
 			<p class="muted">Pilots get a new logo with the next release.</p>
 		</fieldset>
+		<label class="adm-field">Report address, optional<input class="adm" type="email" autocomplete="off" bind:value={reportEmail} placeholder="reports@yourclub.example" /></label>
+		<p class="muted -mt-2">Share PDF puts it in the email, ready to copy as the recipient. The app never shows it on screen, but anyone with the app can read it in the published data, so use a role address. Pilots get a new address with the next release.</p>
 		<OperatorRulesEditor rules={operatorRules} onchange={(r) => (operatorRules = r)} />
+		{#if message && showSettings}<p class="adm-error" role="alert">{message}</p>{/if}
 		<div class="flex justify-end gap-2">
 			<Dialog.Close class="min-h-11 rounded-lg border border-line-strong bg-surface px-4 font-semibold">Cancel</Dialog.Close>
 			<Button variant="primary" disabled={working} onclick={saveOperator}>Save</Button>

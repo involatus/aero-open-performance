@@ -29,7 +29,6 @@
 	import { calculate } from '#lib/engine/index.ts';
 	import { renderPdf } from '#lib/report/pdf.ts';
 	import { fingerprint, shareText } from '#lib/report/report.ts';
-	import { REPORT_EMAIL } from '#lib/report/report-email.ts';
 	import { version as toolVersion } from '../../package.json';
 
 	const app = new AppState();
@@ -148,8 +147,9 @@
 		try {
 			const report = app.reports.find((r) => r.id === id);
 			// Not awaited, so the share still runs within the tap. If copying fails, the address is still in the text.
-			if (REPORT_EMAIL) navigator.clipboard?.writeText(REPORT_EMAIL).catch(() => {});
-			await navigator.share({ files: [file], ...(report ? shareText(report.data, REPORT_EMAIL) : { title: `Performance report ${id}` }) });
+			const reportEmail = app.data?.index.reportEmail ?? '';
+			if (reportEmail) navigator.clipboard?.writeText(reportEmail).catch(() => {});
+			await navigator.share({ files: [file], ...(report ? shareText(report.data, reportEmail) : { title: `Performance report ${id}` }) });
 			await app.setDelivery(id, 'shared');
 		} catch (error) {
 			if ((error as Error).name !== 'AbortError') reportError = `Sharing failed: ${(error as Error).message}. Try again.`;
@@ -369,7 +369,7 @@
 								<SendStep
 									{aircraft} {calc} {todo} exceeded={exceededLimits} {ready} {creating} {reportError} {latestReport} {reportIsCurrent}
 									{closePad} ongo={goToItem} onstep={goStep} oncreate={createReport} onshare={shareReport} onopen={openReport}
-								 onname={(n) => app.setPilotName(n)} reportEmail={REPORT_EMAIL} />
+								 onname={(n) => app.setPilotName(n)} hasReportAddress={!!app.data?.index.reportEmail} />
 							{/if}
 
 							{#if padField}

@@ -60,6 +60,7 @@ describe('Operator logo', () => {
 		expect(indexFormatVersion({ logo: { light } })).toBe('0.6.0');
 		expect(indexFormatVersion({ operatorRules: { aboveTable: { takeoffPercentPer1000ft: 10, landingPercentPer1000ft: 5, alertAboveM: 500 } } })).toBe('0.2.0');
 		expect(indexFormatVersion({})).toBe('0.1.0');
+		expect(indexFormatVersion({ reportEmail: 'reports@club.example', logo: { light } })).toBe('0.7.0');
 		// An app from before logos, which knows format 0.5.0.
 		expect(formatIsReadable(indexFormatVersion({}), '0.5.0')).toBe(true);
 		expect(formatIsReadable(indexFormatVersion({ logo: { light } }), '0.5.0')).toBe(false);

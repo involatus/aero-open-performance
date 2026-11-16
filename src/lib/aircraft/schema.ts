@@ -5,7 +5,7 @@
 import * as v from 'valibot';
 import type { OperatorRules } from './operator-rules.ts';
 
-export const FORMAT_VERSION = '0.6.0';
+export const FORMAT_VERSION = '0.7.0';
 
 const Text = v.pipe(v.string(), v.minLength(1));
 const Id = v.pipe(v.string(), v.regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/));
