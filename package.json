@@ -1,6 +1,6 @@
 {
   "name": "aero-open-performance",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "Open-source mass and balance and performance PWA for piston aircraft.",
   "license": "Apache-2.0",
