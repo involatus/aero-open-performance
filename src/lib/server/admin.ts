@@ -1,18 +1,18 @@
 /** What the admin GUI can do. Separate from the framework, so every rule can be tested. */
 import { draftId } from '../admin/editing.ts';
 import { formatIsReadable } from '../aircraft/validate.ts';
-import { parseRules, sameRules, type OperatorRules } from '../aircraft/operator-rules.ts';
+import { sameRules } from '../aircraft/operator-rules.ts';
 import { buildRelease, nextReleaseNumber, type DraftInput } from '../data/build-release.ts';
-import { parseLogo, type OperatorLogo } from '../data/logo.ts';
+import { checkProfile, type OperatorProfile } from '../data/operator-profile.ts';
 import { unusualValues } from '../data/publish-checks.ts';
-import * as v from 'valibot';
-import { parseIndex, ReportEmail, type Change, type ReleaseIndex } from '../data/release.ts';
+import { parseIndex, type Change, type ReleaseIndex } from '../data/release.ts';
 import { sha256 } from '../data/canonical.ts';
 import { validateAircraft } from '../aircraft/validate.ts';
 import { AlreadyExists, VersionConflict, type Storage } from './storage/index.ts';
 
 export type Draft = { aircraft: unknown; updatedBy: string; updatedAt: string };
-export type Settings = { operator: string; operatorRules?: OperatorRules; logo?: OperatorLogo; reportEmail?: string };
+/** The admin area's Settings are the whole Operator profile. A setting left empty is removed with the next release. */
+export type Settings = OperatorProfile;
 export class AdminError extends Error {
 	constructor(public status: number, message: string) { super(message); }
 }
@@ -29,17 +29,10 @@ export async function getSettings(s: Storage): Promise<Settings> {
 }
 /** Operator Rules, the logo and the report address reach pilots only with the next release. */
 export async function saveSettings(s: Storage, settings: Settings) {
-	const operator = String(settings?.operator ?? '').trim();
-	if (!operator) throw new AdminError(400, 'Enter the Operator name.');
-	const rules = parseRules(settings?.operatorRules);
-	if (!rules.ok) throw new AdminError(400, rules.problem);
-	const logo = parseLogo(settings?.logo);
-	if (!logo.ok) throw new AdminError(400, logo.problem);
-	const reportEmail = String(settings?.reportEmail ?? '').trim();
-	if (reportEmail && !v.is(ReportEmail, reportEmail)) throw new AdminError(400, 'The report address is not an email address.');
-	const saved: Settings = { operator, ...(rules.rules ? { operatorRules: rules.rules } : {}), ...(logo.logo ? { logo: logo.logo } : {}), ...(reportEmail ? { reportEmail } : {}) };
-	await s.put(SETTINGS, saved);
-	return saved;
+	const checked = checkProfile(settings);
+	if (!checked.ok) throw new AdminError(400, checked.problem);
+	await s.put(SETTINGS, checked.profile);
+	return checked.profile;
 }
 
 export async function latestIndex(s: Storage): Promise<ReleaseIndex | null> {
@@ -116,7 +109,7 @@ export async function publish(s: Storage, request: { notes?: string; withdraw?: 
 		if (all.some((name) => !request.include!.includes(name))) return { ok: false as const, problems: ['The Operator rules changed. Publish all aircraft together, so each one is checked with the new rules.'] };
 	}
 	const release = nextReleaseNumber(previousIndex);
-	const built = await buildRelease({ drafts, previous: previousIndex, release, operator: settings.operator, operatorRules: settings.operatorRules, logo: settings.logo, reportEmail: settings.reportEmail, notes: request?.notes, withdraw: request?.withdraw, carryOver: true, now });
+	const built = await buildRelease({ drafts, previous: previousIndex, release, profile: settings, notes: request?.notes, withdraw: request?.withdraw, carryOver: true, now });
 	if (!built.ok) return built;
 	for (const file of built.files) await s.put(`published/${file.path}`, file.data, { ifVersion: null });
 	try {

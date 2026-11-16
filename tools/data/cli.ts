@@ -5,6 +5,7 @@ import { parseArgs } from 'node:util';
 import { buildRelease } from '../../src/lib/data/build-release.ts';
 import { parseRules, type OperatorRules } from '../../src/lib/aircraft/operator-rules.ts';
 import { logoFromFile, type OperatorLogo } from '../../src/lib/data/logo.ts';
+import { mergeProfile, profileOf } from '../../src/lib/data/operator-profile.ts';
 import { publishChecks } from '../../src/lib/data/publish-checks.ts';
 import { parseIndex, type ReleaseIndex } from '../../src/lib/data/release.ts';
 
@@ -62,10 +63,9 @@ async function publish(o: { source: string; out: string; release: number; operat
 		return [w.slice(0, i), w.slice(i + 1)];
 	}));
 	const drafts = jsonFiles(o.source).map((file) => ({ name: file, data: read(join(o.source, file)) }));
-	const operatorRules = o.rules ?? previous?.operatorRules;
-	const logo = o.logo === null ? undefined : (o.logo ?? previous?.logo);
-	const reportEmail = o.reportEmail === null ? undefined : (o.reportEmail ?? previous?.reportEmail);
-	const built = await buildRelease({ drafts, previous, release: o.release, operator: o.operator, operatorRules, logo, reportEmail, notes: o.notes, withdraw, now: Date.now() });
+	// A setting without a flag keeps the previous release's.
+	const profile = mergeProfile(previous && profileOf(previous), { operator: o.operator, operatorRules: o.rules, logo: o.logo, reportEmail: o.reportEmail });
+	const built = await buildRelease({ drafts, previous, release: o.release, profile, notes: o.notes, withdraw, now: Date.now() });
 	if (!built.ok) {
 		built.problems.forEach((p) => console.error(`  - ${p}`));
 		console.error('Nothing was published.');

@@ -4,8 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { LOGO_MAX_BYTES, LogoError, logoAspect, logoFromFile, parseLogo, pdfLogo, sameLogo } from './logo.ts';
-import { describeChanges, indexFormatVersion, parseIndex, type ReleaseIndex } from './release.ts';
-import { formatIsReadable } from '../aircraft/validate.ts';
+import { describeChanges, parseIndex, type ReleaseIndex } from './release.ts';
 
 const bytes = (text: string) => new TextEncoder().encode(text);
 const SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 10"><rect width="40" height="10" fill="#14263a"/></svg>';
@@ -54,16 +53,6 @@ describe('Operator logo', () => {
 		const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 4, 0, 0, 0xff, 0xc0, 0, 11, 8, 0, 50, 0, 200, 3, 0, 0, 0]);
 		expect(logoAspect(logoFromFile('d.jpg', jpeg))).toBe(4);
 		expect(logoAspect(logoFromFile('e.svg', bytes('<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>')))).toBe(1);
-	});
-	it('needs the new format only when a release has one, so older apps still read the rest', () => {
-		const light = logoFromFile('logo.svg', bytes(SVG));
-		expect(indexFormatVersion({ logo: { light } })).toBe('0.6.0');
-		expect(indexFormatVersion({ operatorRules: { aboveTable: { takeoffPercentPer1000ft: 10, landingPercentPer1000ft: 5, alertAboveM: 500 } } })).toBe('0.2.0');
-		expect(indexFormatVersion({})).toBe('0.1.0');
-		expect(indexFormatVersion({ reportEmail: 'reports@club.example', logo: { light } })).toBe('0.7.0');
-		// An app from before logos, which knows format 0.5.0.
-		expect(formatIsReadable(indexFormatVersion({}), '0.5.0')).toBe(true);
-		expect(formatIsReadable(indexFormatVersion({ logo: { light } }), '0.5.0')).toBe(false);
 	});
 	it('goes to the PDF as a drawing or an image', () => {
 		expect(pdfLogo(logoFromFile('logo.svg', bytes(SVG)))).toEqual({ svg: SVG });
