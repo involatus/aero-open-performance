@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import type { Aircraft } from '#lib/aircraft/schema.ts';
+	import { MIXTURES, type Aircraft, type Mixture, type PowerSetting } from '#lib/aircraft/schema.ts';
+	import { MIXTURE_TEXT, powerSettingDetail } from '#lib/app/presentation.ts';
 	import { defaultSource, entryUnits, factor, makeId, move, shown, unitLabel, type Kind } from '#lib/admin/editing.ts';
 	import Num from './Num.svelte';
 	import SourcePick from './SourcePick.svelte';
@@ -8,7 +9,7 @@
 
 	let { a, touch }: { a: Aircraft; touch: () => void } = $props();
 	// Cards present when the editor opened start closed; ones added since start open.
-	const known = untrack(() => new Set([...a.tanks, ...a.burnPlans].map((x) => x.id)));
+	const known = untrack(() => new Set([...a.tanks, ...a.burnPlans, ...(a.powerSettings ?? [])].map((x) => x.id)));
 	const val = (kind: Kind, v: number) => `${Number(shown(a, kind, v).toPrecision(6))} ${unitLabel(entryUnits(a), kind)}`;
 	const tankSummary = (t: Aircraft['tanks'][number]) => `${val('volume', t.capacity)} usable · arm ${val('arm', t.arm)}`;
 
@@ -53,6 +54,37 @@
 	}
 	// With one arm for all tanks, the order fuel is used can't move the CG, so there is nothing to choose.
 	let orderMatters = $derived(a.tanks.length > 1 && new Set(a.tanks.map((t) => t.arm)).size > 1);
+	// Power settings. An aircraft has them or one fuel flow, so the first one added takes over that fuel flow.
+	let settings = $derived(a.powerSettings ?? []);
+	const autoName = (p: Pick<PowerSetting, 'percent' | 'mixture'>) => (p.percent ? `${p.percent} %${p.mixture ? ` ${MIXTURE_TEXT[p.mixture].toLowerCase()}` : ''}` : '');
+	/** While the name is still the one made from power and mixture, it follows them. */
+	function setNamed(p: PowerSetting, change: () => void) {
+		const followed = !p.label || p.label === autoName(p);
+		change();
+		if (followed && autoName(p)) p.label = autoName(p);
+		touch();
+	}
+	function addSettings(percents: (number | undefined)[]) {
+		// Read it back after creating it: the reactive copy is what the page sees, not the array assigned.
+		if (!a.powerSettings) a.powerSettings = [];
+		const list = a.powerSettings;
+		if (!list.length && a.fuelFlow) {
+			list.push({ id: makeId('typical', []), label: 'Typical cruise', fuelFlow: a.fuelFlow.value, source: a.fuelFlow.source });
+			delete a.fuelFlow;
+		}
+		for (const percent of percents) {
+			const label = percent ? `${percent} %` : `Power setting ${list.length + 1}`;
+			list.push({ id: makeId(percent ? `p${percent}` : label, list.map((p) => p.id)), label, ...(percent ? { percent } : {}), fuelFlow: 0, source: defaultSource(a) });
+		}
+		touch();
+	}
+	function removeSetting(i: number) {
+		a.powerSettings!.splice(i, 1);
+		if (!a.powerSettings!.length) delete a.powerSettings;
+		touch();
+	}
+	const powerSummary = (p: PowerSetting, i: number) =>
+		[powerSettingDetail(p), p.fuelFlow ? `${val('volume', p.fuelFlow)}/h` : 'fuel flow missing', i === 0 ? 'preselected' : ''].filter(Boolean).join(' · ');
 	const tankLabel = (id: string) => a.tanks.find((t) => t.id === id)?.label ?? id;
 </script>
 
@@ -103,11 +135,40 @@
 	<div><button type="button" onclick={addPlan}>Add burn plan</button></div>
 {/if}
 
-<h2 class="mt-4">Fuel flow</h2>
-<div class="adm-card">
-	<p class="adm-hint">Prefilled for pilots, who can change it. Leave empty to make pilots type it every time.</p>
-	<div class="adm-row">
-		<Num label="Typical fuel flow" optional aircraft={a} kind="volume" unit={`${entryUnits(a).volume}/h`} value={a.fuelFlow?.value} onchange={(v) => { if (v === undefined) delete a.fuelFlow; else a.fuelFlow = { value: v, source: a.fuelFlow?.source ?? defaultSource(a) }; touch(); }} />
-		{#if a.fuelFlow}<SourcePick aircraft={a} value={a.fuelFlow.source} onchange={(id) => { a.fuelFlow!.source = id; touch(); }} />{/if}
-	</div>
+<h2 class="mt-4">Power settings</h2>
+<p class="adm-hint">Cruise settings from the manual's performance or cruise section, each with its fuel flow. Pilots pick one and its fuel flow sets the fuel burned; they can still type their own. The first one is preselected. Type the values as printed: fuel flow in {unitLabel(entryUnits(a), 'volume')}/h.</p>
+{#each settings as p, i (p.id)}
+	<AdmItem title={p.label || 'Unnamed power setting'} summary={powerSummary(p, i)} open={!known.has(p.id)}>
+		{#snippet tools()}
+			<button type="button" disabled={i === 0} onclick={() => { move(settings, i, -1); touch(); }}>Up</button>
+			<button type="button" disabled={i === settings.length - 1} onclick={() => { move(settings, i, 1); touch(); }}>Down</button>
+			<button type="button" onclick={() => removeSetting(i)} aria-label={`Delete ${p.label}`}>Delete</button>
+		{/snippet}
+		<div class="adm-row">
+			<label class="adm-field">Name *<input class="adm" placeholder="e.g. 65 % best power" value={p.label} oninput={(e) => { p.label = e.currentTarget.value; touch(); }} /></label>
+			<Num label="Power" optional unit="%" value={p.percent} onchange={(v) => setNamed(p, () => { if (v === undefined) delete p.percent; else p.percent = v; })} />
+			<label class="adm-field">Mixture<select class="adm" value={p.mixture ?? ''} onchange={(e) => setNamed(p, () => { const m = e.currentTarget.value as Mixture | ''; if (m) p.mixture = m; else delete p.mixture; })}><option value="">Not stated</option>{#each MIXTURES as m (m)}<option value={m}>{MIXTURE_TEXT[m]}</option>{/each}</select></label>
+			<Num label="Fuel flow" aircraft={a} kind="volume" unit={`${unitLabel(entryUnits(a), 'volume')}/h`} value={p.fuelFlow || undefined} onchange={(v) => { p.fuelFlow = v ?? 0; touch(); }} />
+		</div>
+		<div class="adm-row">
+			<Num label="RPM" optional unit="rpm" value={p.rpm} onchange={(v) => { if (v === undefined) delete p.rpm; else p.rpm = v; touch(); }} />
+			<Num label="Manifold pressure" optional unit="inHg" hint="Only with a constant-speed propeller." value={p.manifoldPressure} onchange={(v) => { if (v === undefined) delete p.manifoldPressure; else p.manifoldPressure = v; touch(); }} />
+			<SourcePick aircraft={a} value={p.source} onchange={(id) => { p.source = id; touch(); }} />
+		</div>
+	</AdmItem>
+{/each}
+<div class="flex flex-wrap gap-2">
+	{#if !settings.length}<button type="button" onclick={() => addSettings([75, 65, 55])}>Add 75 %, 65 % and 55 %</button>{/if}
+	<button type="button" onclick={() => addSettings([undefined])}>Add power setting</button>
 </div>
+
+{#if !settings.length}
+	<h2 class="mt-4">Fuel flow</h2>
+	<div class="adm-card">
+		<p class="adm-hint">Without power settings: one fuel flow, prefilled for pilots, who can change it. Leave empty to make pilots type it every time.</p>
+		<div class="adm-row">
+			<Num label="Typical fuel flow" optional aircraft={a} kind="volume" unit={`${entryUnits(a).volume}/h`} value={a.fuelFlow?.value} onchange={(v) => { if (v === undefined) delete a.fuelFlow; else a.fuelFlow = { value: v, source: a.fuelFlow?.source ?? defaultSource(a) }; touch(); }} />
+			{#if a.fuelFlow}<SourcePick aircraft={a} value={a.fuelFlow.source} onchange={(id) => { a.fuelFlow!.source = id; touch(); }} />{/if}
+		</div>
+	</div>
+{/if}

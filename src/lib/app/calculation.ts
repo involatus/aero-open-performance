@@ -2,7 +2,7 @@
  * The pilot's Calculation, independent of any screen: its fields, inputs, to-do list and next flight.
  * Everything aircraft-specific comes from the aircraft file.
  */
-import type { Aircraft, CalculationInput, Condition, Performance, WindForDistances } from '../aircraft/schema.ts';
+import type { Aircraft, CalculationInput, Condition, Performance, PowerSetting, WindForDistances } from '../aircraft/schema.ts';
 import { magneticHeading, runwayNumber, surfaceKind, type Airfield, type RunwayEnd } from '../airfield/airfields.ts';
 import type { Calculation as Results } from '../engine/index.ts';
 import { M_PER_FT } from '../engine/units.ts';
@@ -35,6 +35,8 @@ export type Calculation = {
 	changed: Record<string, string>;
 	positions: Record<string, string>;
 	burnPlan: string;
+	/** The power setting the fuel flow comes from. None for an aircraft without power settings, and in older saved calculations. */
+	powerSetting?: string;
 	takeoffCondition: string;
 	landingCondition: string;
 	/** Who chose each condition. None means the first condition, still to choose. */
@@ -240,14 +242,31 @@ export function newCalculation(a: Aircraft, id: string, now: number): Calculatio
 /** Values from the aircraft data, such as the fuel flow. Anything the pilot typed stays. */
 function applyAircraftData(a: Aircraft, calc: Calculation) {
 	if (calc.status.flow === 'pilot') return;
-	if (!a.fuelFlow) {
+	const settings = a.powerSettings ?? [];
+	const setting = settings.find((p) => p.id === calc.powerSetting) ?? settings[0];
+	if (setting) calc.powerSetting = setting.id; else delete calc.powerSetting;
+	const flow = setting?.fuelFlow ?? a.fuelFlow?.value;
+	if (flow === undefined) {
 		if (calc.sources.flow === AIRCRAFT_DATA) { delete calc.values.flow; delete calc.status.flow; delete calc.sources.flow; }
 		return;
 	}
-	calc.values.flow = tenths(a.fuelFlow.value);
+	calc.values.flow = tenths(flow);
 	calc.status.flow = 'ok';
 	calc.sources.flow = AIRCRAFT_DATA;
 	delete calc.changed.flow;
+}
+
+/** The power setting the fuel flow comes from, or null when the pilot typed the fuel flow or the aircraft has none. */
+export function chosenPowerSetting(a: Aircraft, calc: Calculation): PowerSetting | null {
+	if (calc.status.flow === 'pilot') return null;
+	return a.powerSettings?.find((p) => p.id === calc.powerSetting) ?? null;
+}
+
+/** The pilot picks a power setting: its fuel flow replaces any the pilot typed. */
+export function choosePowerSetting(a: Aircraft, calc: Calculation, id: string) {
+	calc.powerSetting = id;
+	delete calc.status.flow;
+	applyAircraftData(a, calc);
 }
 
 /** A Prefilled Value waits for the pilot's confirmation. Anything the pilot typed is never replaced. */
@@ -539,6 +558,7 @@ export function nextFlight(a: Aircraft, calc: Calculation, results: Results, id:
 	n.configuration = calc.configuration;
 	n.positions = { ...calc.positions };
 	n.burnPlan = calc.burnPlan;
+	if (calc.powerSetting) n.powerSetting = calc.powerSetting;
 	n.takeoffCondition = calc.takeoffCondition;
 	n.landingCondition = calc.landingCondition;
 	n.elevationUnit = calc.elevationUnit;

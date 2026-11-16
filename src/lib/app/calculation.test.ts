@@ -4,7 +4,7 @@ import fc from 'fast-check';
 import { validateAircraft } from '../aircraft/validate.ts';
 import type { Aircraft } from '../aircraft/schema.ts';
 import { calculate } from '../engine/index.ts';
-import { applyKey, applyQuick, applyWeather, keyAt, canReport, changeConfiguration, confirmValue, confirmWeather, isOldCalculation, reportAgeMinutes, fieldsFor, newCalculation, nextFlight, parse, prefill, reconcileAfterInstall, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation , runwayAt, runwayWinds, runwayWindText, notesFor, placeOfKey, baseKey, runwayFor, setWindChoice, unconfirmWeather } from './calculation.ts';
+import { applyKey, applyQuick, applyWeather, keyAt, canReport, choosePowerSetting, chosenPowerSetting, changeConfiguration, confirmValue, confirmWeather, isOldCalculation, reportAgeMinutes, fieldsFor, newCalculation, nextFlight, parse, prefill, reconcileAfterInstall, setByPilot, stepOfLimit, tabLabels, toDoList, toInput, type Calculation , runwayAt, runwayWinds, runwayWindText, notesFor, placeOfKey, baseKey, runwayFor, setWindChoice, unconfirmWeather } from './calculation.ts';
 
 const load = (name: string): Aircraft => {
 	const r = validateAircraft(JSON.parse(readFileSync(`aircraft-examples/${name}.json`, 'utf8')));
@@ -110,6 +110,36 @@ describe('Prefilled Values', () => {
 		setByPilot(c, 'flow', '12');
 		reconcileAfterInstall({ ...dr, fuelFlow: { value: 31, source: dr.fuelFlow!.source } }, c, 3);
 		expect([c.values.flow, c.status.flow]).toEqual(['12', 'pilot']);
+	});
+	describe('with power settings from the manual', () => {
+		const settings = [
+			{ id: 'p75', label: '75 % best power', percent: 75, mixture: 'bestPower' as const, fuelFlow: 67.4, source: dr.fuelFlow!.source },
+			{ id: 'p55', label: '55 % best economy', percent: 55, rpm: 2500, mixture: 'bestEconomy' as const, fuelFlow: 42.77, source: dr.fuelFlow!.source }
+		];
+		const ps: Aircraft = { ...dr, fuelFlow: undefined, powerSettings: settings };
+		it('preselect the first one and use its fuel flow without asking', () => {
+			const c = newCalculation(ps, 'x', NOW);
+			expect(chosenPowerSetting(ps, c)?.id).toBe('p75');
+			expect([c.values.flow, c.status.flow]).toEqual(['67.4', 'ok']);
+			expect(toDoList(ps, c).some((t) => t.key === 'flow')).toBe(false);
+		});
+		it('take the fuel flow of the one the pilot picks, even after typing one', () => {
+			const c = newCalculation(ps, 'x', NOW);
+			setByPilot(c, 'flow', '50');
+			expect(chosenPowerSetting(ps, c)).toBeNull();
+			choosePowerSetting(ps, c, 'p55');
+			expect(chosenPowerSetting(ps, c)?.id).toBe('p55');
+			expect([c.values.flow, c.status.flow]).toEqual(['42.8', 'ok']);
+		});
+		it('keep the choice into the next flight, and fall back to the first when a release drops it', () => {
+			const c = newCalculation(ps, 'x', NOW);
+			choosePowerSetting(ps, c, 'p55');
+			const n = nextFlight(ps, c, calculate(ps, toInput(ps, c)), 'y', NOW);
+			expect(chosenPowerSetting(ps, n)?.id).toBe('p55');
+			reconcileAfterInstall({ ...ps, powerSettings: [settings[0]] }, n, 2);
+			expect(chosenPowerSetting(ps, n)?.id).toBe('p75');
+			expect(n.values.flow).toBe('67.4');
+		});
 	});
 	it('never replace what the pilot typed', () => {
 		const c = newCalculation(dr, 'x', NOW);

@@ -1,8 +1,8 @@
 {
-	"formatVersion": "0.4.0",
+	"formatVersion": "0.5.0",
 	"registration": "TEST-SR",
 	"type": "Fictional SR22-style",
-	"revision": 2,
+	"revision": 3,
 	"fictional": true,
 	"units": {
 		"mass": "lb",
@@ -96,6 +96,11 @@
 		}
 	],
 	"defaultBurnPlan": "even",
+	"powerSettings": [
+		{"id": "p75", "label": "75 % best power", "percent": 75, "rpm": 2500, "mixture": "bestPower", "fuelFlow": 17.5, "source": "test"},
+		{"id": "p65", "label": "65 % best power", "percent": 65, "rpm": 2500, "mixture": "bestPower", "fuelFlow": 15.2, "source": "test"},
+		{"id": "p55e", "label": "55 % best economy", "percent": 55, "rpm": 2500, "mixture": "bestEconomy", "fuelFlow": 11.4, "source": "test"}
+	],
 	"notes": [],
 	"tables": {
 		"takeoff": {

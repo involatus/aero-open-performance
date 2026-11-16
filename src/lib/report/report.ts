@@ -8,7 +8,7 @@ import type { PerformanceResult } from '../engine/performance.ts';
 import { ignoresEnteredTailwind } from '../engine/wind.ts';
 import type { DistanceText } from '../app/presentation.ts';
 import { limitText } from '../engine/mass-balance.ts';
-import { baseKey, canReport, conditionSource, degrees, fieldsFor, magneticWind, notesFor, placeOfKey, runwayAt, runwayText, isVariableWind, keyAt, toInput, type Calculation, type Phase, type Place, weatherAt, windChoiceAt } from '../app/calculation.ts';
+import { baseKey, canReport, chosenPowerSetting, conditionSource, degrees, fieldsFor, magneticWind, notesFor, placeOfKey, runwayAt, runwayText, isVariableWind, keyAt, toInput, type Calculation, type Phase, type Place, weatherAt, windChoiceAt } from '../app/calculation.ts';
 import { altitudeText, distanceText, landingConditions, sourceText, utcText, valueSource, limitBadge, massBalanceRows, windChoiceText, windText, workingRows, type WorkingRow } from '../app/presentation.ts';
 import { lookupView, type LookupView } from '../app/lookup-grid.ts';
 
@@ -52,6 +52,8 @@ export type ReportData = {
 		/** Flight time and fuel flow sit with the burn. Reports made before this have them under conditions. */
 		time?: Sourced;
 		flow?: Sourced;
+		/** The power setting the fuel flow comes from, by name. */
+		powerSetting?: string;
 		burnPlan: string;
 		burned: string;
 		units: { mass: string; arm: string; volume: string };
@@ -208,6 +210,7 @@ export function createReportData(a: Aircraft, calc: Calculation, r: Results, met
 			}))(massBalanceRows(a, r)),
 			time: sourced('time'),
 			flow: sourced('flow'),
+			...(chosenPowerSetting(a, calc) ? { powerSetting: chosenPowerSetting(a, calc)!.label } : {}),
 			burnPlan: plan.label,
 			burned: `${r.massBalance.burned.toFixed(1)} ${u.volume}`,
 			units: { mass: u.mass, arm: u.arm, volume: u.volume }
@@ -389,7 +392,7 @@ export function reportDocument(data: ReportData) {
 		? { text: [
 			{ text: 'Burn plan ', color: MUTED }, m.burnPlan, ' · ',
 			{ text: m.time.value, font: MONO }, ...sup(marks.mark('', m.time.source)), ' × ',
-			{ text: m.flow.value, font: MONO }, ...sup(marks.mark('', m.flow.source)), ' = ',
+			{ text: m.flow.value, font: MONO }, ...sup(marks.mark('', m.flow.source)), ...(m.powerSetting ? [{ text: ` (${m.powerSetting})`, color: MUTED }] : []), ' = ',
 			{ text: m.burned, font: MONO, bold: true }
 		] }
 		: { text: `Burn plan: ${m.burnPlan}. Burned ${m.burned}.` };

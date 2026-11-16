@@ -108,6 +108,15 @@ export function validateAircraft(data: unknown): Validation {
 	if (a.mac) src('MAC', a.mac.source);
 	for (const limits of [a.massLimits, ...a.configurations.flatMap((c) => (c.massLimits ? [c.massLimits] : []))]) { src('Max takeoff', limits.maxTakeoff.source); src('Max landing', limits.maxLanding.source); }
 	if (a.fuelFlow) src('Fuel flow', a.fuelFlow.source);
+	if (a.powerSettings) {
+		if (a.fuelFlow && a.powerSettings.length) problems.push('Use power settings or one fuel flow, not both');
+		const seen = new Set<string>();
+		a.powerSettings.forEach((p) => {
+			if (seen.has(p.id)) problems.push(`Power setting ${p.id}: id used twice`);
+			seen.add(p.id);
+			src(`Power setting ${p.id}`, p.source);
+		});
+	}
 	if (a.crosswind) src('Crosswind', a.crosswind.source);
 
 	const performances: Array<[string, typeof a.performance]> = [['Performance', a.performance]];

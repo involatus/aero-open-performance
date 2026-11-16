@@ -28,6 +28,10 @@ _Avoid_: CG range, balance limits
 The assumed order in which fuel is used from the tanks during a flight, used to work out landing mass and centre of gravity.
 _Avoid_: Fuel strategy, tank sequence
 
+**Power Setting**:
+A cruise setting from the aircraft's manual, such as 65 % power at 2400 rpm, with the fuel flow the manual gives for it. The pilot picks one, and its fuel flow sets the fuel burned.
+_Avoid_: Power profile, cruise mode
+
 **Performance Step**:
 One operation from the aircraft's manual in the chain that produces a distance, such as a table lookup or a wind correction.
 _Avoid_: Formula, rule
